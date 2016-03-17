@@ -247,12 +247,39 @@ zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
 	    flags, cr, 0));
 }
 
+void fullname(struct dentry *dentry, char *name, int *stop)
+{
+	printk(KERN_ERR "in fullname %s\n", dentry->d_name.name);
+	if (dentry->d_name.name[1] == '/') {
+		printk(KERN_ERR "in the fucking root %s\n", dentry->d_name.name);
+		printk(KERN_ERR "dentry %p dentry parent %p\n", (void *)dentry, (void *)dentry->d_parent);
+	}
+	while(dentry->d_parent != dentry && *stop >= 0) {
+		if (*stop < 0 || *stop > 10) {
+			*stop =-1;	
+			return;
+		}
+		(*stop)++;
+		fullname(dentry->d_parent, name, stop);
+	}
+	strncat(name, dentry->d_name.name, strlen(dentry->d_name.name));
+	if (strncmp(dentry->d_name.name,"/",1) != 0) {
+		strncat(name,"/",1);
+	}
+}
+
 static ssize_t
 zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t read;
+	char *name;
+	int stop = 0;
 
+	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+	fullname(filp->f_path.dentry, name, &stop);
+    	printk(KERN_ERR "zpl_read loff_t=%lld name=%s\n", *ppos, name);
+	kfree(name);
 	crhold(cr);
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);

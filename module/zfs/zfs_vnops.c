@@ -28,7 +28,9 @@
 /* Portions Copyright 2007 Jeremy Teo */
 /* Portions Copyright 2010 Robert Milkowski */
 
-
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/kernel.h>
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/time.h>
@@ -198,6 +200,7 @@ zfs_open(struct inode *ip, int mode, int flag, cred_t *cr)
 {
 	znode_t	*zp = ITOZ(ip);
 	zfs_sb_t *zsb = ITOZSB(ip);
+    printk(KERN_ERR "zfs_open in\n");
 
 	ZFS_ENTER(zsb);
 	ZFS_VERIFY_ZP(zp);
@@ -223,6 +226,7 @@ zfs_open(struct inode *ip, int mode, int flag, cred_t *cr)
 		atomic_inc_32(&zp->z_sync_cnt);
 
 	ZFS_EXIT(zsb);
+    printk(KERN_ERR "zfs_open out\n");
 	return (0);
 }
 EXPORT_SYMBOL(zfs_open);
@@ -234,6 +238,7 @@ zfs_close(struct inode *ip, int flag, cred_t *cr)
 	znode_t	*zp = ITOZ(ip);
 	zfs_sb_t *zsb = ITOZSB(ip);
 
+    printk(KERN_ERR "zfs_close in\n");
 	ZFS_ENTER(zsb);
 	ZFS_VERIFY_ZP(zp);
 
@@ -246,6 +251,7 @@ zfs_close(struct inode *ip, int flag, cred_t *cr)
 		VERIFY(zfs_vscan(ip, cr, 1) == 0);
 
 	ZFS_EXIT(zsb);
+    printk(KERN_ERR "zfs_close out\n");
 	return (0);
 }
 EXPORT_SYMBOL(zfs_close);
@@ -384,6 +390,7 @@ mappedread(struct inode *ip, int nbytes, uio_t *uio)
 	int error = 0;
 	void *pb;
 
+	printk(KERN_ERR "mappedread in\n");
 	start = uio->uio_loffset;
 	off = start & (PAGE_CACHE_SIZE-1);
 	for (start &= PAGE_CACHE_MASK; len > 0; start += PAGE_CACHE_SIZE) {
@@ -413,6 +420,7 @@ mappedread(struct inode *ip, int nbytes, uio_t *uio)
 		if (error)
 			break;
 	}
+	printk(KERN_ERR "mappedread out\n");
 	return (error);
 }
 #endif /* _KERNEL */
@@ -450,10 +458,12 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	xuio_t		*xuio = NULL;
 #endif /* HAVE_UIO_ZEROCOPY */
 
+    printk(KERN_ERR "zfs_read in\n");
 	ZFS_ENTER(zsb);
 	ZFS_VERIFY_ZP(zp);
 
 	if (zp->z_pflags & ZFS_AV_QUARANTINED) {
+    printk(KERN_ERR "ZFS_AV_QUARANTINED\n");
 		ZFS_EXIT(zsb);
 		return (SET_ERROR(EACCES));
 	}
@@ -462,6 +472,7 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	 * Validate file offset
 	 */
 	if (uio->uio_loffset < (offset_t)0) {
+    printk(KERN_ERR "uio_loffset\n");
 		ZFS_EXIT(zsb);
 		return (SET_ERROR(EINVAL));
 	}
@@ -470,6 +481,7 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	 * Fasttrack empty reads
 	 */
 	if (uio->uio_resid == 0) {
+    printk(KERN_ERR "uio_resid\n");
 		ZFS_EXIT(zsb);
 		return (0);
 	}
@@ -483,6 +495,7 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	/*
 	 * Lock the range against changes.
 	 */
+    printk(KERN_ERR "before lock\n");
 	rl = zfs_range_lock(zp, uio->uio_loffset, uio->uio_resid, RL_READER);
 
 	/*
@@ -490,14 +503,18 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	 * to the end; but we might still need to set atime.
 	 */
 	if (uio->uio_loffset >= zp->z_size) {
+    printk(KERN_ERR "zp->z_size\n");
 		error = 0;
 		goto out;
 	}
 
 	ASSERT(uio->uio_loffset < zp->z_size);
 	n = MIN(uio->uio_resid, zp->z_size - uio->uio_loffset);
+    printk(KERN_ERR "before zerocopy\n");
+    printk(KERN_ERR "offset= %lld\n", uio->uio_loffset);
 
 #ifdef HAVE_UIO_ZEROCOPY
+	printk(KERN_ERR "HAVE_UIO_ZEROCOPY\n");
 	if ((uio->uio_extflg == UIO_XUIO) &&
 	    (((xuio_t *)uio)->xu_type == UIOTYPE_ZEROCOPY)) {
 		int nblk;
@@ -527,8 +544,10 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 		}
 	}
 #endif /* HAVE_UIO_ZEROCOPY */
+    printk(KERN_ERR "before while\n");
 
 	while (n > 0) {
+    printk(KERN_ERR "read while n= %zu\n", n);
 		nbytes = MIN(n, zfs_read_chunk_size -
 		    P2PHASE(uio->uio_loffset, zfs_read_chunk_size));
 
@@ -553,6 +572,7 @@ out:
 
 	ZFS_ACCESSTIME_STAMP(zsb, zp);
 	ZFS_EXIT(zsb);
+    printk(KERN_ERR "zfs_read out\n");
 	return (error);
 }
 EXPORT_SYMBOL(zfs_read);
@@ -607,6 +627,7 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	/*
 	 * Fasttrack empty write
 	 */
+    printk(KERN_ERR "zfs_write in\n");
 	n = start_resid;
 	if (n == 0)
 		return (0);
@@ -927,6 +948,7 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 		zil_commit(zilog, zp->z_id);
 
 	ZFS_EXIT(zsb);
+    printk(KERN_ERR "zfs_write out\n");
 	return (0);
 }
 EXPORT_SYMBOL(zfs_write);
@@ -1144,6 +1166,7 @@ zfs_lookup(struct inode *dip, char *nm, struct inode **ipp, int flags,
 	znode_t *zdp = ITOZ(dip);
 	zfs_sb_t *zsb = ITOZSB(dip);
 	int error = 0;
+    printk(KERN_ERR "zfs_lookup in\n");
 
 	/* fast path */
 	if (!(flags & (LOOKUP_XATTR | FIGNORECASE))) {
@@ -1243,6 +1266,7 @@ zfs_lookup(struct inode *dip, char *nm, struct inode **ipp, int flags,
 		zfs_inode_update(ITOZ(*ipp));
 
 	ZFS_EXIT(zsb);
+    printk(KERN_ERR "zfs_lookup out\n");
 	return (error);
 }
 EXPORT_SYMBOL(zfs_lookup);
@@ -1300,6 +1324,7 @@ zfs_create(struct inode *dip, char *name, vattr_t *vap, int excl,
 	if (zsb->z_use_fuids == B_FALSE &&
 	    (vsecp || IS_EPHEMERAL(uid) || IS_EPHEMERAL(gid)))
 		return (SET_ERROR(EINVAL));
+    printk(KERN_ERR "zfs_create in\n");
 
 	ZFS_ENTER(zsb);
 	ZFS_VERIFY_ZP(dzp);
@@ -1491,6 +1516,7 @@ out:
 		zil_commit(zilog, 0);
 
 	ZFS_EXIT(zsb);
+    printk(KERN_ERR "zfs_create out\n");
 	return (error);
 }
 EXPORT_SYMBOL(zfs_create);
