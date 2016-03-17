@@ -251,7 +251,6 @@ void fullname(struct dentry *dentry, char *name, int *stop)
 {
 	if (dentry == dentry->d_parent) //In root
 		*stop =-1;
-	printk(KERN_ERR "childs = %d\n", list_empty(dentry->d_u.d_child));
 	while((void *)dentry != (void *)dentry->d_parent && *stop >= 0) {
 		if (*stop < 0 || *stop > 10) { //In order to avoid infinite loops
 			*stop =-1;
@@ -263,8 +262,11 @@ void fullname(struct dentry *dentry, char *name, int *stop)
 
 	strncat(name, dentry->d_name.name, strlen(dentry->d_name.name));
 
-	if ((void *)dentry != (void *)dentry->d_parent) //Add / for path
+	if ((void *)dentry != (void *)dentry->d_parent && \
+			!list_empty(&dentry->d_child) && \
+			!list_empty(&dentry->d_subdirs)) { //Add / for path
 		strncat(name,"/",1);
+	}
 }
 
 static ssize_t
@@ -277,8 +279,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
 	fullname(filp->f_path.dentry, name, &stop);
-	name[strlen(name)-1] = '\0';
-    	printk(KERN_ERR "zpl_read loff_t=%lld name=%s\n", *ppos, name);
+	printk(KERN_ERR "zpl_read loff_t=%lld name=%s\n", *ppos, name);
 	kfree(name);
 	crhold(cr);
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
