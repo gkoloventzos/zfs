@@ -382,6 +382,13 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t wrote;
+	char *name;
+	int stop = 0;
+
+	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+	fullname(filp->f_path.dentry, name, &stop);
+	printk(KERN_ERR "zpl_read loff_t=%lld name=%s\n", *ppos, name);
+	kfree(name);
 
 	crhold(cr);
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
