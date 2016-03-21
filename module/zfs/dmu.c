@@ -1072,7 +1072,7 @@ dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size)
 	 * NB: we could do this block-at-a-time, but it's nice
 	 * to be reading in parallel.
 	 */
-	printk(KERN_ERR "dmu_read_uio_dnode in\n");
+	//printk(KERN_ERR "dmu_read_uio_dnode in\n");
 	err = dmu_buf_hold_array_by_dnode(dn, uio->uio_loffset, size,
 	    TRUE, FTAG, &numbufs, &dbp, 0);
 	if (err)
@@ -1112,7 +1112,7 @@ dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size)
 		size -= tocpy;
 	}
 	dmu_buf_rele_array(dbp, numbufs, FTAG);
-	printk(KERN_ERR "dmu_read_uio_dnode out\n");
+	//printk(KERN_ERR "dmu_read_uio_dnode out\n");
 
 	return (err);
 }
@@ -1133,7 +1133,7 @@ dmu_read_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size)
 	dnode_t *dn;
 	int err;
 
-	printk(KERN_ERR "dmu_read_uio_dbuf in\n");
+	//printk(KERN_ERR "dmu_read_uio_dbuf in\n");
 	if (size == 0)
 		return (0);
 
@@ -1141,7 +1141,7 @@ dmu_read_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size)
 	dn = DB_DNODE(db);
 	err = dmu_read_uio_dnode(dn, uio, size);
 	DB_DNODE_EXIT(db);
-	printk(KERN_ERR "dmu_read_uio_dbuf out\n");
+	//printk(KERN_ERR "dmu_read_uio_dbuf out\n");
 	return (err);
 }
 
@@ -1178,6 +1178,7 @@ dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx)
 	int err = 0;
 	int i;
 
+	//printk(KERN_ERR "dmu_write_uio_dnode in\n");
 	err = dmu_buf_hold_array_by_dnode(dn, uio->uio_loffset, size,
 	    FALSE, FTAG, &numbufs, &dbp, DMU_READ_PREFETCH);
 	if (err)
@@ -1217,6 +1218,7 @@ dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx)
 
 		size -= tocpy;
 	}
+	//printk(KERN_ERR "dmu_write_uio_dnode out\n");
 
 	dmu_buf_rele_array(dbp, numbufs, FTAG);
 	return (err);

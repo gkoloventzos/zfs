@@ -64,7 +64,7 @@ uiomove_iov(void *p, size_t n, enum uio_rw rw, struct uio *uio)
 	size_t skip = uio->uio_skip;
 	ulong_t cnt;
 
-	printk(KERN_ERR "uiomove_iov in\n");
+//	printk(KERN_ERR "uiomove_iov in\n");
 	while (n && uio->uio_resid) {
 		cnt = MIN(iov->iov_len - skip, n);
 		switch (uio->uio_segflg) {
@@ -75,22 +75,22 @@ uiomove_iov(void *p, size_t n, enum uio_rw rw, struct uio *uio)
 			 * iov->iov_base = user data pointer
 			 */
 			if (rw == UIO_READ) {
-				printk(KERN_ERR "uiomove_iov read userspace\n");
+				//printk(KERN_ERR "uiomove_iov read userspace\n");
 				if (copy_to_user(iov->iov_base+skip, p, cnt))
 					return (EFAULT);
 			} else {
-				printk(KERN_ERR "uiomove_iov write userspace\n");
+				//printk(KERN_ERR "uiomove_iov write userspace\n");
 				if (copy_from_user(p, iov->iov_base+skip, cnt))
 					return (EFAULT);
 			}
 			break;
 		case UIO_SYSSPACE:
 			if (rw == UIO_READ) {
-				printk(KERN_ERR "uiomove_iov read sysspace\n");
+				//printk(KERN_ERR "uiomove_iov read sysspace\n");
 				bcopy(p, iov->iov_base + skip, cnt);
 			}
 			else {
-				printk(KERN_ERR "uiomove_iov write userspace\n");
+				//printk(KERN_ERR "uiomove_iov write userspace\n");
 				bcopy(iov->iov_base + skip, p, cnt);
 			}
 			break;
@@ -109,7 +109,7 @@ uiomove_iov(void *p, size_t n, enum uio_rw rw, struct uio *uio)
 		p = (caddr_t)p + cnt;
 		n -= cnt;
 	}
-	printk(KERN_ERR "uiomove_iov out\n");
+	//printk(KERN_ERR "uiomove_iov out\n");
 	return (0);
 }
 
@@ -125,7 +125,7 @@ uiomove_bvec(void *p, size_t n, enum uio_rw rw, struct uio *uio)
 		cnt = MIN(bv->bv_len - skip, n);
 
 		paddr = zfs_kmap_atomic(bv->bv_page, KM_USER1);
-		printk(KERN_ERR "rw = %d UIO_READ = %d\n", rw, UIO_READ);
+		//printk(KERN_ERR "rw = %d UIO_READ = %d\n", rw, UIO_READ);
 		if (rw == UIO_READ)
 			bcopy(p, paddr + bv->bv_offset + skip, cnt);
 		else
