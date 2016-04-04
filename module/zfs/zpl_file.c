@@ -29,10 +29,12 @@
 #include <sys/zfs_vnops.h>
 #include <sys/zfs_znode.h>
 #include <sys/zpl.h>
+#include <linux/time.h>
 
 //#ifdef ZFS_AGIOS
 #include "/usr/include/agios.h"
 
+extern int agios_add_request(char *file_id, int type, long long offset, long len, int data, struct client *clnt);
 int agios_add_zfs_request(char *file_id, int type, long long offset, long len, int data, struct client *clnt);
 //#endif
 
@@ -279,16 +281,14 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t read;
+//#ifdef ZFS_AGIOS
 	char *name;
 	int stop = 0;
 
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
 	fullname(filp->f_path.dentry, name, &stop);
-//#ifdef ZFS_AGIOS
 	agios_add_zfs_request(name, UIO_READ, *ppos, len, 0, NULL);
 //#endif
-	//printk(KERN_ERR "zpl_read loff_t=%lld name=%s\n", *ppos, name);
-	kfree(name);
 	crhold(cr);
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);
@@ -390,16 +390,14 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t wrote;
+//ifdef ZFS_AGIOS
 	char *name;
 	int stop = 0;
 
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
 	fullname(filp->f_path.dentry, name, &stop);
-//	printk(KERN_ERR "zpl_write loff_t=%lld name=%s\n", *ppos, name);
-//#ifdef ZFS_AGIOS
 	agios_add_zfs_request(name, UIO_WRITE, *ppos, len, 0, NULL);
 //#endif
-	kfree(name);
 
 	crhold(cr);
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
@@ -900,11 +898,15 @@ const struct file_operations zpl_dir_file_operations = {
 int agios_add_zfs_request(char *file_id, int type, long long offset,
 		       long len, int data, struct client *clnt)
 {
+/*	struct timeval tv;
+
+	do_gettimeofday(&tv);
+
 	if (type)
-		printk(KERN_ERR "[AGIOS] file: %s WRITE off= %lld len=%ld\n", file_id, offset, len);
+		printk(KERN_ERR "[AGIOS] file: %s WRITE off=%lld len=%ld time=%ld.%06ld\n", file_id, offset, len, tv.tv_sec, tv.tv_usec);
 	else
-		printk(KERN_ERR "[AGIOS] file: %s READ off= %lld len=%ld\n", file_id, offset, len);
-	return 1;
-	//return agios_add_request(file_id, type, offset, len, data, clnt);
+		printk(KERN_ERR "[AGIOS] file: %s READ off= %lld len=%ld time=%ld.%06ld\n", file_id, offset, len, tv.tv_sec, tv.tv_usec);
+	return 1;*/
+	return agios_add_request(file_id, type, offset, len, data, clnt);
 }
 //#endif
