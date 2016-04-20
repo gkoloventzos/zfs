@@ -397,6 +397,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
 	fullname(filp->f_path.dentry, name, &stop);
 	agios_add_zfs_request(name, UIO_WRITE, *ppos, len, 0, NULL);
+	kfree(name);
 //#endif
 
 	crhold(cr);
