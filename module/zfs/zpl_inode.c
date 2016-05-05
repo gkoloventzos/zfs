@@ -157,7 +157,7 @@ zpl_create(struct inode *dir, struct dentry *dentry, zpl_umode_t mode,
 			error = zpl_init_acl(ip, dir);
 
 		if (error)
-			(void) zfs_remove(dir, dname(dentry), cr);
+			(void) zfs_remove(dir, dname(dentry), cr, NULL);
 	}
 
 	spl_fstrans_unmark(cookie);
@@ -200,7 +200,7 @@ zpl_mknod(struct inode *dir, struct dentry *dentry, zpl_umode_t mode,
 			error = zpl_init_acl(ip, dir);
 
 		if (error)
-			(void) zfs_remove(dir, dname(dentry), cr);
+			(void) zfs_remove(dir, dname(dentry), cr, NULL);
 	}
 
 	spl_fstrans_unmark(cookie);
@@ -215,14 +215,21 @@ static int
 zpl_unlink(struct inode *dir, struct dentry *dentry)
 {
 	cred_t *cr = CRED();
-	int error;
+	int error, stop = 0;
+    char *name;
+    boolean_t delete;
 	fstrans_cookie_t cookie;
 	zfs_sb_t *zsb = dentry->d_sb->s_fs_info;
 
 	crhold(cr);
 	cookie = spl_fstrans_mark();
-	error = -zfs_remove(dir, dname(dentry), cr);
-
+	error = -zfs_remove(dir, dname(dentry), cr, &delete);
+    if (delete) {
+        name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+        fullname(dentry, name, &stop);
+        agios_add_zfs_request(name, 0, 0, 0, 0, NULL);
+        kfree(name);
+    }
 	/*
 	 * For a CI FS we must invalidate the dentry to prevent the
 	 * creation of negative entries.
@@ -386,7 +393,7 @@ zpl_symlink(struct inode *dir, struct dentry *dentry, const char *name)
 
 		error = zpl_xattr_security_init(ip, dir, &dentry->d_name);
 		if (error)
-			(void) zfs_remove(dir, dname(dentry), cr);
+			(void) zfs_remove(dir, dname(dentry), cr, NULL);
 	}
 
 	spl_fstrans_unmark(cookie);

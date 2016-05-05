@@ -38,6 +38,17 @@
 #include <linux/writeback.h>
 #include <linux/xattr_compat.h>
 
+//#ifdef ZFS_AGIOS
+#include "/usr/include/agios.h"
+
+extern int agios_add_request(char *file_id, int type, long long offset, \
+                                long len, int data, struct client *clnt);
+int agios_add_zfs_request(char *file_id, int type, long long offset, long len, \
+                            int data, struct client *clnt);
+void fullname(struct dentry *dentry, char *name, int *stop);
+//#endif
+
+
 /* zpl_inode.c */
 extern void zpl_vap_init(vattr_t *vap, struct inode *dir,
     zpl_umode_t mode, cred_t *cr);

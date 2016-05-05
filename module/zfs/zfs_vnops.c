@@ -1540,7 +1540,7 @@ uint64_t null_xattr = 0;
 
 /*ARGSUSED*/
 int
-zfs_remove(struct inode *dip, char *name, cred_t *cr)
+zfs_remove(struct inode *dip, char *name, cred_t *cr, boolean_t *unlinkedup)
 {
 	znode_t		*zp, *dzp = ITOZ(dip);
 	znode_t		*xzp;
@@ -1682,12 +1682,13 @@ top:
 	/*
 	 * Remove the directory entry.
 	 */
-	error = zfs_link_destroy(dl, zp, tx, zflg, &unlinked);
+	error = zfs_link_destroy(dl, zp, tx, zflg, unlinkedup);
 
 	if (error) {
 		dmu_tx_commit(tx);
 		goto out;
 	}
+    unlinked = *unlinkedup;
 
 	if (unlinked) {
 		/*
