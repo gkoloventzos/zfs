@@ -228,7 +228,7 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
         name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
         fullname(dentry, name, &stop);
         /* Read of length zero in invalid */
-        agios_add_zfs_request(name, 1, dentry->d_inode->i_ino, 0, 0, NULL);
+        agios_add_zfs_request(name, 1, 0, 0, 0, NULL);
         kfree(name);
     }
 	/*
