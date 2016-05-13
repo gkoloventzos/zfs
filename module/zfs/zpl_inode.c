@@ -219,6 +219,7 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
     char *name;
     boolean_t delete;
 	fstrans_cookie_t cookie;
+    long long size = dir->i_size;
 	zfs_sb_t *zsb = dentry->d_sb->s_fs_info;
 
 	crhold(cr);
@@ -227,8 +228,8 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
     if (delete) {
         name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
         fullname(dentry, name, &stop);
-        /* Read of length zero in invalid */
-        agios_add_zfs_request(name, 1, 0, 0, 0, NULL);
+        /* Type 3 is deletion and adding the last known size of file */
+        agios_add_zfs_request(name, 3, 0, size, 0, NULL);
         kfree(name);
     }
 	/*
