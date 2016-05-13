@@ -229,7 +229,7 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
         name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
         fullname(dentry, name, &stop);
         /* Type 3 is deletion and adding the last known size of file */
-        agios_add_zfs_request(name, 3, 0, size, 0, NULL);
+        agios_add_zfs_request(name, 3, 0, size);
         kfree(name);
     }
 	/*

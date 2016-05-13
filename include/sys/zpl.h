@@ -43,8 +43,7 @@
 
 extern int agios_add_request(char *file_id, int type, long long offset, \
                                 long len, int data, struct client *clnt);
-int agios_add_zfs_request(char *file_id, int type, long long offset, long len, \
-                            int data, struct client *clnt);
+int agios_add_zfs_request(char *file_id, int type, long long offset, long len);
 void fullname(struct dentry *dentry, char *name, int *stop);
 //#endif
 

@@ -281,7 +281,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
 	fullname(filp->f_path.dentry, name, &stop);
-	agios_add_zfs_request(name, UIO_READ, *ppos, len, 0, NULL);
+	agios_add_zfs_request(name, UIO_READ, *ppos, len);
 	kfree(name);
 //#endif
 	crhold(cr);
@@ -391,7 +391,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
 	fullname(filp->f_path.dentry, name, &stop);
-	agios_add_zfs_request(name, UIO_WRITE, *ppos, len, 0, NULL);
+	agios_add_zfs_request(name, UIO_WRITE, *ppos, len);
 	kfree(name);
 //#endif
 
@@ -891,8 +891,7 @@ const struct file_operations zpl_dir_file_operations = {
 };
 
 //#ifdef ZFS_AGIOS
-int agios_add_zfs_request(char *file_id, int type, long long offset,
-		       long len, int data, struct client *clnt)
+int agios_add_zfs_request(char *file_id, int type, long long offset, long len)
 {
 /*	struct timeval tv;
 
@@ -903,6 +902,6 @@ int agios_add_zfs_request(char *file_id, int type, long long offset,
 	else
 		printk(KERN_ERR "[AGIOS] file: %s READ off= %lld len=%ld time=%ld.%06ld\n", file_id, offset, len, tv.tv_sec, tv.tv_usec);
 	return 1;*/
-	return agios_add_request(file_id, type, offset, len, data, clnt);
+	return agios_add_request(file_id, type, offset, len, 0, NULL);
 }
 //#endif
