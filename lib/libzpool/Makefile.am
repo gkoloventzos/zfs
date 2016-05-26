@@ -64,6 +64,7 @@ KERNEL_C = \
 	lz4.c \
 	metaslab.c \
 	multilist.c \
+	pathname.c \
 	range_tree.c \
 	refcount.c \
 	rrwlock.c \
@@ -102,6 +103,7 @@ KERNEL_C = \
 	zfs_fuid.c \
 	zfs_sa.c \
 	zfs_znode.c \
+	zfs_rlock.c \
 	zil.c \
 	zio.c \
 	zio_checksum.c \

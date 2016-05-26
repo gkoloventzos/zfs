@@ -113,9 +113,7 @@ zfs_znode_cache_constructor(void *buf, void *arg, int kmflags)
 	mutex_init(&zp->z_acl_lock, NULL, MUTEX_DEFAULT, NULL);
 	rw_init(&zp->z_xattr_lock, NULL, RW_DEFAULT, NULL);
 
-	mutex_init(&zp->z_range_lock, NULL, MUTEX_DEFAULT, NULL);
-	avl_create(&zp->z_range_avl, zfs_range_compare,
-	    sizeof (rl_t), offsetof(rl_t, r_node));
+	zfs_rlock_init(&zp->z_range_lock);
 
 	zp->z_dirlocks = NULL;
 	zp->z_acl_cached = NULL;
@@ -137,8 +135,7 @@ zfs_znode_cache_destructor(void *buf, void *arg)
 	rw_destroy(&zp->z_name_lock);
 	mutex_destroy(&zp->z_acl_lock);
 	rw_destroy(&zp->z_xattr_lock);
-	avl_destroy(&zp->z_range_avl);
-	mutex_destroy(&zp->z_range_lock);
+	zfs_rlock_destroy(&zp->z_range_lock);
 
 	ASSERT(zp->z_dirlocks == NULL);
 	ASSERT(zp->z_acl_cached == NULL);
@@ -492,110 +489,6 @@ zfs_inode_set_ops(zfs_sb_t *zsb, struct inode *ip)
 	}
 }
 
-/*
- * Construct a znode+inode and initialize.
- *
- * This does not do a call to dmu_set_user() that is
- * up to the caller to do, in case you don't want to
- * return the znode
- */
-static znode_t *
-zfs_znode_alloc(zfs_sb_t *zsb, dmu_buf_t *db, int blksz,
-    dmu_object_type_t obj_type, uint64_t obj, sa_handle_t *hdl,
-    struct inode *dip)
-{
-	znode_t	*zp;
-	struct inode *ip;
-	uint64_t mode;
-	uint64_t parent;
-	sa_bulk_attr_t bulk[9];
-	int count = 0;
-
-	ASSERT(zsb != NULL);
-
-	ip = new_inode(zsb->z_sb);
-	if (ip == NULL)
-		return (NULL);
-
-	zp = ITOZ(ip);
-	ASSERT(zp->z_dirlocks == NULL);
-	ASSERT3P(zp->z_acl_cached, ==, NULL);
-	ASSERT3P(zp->z_xattr_cached, ==, NULL);
-	ASSERT3P(zp->z_xattr_parent, ==, NULL);
-	zp->z_moved = 0;
-	zp->z_sa_hdl = NULL;
-	zp->z_unlinked = 0;
-	zp->z_atime_dirty = 0;
-	zp->z_mapcnt = 0;
-	zp->z_id = db->db_object;
-	zp->z_blksz = blksz;
-	zp->z_seq = 0x7A4653;
-	zp->z_sync_cnt = 0;
-	zp->z_is_zvol = B_FALSE;
-	zp->z_is_mapped = B_FALSE;
-	zp->z_is_ctldir = B_FALSE;
-	zp->z_is_stale = B_FALSE;
-
-	zfs_znode_sa_init(zsb, zp, db, obj_type, hdl);
-
-	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_MODE(zsb), NULL, &mode, 8);
-	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_GEN(zsb), NULL, &zp->z_gen, 8);
-	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_SIZE(zsb), NULL, &zp->z_size, 8);
-	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_LINKS(zsb), NULL, &zp->z_links, 8);
-	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zsb), NULL,
-	    &zp->z_pflags, 8);
-	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_PARENT(zsb), NULL,
-	    &parent, 8);
-	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_ATIME(zsb), NULL,
-	    &zp->z_atime, 16);
-	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_UID(zsb), NULL, &zp->z_uid, 8);
-	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_GID(zsb), NULL, &zp->z_gid, 8);
-
-	if (sa_bulk_lookup(zp->z_sa_hdl, bulk, count) != 0 || zp->z_gen == 0) {
-		if (hdl == NULL)
-			sa_handle_destroy(zp->z_sa_hdl);
-		zp->z_sa_hdl = NULL;
-		goto error;
-	}
-
-	zp->z_mode = mode;
-
-	/*
-	 * xattr znodes hold a reference on their unique parent
-	 */
-	if (dip && zp->z_pflags & ZFS_XATTR) {
-		igrab(dip);
-		zp->z_xattr_parent = ITOZ(dip);
-	}
-
-	ip->i_ino = obj;
-	zfs_inode_update(zp);
-	zfs_inode_set_ops(zsb, ip);
-
-	/*
-	 * The only way insert_inode_locked() can fail is if the ip->i_ino
-	 * number is already hashed for this super block.  This can never
-	 * happen because the inode numbers map 1:1 with the object numbers.
-	 *
-	 * The one exception is rolling back a mounted file system, but in
-	 * this case all the active inode are unhashed during the rollback.
-	 */
-	VERIFY3S(insert_inode_locked(ip), ==, 0);
-
-	mutex_enter(&zsb->z_znodes_lock);
-	list_insert_tail(&zsb->z_all_znodes, zp);
-	zsb->z_nr_znodes++;
-	membar_producer();
-	mutex_exit(&zsb->z_znodes_lock);
-
-	unlock_new_inode(ip);
-	return (zp);
-
-error:
-	iput(ip);
-	return (NULL);
-}
-
 void
 zfs_set_inode_flags(znode_t *zp, struct inode *ip)
 {
@@ -622,8 +515,8 @@ zfs_set_inode_flags(znode_t *zp, struct inode *ip)
  * inode has the correct field it should be used, and the ZFS code
  * updated to access the inode.  This can be done incrementally.
  */
-void
-zfs_inode_update(znode_t *zp)
+static void
+zfs_inode_update_impl(znode_t *zp, boolean_t new)
 {
 	zfs_sb_t	*zsb;
 	struct inode	*ip;
@@ -646,7 +539,6 @@ zfs_inode_update(znode_t *zp)
 	dmu_object_size_from_db(sa_get_db(zp->z_sa_hdl), &blksize, &i_blocks);
 
 	spin_lock(&ip->i_lock);
-	ip->i_generation = zp->z_gen;
 	ip->i_uid = SUID_TO_KUID(zp->z_uid);
 	ip->i_gid = SGID_TO_KGID(zp->z_gid);
 	set_nlink(ip, zp->z_links);
@@ -655,12 +547,137 @@ zfs_inode_update(znode_t *zp)
 	ip->i_blkbits = SPA_MINBLOCKSHIFT;
 	ip->i_blocks = i_blocks;
 
-	ZFS_TIME_DECODE(&ip->i_atime, atime);
+	/*
+	 * Only read atime from SA if we are newly created inode (or rezget),
+	 * otherwise i_atime might be dirty.
+	 */
+	if (new)
+		ZFS_TIME_DECODE(&ip->i_atime, atime);
 	ZFS_TIME_DECODE(&ip->i_mtime, mtime);
 	ZFS_TIME_DECODE(&ip->i_ctime, ctime);
 
 	i_size_write(ip, zp->z_size);
 	spin_unlock(&ip->i_lock);
+}
+
+static void
+zfs_inode_update_new(znode_t *zp)
+{
+	zfs_inode_update_impl(zp, B_TRUE);
+}
+
+void
+zfs_inode_update(znode_t *zp)
+{
+	zfs_inode_update_impl(zp, B_FALSE);
+}
+
+/*
+ * Construct a znode+inode and initialize.
+ *
+ * This does not do a call to dmu_set_user() that is
+ * up to the caller to do, in case you don't want to
+ * return the znode
+ */
+static znode_t *
+zfs_znode_alloc(zfs_sb_t *zsb, dmu_buf_t *db, int blksz,
+    dmu_object_type_t obj_type, uint64_t obj, sa_handle_t *hdl,
+    struct inode *dip)
+{
+	znode_t	*zp;
+	struct inode *ip;
+	uint64_t mode;
+	uint64_t parent;
+	uint64_t tmp_gen;
+	sa_bulk_attr_t bulk[8];
+	int count = 0;
+
+	ASSERT(zsb != NULL);
+
+	ip = new_inode(zsb->z_sb);
+	if (ip == NULL)
+		return (NULL);
+
+	zp = ITOZ(ip);
+	ASSERT(zp->z_dirlocks == NULL);
+	ASSERT3P(zp->z_acl_cached, ==, NULL);
+	ASSERT3P(zp->z_xattr_cached, ==, NULL);
+	ASSERT3P(zp->z_xattr_parent, ==, NULL);
+	zp->z_moved = 0;
+	zp->z_sa_hdl = NULL;
+	zp->z_unlinked = 0;
+	zp->z_atime_dirty = 0;
+	zp->z_mapcnt = 0;
+	zp->z_id = db->db_object;
+	zp->z_blksz = blksz;
+	zp->z_seq = 0x7A4653;
+	zp->z_sync_cnt = 0;
+	zp->z_is_mapped = B_FALSE;
+	zp->z_is_ctldir = B_FALSE;
+	zp->z_is_stale = B_FALSE;
+	zp->z_range_lock.zr_size = &zp->z_size;
+	zp->z_range_lock.zr_blksz = &zp->z_blksz;
+	zp->z_range_lock.zr_max_blksz = &ZTOZSB(zp)->z_max_blksz;
+
+	zfs_znode_sa_init(zsb, zp, db, obj_type, hdl);
+
+	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_MODE(zsb), NULL, &mode, 8);
+	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_GEN(zsb), NULL, &tmp_gen, 8);
+	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_SIZE(zsb), NULL, &zp->z_size, 8);
+	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_LINKS(zsb), NULL, &zp->z_links, 8);
+	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zsb), NULL,
+	    &zp->z_pflags, 8);
+	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_PARENT(zsb), NULL,
+	    &parent, 8);
+	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_UID(zsb), NULL, &zp->z_uid, 8);
+	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_GID(zsb), NULL, &zp->z_gid, 8);
+
+	if (sa_bulk_lookup(zp->z_sa_hdl, bulk, count) != 0 ||
+		tmp_gen == 0) {
+
+		if (hdl == NULL)
+			sa_handle_destroy(zp->z_sa_hdl);
+		zp->z_sa_hdl = NULL;
+		goto error;
+	}
+
+	zp->z_mode = mode;
+	ip->i_generation = (uint32_t)tmp_gen;
+
+	/*
+	 * xattr znodes hold a reference on their unique parent
+	 */
+	if (dip && zp->z_pflags & ZFS_XATTR) {
+		igrab(dip);
+		zp->z_xattr_parent = ITOZ(dip);
+	}
+
+	ip->i_ino = obj;
+	zfs_inode_update_new(zp);
+	zfs_inode_set_ops(zsb, ip);
+
+	/*
+	 * The only way insert_inode_locked() can fail is if the ip->i_ino
+	 * number is already hashed for this super block.  This can never
+	 * happen because the inode numbers map 1:1 with the object numbers.
+	 *
+	 * The one exception is rolling back a mounted file system, but in
+	 * this case all the active inode are unhashed during the rollback.
+	 */
+	VERIFY3S(insert_inode_locked(ip), ==, 0);
+
+	mutex_enter(&zsb->z_znodes_lock);
+	list_insert_tail(&zsb->z_all_znodes, zp);
+	zsb->z_nr_znodes++;
+	membar_producer();
+	mutex_exit(&zsb->z_znodes_lock);
+
+	unlock_new_inode(ip);
+	return (zp);
+
+error:
+	iput(ip);
+	return (NULL);
 }
 
 /*
@@ -1144,11 +1161,21 @@ zfs_rezget(znode_t *zp)
 	dmu_buf_t *db;
 	uint64_t obj_num = zp->z_id;
 	uint64_t mode;
-	sa_bulk_attr_t bulk[8];
+	sa_bulk_attr_t bulk[7];
 	int err;
 	int count = 0;
 	uint64_t gen;
 	znode_hold_t *zh;
+
+	/*
+	 * skip ctldir, otherwise they will always get invalidated. This will
+	 * cause funny behaviour for the mounted snapdirs. Especially for
+	 * Linux >= 3.18, d_invalidate will detach the mountpoint and prevent
+	 * anyone automount it again as long as someone is still using the
+	 * detached mount.
+	 */
+	if (zp->z_is_ctldir)
+		return (0);
 
 	zh = zfs_znode_hold_enter(zsb, obj_num);
 
@@ -1199,8 +1226,6 @@ zfs_rezget(znode_t *zp)
 	    &zp->z_links, sizeof (zp->z_links));
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zsb), NULL,
 	    &zp->z_pflags, sizeof (zp->z_pflags));
-	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_ATIME(zsb), NULL,
-	    &zp->z_atime, sizeof (zp->z_atime));
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_UID(zsb), NULL,
 	    &zp->z_uid, sizeof (zp->z_uid));
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_GID(zsb), NULL,
@@ -1216,7 +1241,7 @@ zfs_rezget(znode_t *zp)
 
 	zp->z_mode = mode;
 
-	if (gen != zp->z_gen) {
+	if (gen != ZTOI(zp)->i_generation) {
 		zfs_znode_dmu_fini(zp);
 		zfs_znode_hold_exit(zsb, zh);
 		return (SET_ERROR(EIO));
@@ -1224,7 +1249,8 @@ zfs_rezget(znode_t *zp)
 
 	zp->z_unlinked = (zp->z_links == 0);
 	zp->z_blksz = doi.doi_data_block_size;
-	zfs_inode_update(zp);
+	zp->z_atime_dirty = 0;
+	zfs_inode_update_new(zp);
 
 	zfs_znode_hold_exit(zsb, zh);
 
@@ -1296,77 +1322,27 @@ zfs_compare_timespec(struct timespec *t1, struct timespec *t2)
 }
 
 /*
- *  Determine whether the znode's atime must be updated.  The logic mostly
- *  duplicates the Linux kernel's relatime_need_update() functionality.
- *  This function is only called if the underlying filesystem actually has
- *  atime updates enabled.
- */
-static inline boolean_t
-zfs_atime_need_update(znode_t *zp, timestruc_t *now)
-{
-	if (!ZTOZSB(zp)->z_relatime)
-		return (B_TRUE);
-
-	/*
-	 * In relatime mode, only update the atime if the previous atime
-	 * is earlier than either the ctime or mtime or if at least a day
-	 * has passed since the last update of atime.
-	 */
-	if (zfs_compare_timespec(&ZTOI(zp)->i_mtime, &ZTOI(zp)->i_atime) >= 0)
-		return (B_TRUE);
-
-	if (zfs_compare_timespec(&ZTOI(zp)->i_ctime, &ZTOI(zp)->i_atime) >= 0)
-		return (B_TRUE);
-
-	if ((long)now->tv_sec - ZTOI(zp)->i_atime.tv_sec >= 24*60*60)
-		return (B_TRUE);
-
-	return (B_FALSE);
-}
-
-/*
  * Prepare to update znode time stamps.
  *
  *	IN:	zp	- znode requiring timestamp update
- *		flag	- ATTR_MTIME, ATTR_CTIME, ATTR_ATIME flags
- *		have_tx	- true of caller is creating a new txg
+ *		flag	- ATTR_MTIME, ATTR_CTIME flags
  *
- *	OUT:	zp	- new atime (via underlying inode's i_atime)
+ *	OUT:	zp	- z_seq
  *		mtime	- new mtime
  *		ctime	- new ctime
  *
- * NOTE: The arguments are somewhat redundant.  The following condition
- * is always true:
- *
- *		have_tx == !(flag & ATTR_ATIME)
+ *	Note: We don't update atime here, because we rely on Linux VFS to do
+ *	atime updating.
  */
 void
 zfs_tstamp_update_setup(znode_t *zp, uint_t flag, uint64_t mtime[2],
-    uint64_t ctime[2], boolean_t have_tx)
+    uint64_t ctime[2])
 {
 	timestruc_t	now;
 
-	ASSERT(have_tx == !(flag & ATTR_ATIME));
 	gethrestime(&now);
 
-	/*
-	 * NOTE: The following test intentionally does not update z_atime_dirty
-	 * in the case where an ATIME update has been requested but for which
-	 * the update is omitted due to relatime logic.  The rationale being
-	 * that if the flag was set somewhere else, we should leave it alone
-	 * here.
-	 */
-	if (flag & ATTR_ATIME) {
-		if (zfs_atime_need_update(zp, &now)) {
-			ZFS_TIME_ENCODE(&now, zp->z_atime);
-			ZTOI(zp)->i_atime.tv_sec = zp->z_atime[0];
-			ZTOI(zp)->i_atime.tv_nsec = zp->z_atime[1];
-			zp->z_atime_dirty = 1;
-		}
-	} else {
-		zp->z_atime_dirty = 0;
-		zp->z_seq++;
-	}
+	zp->z_seq++;
 
 	if (flag & ATTR_MTIME) {
 		ZFS_TIME_ENCODE(&now, mtime);
@@ -1439,7 +1415,7 @@ zfs_extend(znode_t *zp, uint64_t end)
 	/*
 	 * We will change zp_size, lock the whole file.
 	 */
-	rl = zfs_range_lock(zp, 0, UINT64_MAX, RL_WRITER);
+	rl = zfs_range_lock(&zp->z_range_lock, 0, UINT64_MAX, RL_WRITER);
 
 	/*
 	 * Nothing to do if file already at desired length.
@@ -1512,13 +1488,12 @@ zfs_zero_partial_page(znode_t *zp, uint64_t start, uint64_t len)
 	int64_t	off;
 	void *pb;
 
-	ASSERT((start & PAGE_CACHE_MASK) ==
-	    ((start + len - 1) & PAGE_CACHE_MASK));
+	ASSERT((start & PAGE_MASK) == ((start + len - 1) & PAGE_MASK));
 
-	off = start & (PAGE_CACHE_SIZE - 1);
-	start &= PAGE_CACHE_MASK;
+	off = start & (PAGE_SIZE - 1);
+	start &= PAGE_MASK;
 
-	pp = find_lock_page(mp, start >> PAGE_CACHE_SHIFT);
+	pp = find_lock_page(mp, start >> PAGE_SHIFT);
 	if (pp) {
 		if (mapping_writably_mapped(mp))
 			flush_dcache_page(pp);
@@ -1534,7 +1509,7 @@ zfs_zero_partial_page(znode_t *zp, uint64_t start, uint64_t len)
 		SetPageUptodate(pp);
 		ClearPageError(pp);
 		unlock_page(pp);
-		page_cache_release(pp);
+		put_page(pp);
 	}
 }
 
@@ -1557,7 +1532,7 @@ zfs_free_range(znode_t *zp, uint64_t off, uint64_t len)
 	/*
 	 * Lock the range being freed.
 	 */
-	rl = zfs_range_lock(zp, off, len, RL_WRITER);
+	rl = zfs_range_lock(&zp->z_range_lock, off, len, RL_WRITER);
 
 	/*
 	 * Nothing to do if file already at desired length.
@@ -1581,14 +1556,14 @@ zfs_free_range(znode_t *zp, uint64_t off, uint64_t len)
 		loff_t first_page_offset, last_page_offset;
 
 		/* first possible full page in hole */
-		first_page = (off + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
+		first_page = (off + PAGE_SIZE - 1) >> PAGE_SHIFT;
 		/* last page of hole */
-		last_page = (off + len) >> PAGE_CACHE_SHIFT;
+		last_page = (off + len) >> PAGE_SHIFT;
 
 		/* offset of first_page */
-		first_page_offset = first_page << PAGE_CACHE_SHIFT;
+		first_page_offset = first_page << PAGE_SHIFT;
 		/* offset of last_page */
-		last_page_offset = last_page << PAGE_CACHE_SHIFT;
+		last_page_offset = last_page << PAGE_SHIFT;
 
 		/* truncate whole pages */
 		if (last_page_offset > first_page_offset) {
@@ -1639,7 +1614,7 @@ zfs_trunc(znode_t *zp, uint64_t end)
 	/*
 	 * We will change zp_size, lock the whole file.
 	 */
-	rl = zfs_range_lock(zp, 0, UINT64_MAX, RL_WRITER);
+	rl = zfs_range_lock(&zp->z_range_lock, 0, UINT64_MAX, RL_WRITER);
 
 	/*
 	 * Nothing to do if file already at desired length.
@@ -1740,7 +1715,7 @@ log:
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_CTIME(zsb), NULL, ctime, 16);
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_FLAGS(zsb),
 	    NULL, &zp->z_pflags, 8);
-	zfs_tstamp_update_setup(zp, CONTENT_MODIFIED, mtime, ctime, B_TRUE);
+	zfs_tstamp_update_setup(zp, CONTENT_MODIFIED, mtime, ctime);
 	error = sa_bulk_update(zp->z_sa_hdl, bulk, count, tx);
 	ASSERT(error == 0);
 

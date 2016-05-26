@@ -59,6 +59,8 @@ do
 		log_mustnot check_atime_updated $mtpt/$TESTFILE
 	else
 		log_must $ZFS set atime=on $dst
+		log_must $ZFS set relatime=off $dst
+		log_must check_atime_updated $mtpt/$TESTFILE
 		log_must check_atime_updated $mtpt/$TESTFILE
 	fi
 done

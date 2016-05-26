@@ -10,8 +10,10 @@ dist_pkgdata_SCRIPTS = \
 	$(top_srcdir)/scripts/zimport.sh \
 	$(top_srcdir)/scripts/zfs.sh \
 	$(top_srcdir)/scripts/zfs-tests.sh \
+	$(top_srcdir)/scripts/zloop.sh \
 	$(top_srcdir)/scripts/zpool-create.sh \
 	$(top_srcdir)/scripts/zpios.sh \
 	$(top_srcdir)/scripts/zpios-sanity.sh \
 	$(top_srcdir)/scripts/zpios-survey.sh \
-	$(top_srcdir)/scripts/smb.sh
+	$(top_srcdir)/scripts/smb.sh \
+	$(top_srcdir)/scripts/zfs-helpers.sh

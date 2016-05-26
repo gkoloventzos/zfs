@@ -276,8 +276,8 @@ zfs_sa_upgrade(sa_handle_t *hdl, dmu_tx_t *tx)
 	int count = 0;
 	sa_bulk_attr_t *bulk, *sa_attrs;
 	zfs_acl_locator_cb_t locate = { 0 };
-	uint64_t uid, gid, mode, rdev, xattr, parent;
-	uint64_t crtime[2], mtime[2], ctime[2];
+	uint64_t uid, gid, mode, rdev, xattr, parent, tmp_gen;
+	uint64_t crtime[2], mtime[2], ctime[2], atime[2];
 	zfs_acl_phys_t znode_acl;
 	char scanstamp[AV_SCANSTAMP_SZ];
 	boolean_t drop_lock = B_FALSE;
@@ -309,6 +309,7 @@ zfs_sa_upgrade(sa_handle_t *hdl, dmu_tx_t *tx)
 
 	/* First do a bulk query of the attributes that aren't cached */
 	bulk = kmem_alloc(sizeof (sa_bulk_attr_t) * 20, KM_SLEEP);
+	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_ATIME(zsb), NULL, &atime, 16);
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_MTIME(zsb), NULL, &mtime, 16);
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_CTIME(zsb), NULL, &ctime, 16);
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_CRTIME(zsb), NULL, &crtime, 16);
@@ -318,6 +319,7 @@ zfs_sa_upgrade(sa_handle_t *hdl, dmu_tx_t *tx)
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_RDEV(zsb), NULL, &rdev, 8);
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_UID(zsb), NULL, &uid, 8);
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_GID(zsb), NULL, &gid, 8);
+	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_GEN(zsb), NULL, &tmp_gen, 8);
 	SA_ADD_BULK_ATTR(bulk, count, SA_ZPL_ZNODE_ACL(zsb), NULL,
 	    &znode_acl, 88);
 
@@ -335,8 +337,7 @@ zfs_sa_upgrade(sa_handle_t *hdl, dmu_tx_t *tx)
 	SA_ADD_BULK_ATTR(sa_attrs, count, SA_ZPL_MODE(zsb), NULL, &mode, 8);
 	SA_ADD_BULK_ATTR(sa_attrs, count, SA_ZPL_SIZE(zsb), NULL,
 	    &zp->z_size, 8);
-	SA_ADD_BULK_ATTR(sa_attrs, count, SA_ZPL_GEN(zsb),
-	    NULL, &zp->z_gen, 8);
+	SA_ADD_BULK_ATTR(sa_attrs, count, SA_ZPL_GEN(zsb), NULL, &tmp_gen, 8);
 	SA_ADD_BULK_ATTR(sa_attrs, count, SA_ZPL_UID(zsb), NULL, &uid, 8);
 	SA_ADD_BULK_ATTR(sa_attrs, count, SA_ZPL_GID(zsb), NULL, &gid, 8);
 	SA_ADD_BULK_ATTR(sa_attrs, count, SA_ZPL_PARENT(zsb),
@@ -344,7 +345,7 @@ zfs_sa_upgrade(sa_handle_t *hdl, dmu_tx_t *tx)
 	SA_ADD_BULK_ATTR(sa_attrs, count, SA_ZPL_FLAGS(zsb), NULL,
 	    &zp->z_pflags, 8);
 	SA_ADD_BULK_ATTR(sa_attrs, count, SA_ZPL_ATIME(zsb), NULL,
-	    zp->z_atime, 16);
+	    &atime, 16);
 	SA_ADD_BULK_ATTR(sa_attrs, count, SA_ZPL_MTIME(zsb), NULL,
 	    &mtime, 16);
 	SA_ADD_BULK_ATTR(sa_attrs, count, SA_ZPL_CTIME(zsb), NULL,
