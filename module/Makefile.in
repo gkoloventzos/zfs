@@ -28,7 +28,7 @@ modules:
 		"*** - @SPL_OBJ@/module/@SPL_SYMBOLS@\n"; \
 		exit 1; \
 	fi
-	$(MAKE) -C @LINUX_OBJ@ SUBDIRS=`pwd` @KERNELMAKE_PARAMS@ CONFIG_ZFS=m $@
+	$(MAKE) -C @LINUX_OBJ@ KBUILD_EXTRA_SYMBOLS=/home/gkoloven/AGIOS/Module.symvers SUBDIRS=`pwd` @KERNELMAKE_PARAMS@ CONFIG_ZFS=m $@
 
 clean:
 	@# Only cleanup the kernel build directories when CONFIG_KERNEL
