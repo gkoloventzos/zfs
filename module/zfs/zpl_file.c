@@ -34,7 +34,6 @@
 #include <sys/zpl.h>
 #include <linux/time.h>
 
-
 static int
 zpl_open(struct inode *ip, struct file *filp)
 {
