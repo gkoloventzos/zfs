@@ -53,3 +53,6 @@ cscope.*
 *.rpm
 *.deb
 *.tar.gz
+
+#kernel files
+module/kernel_key.pem
