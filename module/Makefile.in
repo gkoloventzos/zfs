@@ -28,6 +28,7 @@ modules:
 		"*** - @SPL_OBJ@/module/@SPL_SYMBOLS@\n"; \
 		exit 1; \
 	fi
+	/bin/cat /home/gkoloven/AGIOS/@SPL_SYMBOLS@ >> @SPL_SYMBOLS@
 	$(MAKE) -C @LINUX_OBJ@ SUBDIRS=`pwd` @KERNELMAKE_PARAMS@ CONFIG_ZFS=m $@
 
 clean:
