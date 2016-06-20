@@ -38,15 +38,14 @@
 #include <linux/writeback.h>
 #include <linux/xattr_compat.h>
 
-//#ifdef ZFS_AGIOS
-#include "/usr/include/agios.h"
+#include <linux/relay.h>
 
-extern int agios_add_request(char *file_id, int type, long long offset, \
-                                long len, int data, struct client *clnt);
+#define N_SUBBUFS 10
+#define SUBBUF_SIZE 512000
+
+int add_request(char *file_id, int type, long long offset, long len);
 int agios_add_zfs_request(char *file_id, int type, long long offset, long len);
 void fullname(struct dentry *dentry, char *name, int *stop);
-//#endif
-
 
 /* zpl_inode.c */
 extern void zpl_vap_init(vattr_t *vap, struct inode *dir,

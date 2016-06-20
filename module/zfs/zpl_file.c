@@ -34,6 +34,27 @@
 #include <sys/zpl.h>
 #include <linux/time.h>
 
+#include <linux/debugfs.h>
+
+struct rchan *relay_chan = NULL;
+
+static struct dentry *create_buf_file_handler(const char * filename, struct dentry * parent, umode_t mode, struct rchan_buf *buf, int *is_global)
+{
+	*is_global = 1;
+	return debugfs_create_file(filename, mode, parent, buf, &relay_file_operations);
+}
+
+static int remove_buf_file_handler(struct dentry *dentry)
+{
+	debugfs_remove(dentry);
+	return 0;
+}
+
+static struct rchan_callbacks relay_callbacks = {
+	.remove_buf_file = remove_buf_file_handler,
+	.create_buf_file = create_buf_file_handler,
+};
+
 static int
 zpl_open(struct inode *ip, struct file *filp)
 {
@@ -909,6 +930,14 @@ const struct file_operations zpl_dir_file_operations = {
 //#ifdef ZFS_AGIOS
 int agios_add_zfs_request(char *file_id, int type, long long offset, long len)
 {
+    char *buf;
+    long request_size = sizeof(int) + sizeof(long long) + sizeof(long) + \
+                        sizeof(unsigned long long int) + 4096 + 255;
+    struct timespec arrival_time;
+    unsigned long long int time;
+
+    ktime_get_ts(&arrival_time);
+    time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
 /*	struct timeval tv;
 
 	do_gettimeofday(&tv);
@@ -918,6 +947,20 @@ int agios_add_zfs_request(char *file_id, int type, long long offset, long len)
 	else
 		printk(KERN_ERR "[AGIOS] file: %s READ off= %lld len=%ld time=%ld.%06ld\n", file_id, offset, len, tv.tv_sec, tv.tv_usec);
 	return 1;*/
-	return agios_add_request(file_id, type, offset, len, 0, NULL);
+    if (relay_chan == NULL)
+        relay_chan = relay_open("agios", NULL, SUBBUF_SIZE, N_SUBBUFS, &relay_callbacks, NULL);
+
+    buf = kmalloc(request_size, GFP_KERNEL);
+    memcpy(buf, &type, sizeof(int));
+    memcpy(buf+sizeof(int), &offset, sizeof(long long));
+    memcpy(buf + sizeof(int) + sizeof(long long), &len, sizeof(long));
+    memcpy(buf+sizeof(int)+sizeof(long long)+sizeof(long), &time, sizeof(unsigned long long int));
+    memcpy(buf + request_size - (4096 + 255), file_id, 4096 + 255);
+
+    relay_write(relay_chan,buf,request_size);
+    relay_flush(relay_chan);
+    kfree(buf);
+
+    return 0;
 }
 //#endif
