@@ -927,7 +927,6 @@ const struct file_operations zpl_dir_file_operations = {
 #endif
 };
 
-//#ifdef ZFS_AGIOS
 int agios_add_zfs_request(char *file_id, int type, long long offset, long len)
 {
     char *buf;
@@ -938,29 +937,24 @@ int agios_add_zfs_request(char *file_id, int type, long long offset, long len)
 
     ktime_get_ts(&arrival_time);
     time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
-/*	struct timeval tv;
 
-	do_gettimeofday(&tv);
-
-	if (type)
-		printk(KERN_ERR "[AGIOS] file: %s WRITE off=%lld len=%ld time=%ld.%06ld\n", file_id, offset, len, tv.tv_sec, tv.tv_usec);
-	else
-		printk(KERN_ERR "[AGIOS] file: %s READ off= %lld len=%ld time=%ld.%06ld\n", file_id, offset, len, tv.tv_sec, tv.tv_usec);
-	return 1;*/
+	//printk(KERN_EMERG "[HETFS] before file: %s\n", file_id);
     if (relay_chan == NULL)
-        relay_chan = relay_open("agios", NULL, SUBBUF_SIZE, N_SUBBUFS, &relay_callbacks, NULL);
+        relay_chan = relay_open("agios", NULL, SUBBUF_SIZE, N_SUBBUFS, \
+                                &relay_callbacks, NULL);
 
     buf = kmalloc(request_size, GFP_KERNEL);
     memcpy(buf, &type, sizeof(int));
-    memcpy(buf+sizeof(int), &offset, sizeof(long long));
+    memcpy(buf + sizeof(int), &offset, sizeof(long long));
     memcpy(buf + sizeof(int) + sizeof(long long), &len, sizeof(long));
-    memcpy(buf+sizeof(int)+sizeof(long long)+sizeof(long), &time, sizeof(unsigned long long int));
+    memcpy(buf + sizeof(int) + sizeof(long long) + sizeof(long), &time, \
+            sizeof(unsigned long long int));
     memcpy(buf + request_size - (4096 + 255), file_id, 4096 + 255);
 
     relay_write(relay_chan,buf,request_size);
     relay_flush(relay_chan);
+	//printk(KERN_EMERG "[HETFS] after file: %s\n", file_id);
     kfree(buf);
 
     return 0;
 }
-//#endif
