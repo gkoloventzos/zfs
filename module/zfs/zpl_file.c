@@ -301,8 +301,13 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 //#ifdef ZFS_AGIOS
 	char *name;
 	int stop = 0;
+    zfs_sb_t *zsb = ITOZSB(filp->f_mapping->host);
 
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+    if (zsb->z_mntopts->z_mntpoint != NULL) {
+        strcat(name, zsb->z_mntopts->z_mntpoint);
+        strncat(name,"/",1);
+    }
 	fullname(filp->f_path.dentry, name, &stop);
 	agios_add_zfs_request(name, UIO_READ, *ppos, len);
 	kfree(name);
@@ -413,8 +418,13 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 //ifdef ZFS_AGIOS
 	char *name;
 	int stop = 0;
+    zfs_sb_t *zsb = ITOZSB(filp->f_mapping->host);
 
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+    if (zsb->z_mntopts->z_mntpoint != NULL) {
+        strcat(name, zsb->z_mntopts->z_mntpoint);
+        strncat(name,"/",1);
+    }
 	fullname(filp->f_path.dentry, name, &stop);
 	agios_add_zfs_request(name, UIO_WRITE, *ppos, len);
 	kfree(name);
@@ -938,7 +948,7 @@ int agios_add_zfs_request(char *file_id, int type, long long offset, long len)
     ktime_get_ts(&arrival_time);
     time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
 
-	//printk(KERN_EMERG "[HETFS] before file: %s\n", file_id);
+	printk(KERN_EMERG "[AGIOS] before file: %s\n", file_id);
     if (relay_chan == NULL)
         relay_chan = relay_open("agios", NULL, SUBBUF_SIZE, N_SUBBUFS, \
                                 &relay_callbacks, NULL);
