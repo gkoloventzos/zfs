@@ -945,7 +945,7 @@ int agios_add_zfs_request(char *file_id, int type, long long offset, long len)
 
 	//printk(KERN_EMERG "[AGIOS] before file: %s\n", file_id);
     if (relay_chan == NULL)
-        relay_chan = relay_open("agios", NULL, SUBBUF_SIZE, N_SUBBUFS, \
+        relay_chan = relay_open("hetfs", NULL, SUBBUF_SIZE, N_SUBBUFS, \
                                 &relay_callbacks, NULL);
 
     buf = kmalloc(request_size, GFP_KERNEL);
