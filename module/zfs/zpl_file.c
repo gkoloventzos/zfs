@@ -948,7 +948,7 @@ int agios_add_zfs_request(char *file_id, int type, long long offset, long len)
         relay_chan = relay_open("hetfs", NULL, SUBBUF_SIZE, N_SUBBUFS, \
                                 &relay_callbacks, NULL);
 
-    buf = kmalloc(request_size, GFP_KERNEL);
+    buf = kzalloc(request_size, GFP_KERNEL);
     memcpy(buf, &type, sizeof(int));
     memcpy(buf + sizeof(int), &offset, sizeof(long long));
     memcpy(buf + sizeof(int) + sizeof(long long), &len, sizeof(long));
