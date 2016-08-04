@@ -38,11 +38,6 @@
 #include <linux/writeback.h>
 #include <linux/xattr_compat.h>
 
-#include <linux/relay.h>
-
-#define N_SUBBUFS 10
-#define SUBBUF_SIZE 512000
-
 int add_request(char *file_id, int type, long long offset, long len);
 int agios_add_zfs_request(char *file_id, int type, long long offset, long len);
 void fullname(struct dentry *dentry, char *name, int *stop);

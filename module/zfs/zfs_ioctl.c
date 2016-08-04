@@ -186,6 +186,7 @@
 #include <sys/zfeature.h>
 
 #include <linux/miscdevice.h>
+#include <linux/relay.h>
 
 #include "zfs_namecheck.h"
 #include "zfs_prop.h"
@@ -197,6 +198,8 @@ zfsdev_state_t *zfsdev_state_list;
 
 extern void zfs_init(void);
 extern void zfs_fini(void);
+
+extern struct rchan *relay_chan;
 
 uint_t zfs_fsyncer_key;
 extern uint_t rrw_tsd_key;
@@ -6052,6 +6055,7 @@ _fini(void)
 	spa_fini();
 	zvol_fini();
 
+    relay_close(relay_chan);
 	tsd_destroy(&zfs_fsyncer_key);
 	tsd_destroy(&rrw_tsd_key);
 	tsd_destroy(&zfs_allow_log_key);

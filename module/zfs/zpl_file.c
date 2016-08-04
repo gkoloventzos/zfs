@@ -35,8 +35,7 @@
 #include <linux/time.h>
 
 #include <linux/debugfs.h>
-
-struct rchan *relay_chan = NULL;
+#include <sys/zpl_relay.h>
 
 static struct dentry *create_buf_file_handler(const char * filename, struct dentry * parent, umode_t mode, struct rchan_buf *buf, int *is_global)
 {

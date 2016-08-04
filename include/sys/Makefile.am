@@ -105,6 +105,7 @@ KERNEL_H = \
 	$(top_srcdir)/include/sys/zfs_ioctl.h \
 	$(top_srcdir)/include/sys/zfs_onexit.h \
 	${top_srcdir}/include/sys/zpl.h \
+	${top_srcdir}/include/sys/zpl_relay.h \
 	$(top_srcdir)/include/sys/zvol.h
 
 USER_H =
