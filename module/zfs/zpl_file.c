@@ -306,13 +306,16 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     if (zsb->z_mntopts->z_mntpoint != NULL)
         strncat(name, zsb->z_mntopts->z_mntpoint, strlen(zsb->z_mntopts->z_mntpoint));
 	fullname(filp->f_path.dentry, name, &stop);
-	agios_add_zfs_request(name, UIO_READ, *ppos, len);
-	kfree(name);
-//#endif
+//endif
 	crhold(cr);
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
+//#ifdef ZFS_AGIOS
+    if (read > 0)
+	    agios_add_zfs_request(name, UIO_READ, *ppos, len);
+	kfree(name);
+//#endif
 
 	file_accessed(filp);
 	return (read);
@@ -421,14 +424,17 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     if (zsb->z_mntopts->z_mntpoint != NULL)
         strncat(name, zsb->z_mntopts->z_mntpoint, strlen(zsb->z_mntopts->z_mntpoint));
 	fullname(filp->f_path.dentry, name, &stop);
-	agios_add_zfs_request(name, UIO_WRITE, *ppos, len);
-	kfree(name);
 //#endif
 
 	crhold(cr);
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
+//ifdef ZFS_AGIOS
+    if (wrote > 0)
+	    agios_add_zfs_request(name, UIO_WRITE, *ppos, len);
+	kfree(name);
+//#endif
 
 	return (wrote);
 }
