@@ -3,9 +3,10 @@
 
 #include <linux/relay.h>
 
-#define N_SUBBUFS 10
-#define SUBBUF_SIZE 512000
+#define N_SUBBUFS 100
+#define SUBBUF_SIZE 4096000
 
 struct rchan *relay_chan = NULL;
+unsigned long long dropped = 0;
 
 #endif

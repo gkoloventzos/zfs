@@ -49,7 +49,25 @@ static int remove_buf_file_handler(struct dentry *dentry)
 	return 0;
 }
 
+static int subbuf_start_handler(struct rchan_buf *buf,
+                        void *subbuf,
+                        void *prev_subbuf,
+                        size_t prev_padding)
+{
+    extern unsigned long long dropped;
+    if (prev_subbuf)
+        *((unsigned *)prev_subbuf) = prev_padding;
+
+    if (relay_buf_full(buf))
+        dropped++;
+
+    subbuf_start_reserve(buf, 0);
+
+    return 1;
+}
+
 static struct rchan_callbacks relay_callbacks = {
+    .subbuf_start = subbuf_start_handler,
 	.remove_buf_file = remove_buf_file_handler,
 	.create_buf_file = create_buf_file_handler,
 };
@@ -945,11 +963,12 @@ int agios_add_zfs_request(char *file_id, int type, long long offset, long len)
                         sizeof(unsigned long long int) + 4096 + 255;
     struct timespec arrival_time;
     unsigned long long int time;
+    extern unsigned long long dropped;
+
 
     ktime_get_ts(&arrival_time);
     time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
 
-	//printk(KERN_EMERG "[AGIOS] before file: %s\n", file_id);
     if (relay_chan == NULL)
         relay_chan = relay_open("hetfs", NULL, SUBBUF_SIZE, N_SUBBUFS, \
                                 &relay_callbacks, NULL);
@@ -962,6 +981,10 @@ int agios_add_zfs_request(char *file_id, int type, long long offset, long len)
             sizeof(unsigned long long int));
     memcpy(buf + request_size - (4096 + 255), file_id, 4096 + 255);
 
+    if (relay_buf_full(relay_chan->buf[0]) && dropped % 10000 == 0) {
+	    printk(KERN_EMERG "[HETiFS] dropped: %lld %s, %s, %lld, %ld\n", dropped, file_id,
+        type?"WRITE":"READ", offset, len);
+    }
     relay_write(relay_chan,buf,request_size);
     relay_flush(relay_chan);
 	//printk(KERN_EMERG "[HETFS] after file: %s\n", file_id);
