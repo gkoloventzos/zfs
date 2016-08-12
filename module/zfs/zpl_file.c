@@ -315,7 +315,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t read;
-//#ifdef ZFS_AGIOS
+//#ifdef CONFIG_HETFS
 	char *name;
 	int stop = 0;
     zfs_sb_t *zsb = ITOZSB(filp->f_mapping->host);
@@ -329,7 +329,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
-//#ifdef ZFS_AGIOS
+//#ifdef CONFIG_HETFS
     if (read > 0)
 	    agios_add_zfs_request(name, UIO_READ, *ppos, len);
 	kfree(name);
@@ -433,7 +433,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t wrote;
-//ifdef ZFS_AGIOS
+//ifdef CONFIG_HETFS
 	char *name;
 	int stop = 0;
     zfs_sb_t *zsb = ITOZSB(filp->f_mapping->host);
@@ -448,7 +448,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
-//ifdef ZFS_AGIOS
+//ifdef CONFIG_HETFS
     if (wrote > 0)
 	    agios_add_zfs_request(name, UIO_WRITE, *ppos, len);
 	kfree(name);
