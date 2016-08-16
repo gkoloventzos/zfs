@@ -37,7 +37,7 @@
 #include <linux/debugfs.h>
 #include <sys/zpl_relay.h>
 
-static struct dentry *create_buf_file_handler(const char * filename, struct dentry * parent, umode_t mode, struct rchan_buf *buf, int *is_global)
+/*static struct dentry *create_buf_file_handler(const char * filename, struct dentry * parent, umode_t mode, struct rchan_buf *buf, int *is_global)
 {
 	*is_global = 1;
 	return debugfs_create_file(filename, mode, parent, buf, &relay_file_operations);
@@ -70,7 +70,7 @@ static struct rchan_callbacks relay_callbacks = {
     .subbuf_start = subbuf_start_handler,
 	.remove_buf_file = remove_buf_file_handler,
 	.create_buf_file = create_buf_file_handler,
-};
+};*/
 
 static int
 zpl_open(struct inode *ip, struct file *filp)
@@ -960,9 +960,9 @@ const struct file_operations zpl_dir_file_operations = {
 
 int agios_add_zfs_request(char *file_id, int type, long long offset, long len)
 {
-    char *buf;
-    long request_size = sizeof(int) + sizeof(long long) + sizeof(long) + \
-                        sizeof(unsigned long long int) + 4096 + 255;
+    //char *buf;
+/*    long request_size = sizeof(int) + sizeof(long long) + sizeof(long) + \
+                        sizeof(unsigned long long int) + 4096 + 255;*/
     struct timespec arrival_time;
     unsigned long long int time;
     extern unsigned long long dropped;
