@@ -331,9 +331,8 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 	crfree(cr);
 //#ifdef CONFIG_HETFS
     if (read > 0)
-	    agios_add_zfs_request(name, UIO_READ, *ppos, read);
+	    add_request(name, UIO_READ, *ppos, read, filp->f_mapping->host->i_size);
     //Log only how much we read
-	kfree(name);
 //#endif
 
 	file_accessed(filp);
@@ -451,9 +450,8 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 	crfree(cr);
 //ifdef CONFIG_HETFS
     if (wrote > 0)
-	    agios_add_zfs_request(name, UIO_WRITE, *ppos, wrote);
+	    add_request(name, UIO_WRITE, *ppos, wrote, filp->f_mapping->host->i_size);
     //We should add how much we actually wrote
-	kfree(name);
 //#endif
 
 	return (wrote);
@@ -958,7 +956,7 @@ const struct file_operations zpl_dir_file_operations = {
 #endif
 };
 
-int agios_add_zfs_request(char *file_id, int type, long long offset, long len)
+int add_request(char *file_id, int type, long long offset, long len, loff_t size)
 {
     //char *buf;
 /*    long request_size = sizeof(int) + sizeof(long long) + sizeof(long) + \
