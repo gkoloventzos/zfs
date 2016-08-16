@@ -34,7 +34,13 @@
 #include <sys/zpl.h>
 #include <linux/time.h>
 
-#include <linux/debugfs.h>
+#include <linux/crypto.h>
+#include <crypto/sha.h>
+#include <linux/err.h>
+#include <linux/scatterlist.h>
+#include <crypto/sha.h>
+#include <sys/hetfs.h>
+#include <linux/list.h>
 #include <sys/zpl_relay.h>
 
 /*static struct dentry *create_buf_file_handler(const char * filename, struct dentry * parent, umode_t mode, struct rchan_buf *buf, int *is_global)
@@ -963,13 +969,81 @@ int add_request(char *file_id, int type, long long offset, long len, loff_t size
                         sizeof(unsigned long long int) + 4096 + 255;*/
     struct timespec arrival_time;
     unsigned long long int time;
-    extern unsigned long long dropped;
-
+//    extern unsigned long long dropped;
+    struct scatterlist sg;
+    struct crypto_hash *tfm;
+    struct hash_desc desc;
+    unsigned char *output;
+    struct data *InsNode;
+    struct analyze_request *a_r;
+    struct list_head *general, *pos, *n;
 
     ktime_get_ts(&arrival_time);
     time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
 
-    if (relay_chan == NULL)
+    output = kzalloc(SHA512_DIGEST_SIZE, GFP_KERNEL);
+
+    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+    desc.tfm = tfm;
+    desc.flags = 0;
+    sg_init_one(&sg, file_id, strlen(file_id));
+    crypto_hash_init(&desc);
+    crypto_hash_update(&desc, &sg, strlen(file_id));
+    crypto_hash_final(&desc, output);
+    crypto_free_hash(tfm);
+    InsNode = search(&hetfstree, output);
+
+    if (type == 3) {
+        InsNode->size = size;
+        InsNode->deleted = time;
+        return 0;
+    }
+
+    if (InsNode == NULL) {
+        InsNode = kzalloc(SHA512_DIGEST_SIZE, GFP_KERNEL);
+        InsNode->hash = output;
+        InsNode->file = file_id;
+        InsNode->read_all_file = 0;
+        InsNode->write_all_file = 0;
+        InsNode->size = size;
+        InsNode->deleted = 0;
+        InsNode->read_reqs = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
+        InsNode->write_reqs = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
+        INIT_LIST_HEAD(&InsNode->read_reqs->list);
+        INIT_LIST_HEAD(&InsNode->write_reqs->list);
+        insert(&hetfstree, InsNode);
+    }
+    if (type == 0)
+        general = &InsNode->read_reqs->list;
+    else
+        general = &InsNode->write_reqs->list;
+
+    list_for_each_prev_safe(pos, n, general) {
+        a_r = list_entry(pos, struct analyze_request, list);
+        if (time < a_r->start_time)
+            continue;
+        if (offset == a_r->end_offset && \
+           (time - a_r->end_time) < MAX_DIFF) {
+            a_r->end_offset += len;
+            a_r->end_time = time;
+            return 0;
+        }
+    }
+
+   a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
+   if (a_r == NULL) {
+       printk(KERN_EMERG "\n");
+       return 1;
+   }
+
+    a_r->start_offset = offset;
+    a_r->start_offset = offset + len;
+    a_r->start_time = time;
+    a_r->end_time = time;
+    list_add_tail(&a_r->list, general);
+
+
+/*    if (relay_chan == NULL)
         relay_chan = relay_open("hetfs", NULL, SUBBUF_SIZE, N_SUBBUFS, \
                                 &relay_callbacks, NULL);
 
@@ -989,6 +1063,53 @@ int add_request(char *file_id, int type, long long offset, long len, loff_t size
     relay_flush(relay_chan);
 	//printk(KERN_EMERG "[HETFS] after file: %s\n", file_id);
     kfree(buf);
+*/
 
-    return 0;
+
+    return 1;
+}
+
+struct data *search(struct rb_root *root, char *string)
+{
+	struct rb_node *node = root->rb_node;
+
+	while (node) {
+		struct data *data = container_of(node, struct data, node);
+    int result;
+
+    result = strncmp(string, data->hash, SHA512_DIGEST_SIZE);
+
+    if (result < 0)
+			node = node->rb_left;
+    else if (result > 0)
+			node = node->rb_right;
+    else
+			return data;
+  }
+  return NULL;
+}
+
+int insert(struct rb_root *root, struct data *data)
+{
+	struct rb_node **new = &(root->rb_node), *parent = NULL;
+
+	/* Figure out where to put new node */
+	while (*new) {
+		struct data *this = container_of(*new, struct data, node);
+		int result = strncmp(data->hash, this->hash, SHA512_DIGEST_SIZE);
+
+        parent = *new;
+		if (result < 0)
+			new = &((*new)->rb_left);
+		else if (result > 0)
+			new = &((*new)->rb_right);
+		else
+			return FALSE;
+	}
+
+	/* Add new node and rebalance tree. */
+	rb_link_node(&data->node, parent, new);
+	rb_insert_color(&data->node, root);
+
+  return TRUE;
 }
