@@ -996,6 +996,10 @@ int add_request(char *file_id, int type, long long offset, long len, loff_t size
     if (type == 3) {
         InsNode->size = size;
         InsNode->deleted = time;
+	    printk(KERN_EMERG "[HETFS]file: %s was deleted at time: %lld\n", file_id, time);
+#ifdef CONFIG_HETFS
+	    printk(KERN_EMERG "[HETFS]CONFIG_HETFS=y\n");
+#endif
         return 0;
     }
 
