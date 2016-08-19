@@ -38,7 +38,8 @@
 #include <linux/writeback.h>
 #include <linux/xattr_compat.h>
 
-int add_request(char *file_id, int type, long long offset, long len, loff_t s);
+int add_request(struct dentry *, int, long long, ssize_t);
+int delete_request(struct dentry *, char *, loff_t);
 int agios_add_zfs_request(char *file_id, int type, long long offset, long len);
 void fullname(struct dentry *dentry, char *name, int *stop);
 

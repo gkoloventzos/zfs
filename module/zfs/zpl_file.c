@@ -39,7 +39,8 @@
 #include <linux/err.h>
 #include <linux/scatterlist.h>
 #include <crypto/sha.h>
-#include <sys/hetfs.h>
+#include <linux/hetfs.h>
+#include <linux/het.h>
 #include <linux/list.h>
 #include <sys/zpl_relay.h>
 
@@ -321,23 +322,14 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t read;
-//#ifdef CONFIG_HETFS
-	char *name;
-	int stop = 0;
-    zfs_sb_t *zsb = ITOZSB(filp->f_mapping->host);
 
-	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
-    if (zsb->z_mntopts->z_mntpoint != NULL)
-        strncat(name, zsb->z_mntopts->z_mntpoint, strlen(zsb->z_mntopts->z_mntpoint));
-	fullname(filp->f_path.dentry, name, &stop);
-//endif
 	crhold(cr);
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
 //#ifdef CONFIG_HETFS
     if (read > 0)
-	    add_request(name, UIO_READ, *ppos, read, filp->f_mapping->host->i_size);
+	    add_request(file_dentry(filp), UIO_READ, *ppos, read);
     //Log only how much we read
 //#endif
 
@@ -440,14 +432,6 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 	cred_t *cr = CRED();
 	ssize_t wrote;
 //ifdef CONFIG_HETFS
-	char *name;
-	int stop = 0;
-    zfs_sb_t *zsb = ITOZSB(filp->f_mapping->host);
-
-	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
-    if (zsb->z_mntopts->z_mntpoint != NULL)
-        strncat(name, zsb->z_mntopts->z_mntpoint, strlen(zsb->z_mntopts->z_mntpoint));
-	fullname(filp->f_path.dentry, name, &stop);
 //#endif
 
 	crhold(cr);
@@ -456,7 +440,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 	crfree(cr);
 //ifdef CONFIG_HETFS
     if (wrote > 0)
-	    add_request(name, UIO_WRITE, *ppos, wrote, filp->f_mapping->host->i_size);
+	    add_request(file_dentry(filp), UIO_WRITE, *ppos, wrote);
     //We should add how much we actually wrote
 //#endif
 
@@ -962,7 +946,86 @@ const struct file_operations zpl_dir_file_operations = {
 #endif
 };
 
-int add_request(char *file_id, int type, long long offset, long len, loff_t size)
+void analyze(struct data* InsNode)
+{
+    struct list_head *pos, *n;
+    struct analyze_request *areq;
+    loff_t part, half;
+    int mid, all = 0;
+    half = InsNode->size >> 1;
+    list_for_each_safe(pos, n, &InsNode->dentry->read_reqs.list) {
+        areq = list_entry(pos, struct analyze_request, list);
+        part = areq->end_offset - areq->start_offset;
+        InsNode->read_all_file++;
+        if (part == InsNode->size)
+            all++;
+        else if (part >= half) {
+            printk(KERN_EMERG "[HETFS] This part is a big read start %lld end %lld\n",
+                    areq->start_offset, areq->end_offset);
+        }
+        list_del(pos);
+    }
+    mid = InsNode->read_all_file >> 1;
+    if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid)))
+        printk(KERN_EMERG "[HETFS] It was read sequentially\n");
+    all = 0;
+    list_for_each_safe(pos, n, &InsNode->dentry->write_reqs.list) {
+        areq = list_entry(pos, struct analyze_request, list);
+        part = areq->end_offset - areq->start_offset;
+        InsNode->write_all_file++;
+        if (part == InsNode->size)
+            all++;
+        else if (part >= half) {
+            printk(KERN_EMERG "[HETFS] This part is a big write start %lld end %lld\n",
+                    areq->start_offset, areq->end_offset);
+        }
+        list_del(pos);
+    }
+    mid = InsNode->write_all_file >> 1;
+    if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid)))
+        printk(KERN_EMERG "[HETFS] It was write sequentially\n");
+}
+
+int delete_request(struct dentry *dentry, char *file_id, loff_t size)
+{
+    struct timespec arrival_time;
+    unsigned long long int time;
+    struct data *InsNode;
+    struct scatterlist sg;
+    struct crypto_hash *tfm;
+    struct hash_desc desc;
+    unsigned char *output;
+
+    ktime_get_ts(&arrival_time);
+    time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+    output = kzalloc(SHA512_DIGEST_SIZE, GFP_KERNEL);
+
+    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+    desc.tfm = tfm;
+    desc.flags = 0;
+    sg_init_one(&sg, file_id, strlen(file_id));
+    crypto_hash_init(&desc);
+    crypto_hash_update(&desc, &sg, strlen(file_id));
+    crypto_hash_final(&desc, output);
+    crypto_free_hash(tfm);
+    InsNode = rb_search(&hetfstree, output);
+    //remnants from previous execution
+    if (InsNode == NULL)
+        return 0;
+    InsNode->size = size;
+    InsNode->deleted = time;
+    kfree(output);
+    //for every list free things
+    //printk(KERN_EMERG "[HETFS]file: %s was deleted at time: %lld\n", name , time);
+#ifdef CONFIG_HETFS
+	printk(KERN_EMERG "[HETFS]CONFIG_HETFS=y\n");
+#endif
+
+    return 0;
+}
+
+
+int add_request(struct dentry *dentry, int type, long long offset, long len)
 {
     //char *buf;
 /*    long request_size = sizeof(int) + sizeof(long long) + sizeof(long) + \
@@ -976,51 +1039,61 @@ int add_request(char *file_id, int type, long long offset, long len, loff_t size
     unsigned char *output;
     struct data *InsNode;
     struct analyze_request *a_r;
+	char *name;
+	int stop = 0;
+    zfs_sb_t *zsb = NULL;
     struct list_head *general, *pos, *n;
 
     ktime_get_ts(&arrival_time);
     time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
 
+    if (d_really_is_negative(dentry))
+        return 1;
+    zsb = ITOZSB(d_inode(dentry));
+
+	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+    if (zsb->z_mntopts->z_mntpoint != NULL)
+        strncat(name, zsb->z_mntopts->z_mntpoint,
+                strlen(zsb->z_mntopts->z_mntpoint));
+	fullname(dentry, name, &stop);
+
+    InsNode = NULL;
+//	printk(KERN_EMERG "[HETFS]add file: %s time: %lld\n", name, time);
     output = kzalloc(SHA512_DIGEST_SIZE, GFP_KERNEL);
 
     tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
     desc.tfm = tfm;
     desc.flags = 0;
-    sg_init_one(&sg, file_id, strlen(file_id));
+    sg_init_one(&sg, name, strlen(name));
     crypto_hash_init(&desc);
-    crypto_hash_update(&desc, &sg, strlen(file_id));
+    crypto_hash_update(&desc, &sg, strlen(name));
     crypto_hash_final(&desc, output);
     crypto_free_hash(tfm);
-    InsNode = search(&hetfstree, output);
 
-    if (type == 3) {
-        InsNode->size = size;
-        InsNode->deleted = time;
-	    printk(KERN_EMERG "[HETFS]file: %s was deleted at time: %lld\n", file_id, time);
-#ifdef CONFIG_HETFS
-	    printk(KERN_EMERG "[HETFS]CONFIG_HETFS=y\n");
-#endif
-        return 0;
-    }
+	//printk(KERN_EMERG "[HETFS]after sha file: %s time: %lld\n", file_id, time);
+    InsNode = rb_search(&hetfstree, output);
+	//printk(KERN_EMERG "[HETFS]after search file: %s time: %lld\n", file_id, time);
 
     if (InsNode == NULL) {
-        InsNode = kzalloc(SHA512_DIGEST_SIZE, GFP_KERNEL);
-        InsNode->hash = output;
-        InsNode->file = file_id;
+        InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
         InsNode->read_all_file = 0;
         InsNode->write_all_file = 0;
-        InsNode->size = size;
         InsNode->deleted = 0;
-        InsNode->read_reqs = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
-        InsNode->write_reqs = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
-        INIT_LIST_HEAD(&InsNode->read_reqs->list);
-        INIT_LIST_HEAD(&InsNode->write_reqs->list);
-        insert(&hetfstree, InsNode);
+        InsNode->file = kzalloc(PATH_MAX+MAX_NAME, GFP_KERNEL);
+        InsNode->hash = kzalloc(SHA512_DIGEST_SIZE, GFP_KERNEL);
+        strncpy(InsNode->file, name, PATH_MAX+MAX_NAME);
+        strncpy(InsNode->hash, output, SHA512_DIGEST_SIZE);
+        InsNode->dentry = dentry;
+        rb_insert(&hetfstree, InsNode);
     }
+    kfree(output);
+    kfree(name);
+    InsNode->size = i_size_read(d_inode(dentry));
+
     if (type == 0)
-        general = &InsNode->read_reqs->list;
+        general = &InsNode->dentry->read_reqs.list;
     else
-        general = &InsNode->write_reqs->list;
+        general = &InsNode->dentry->write_reqs.list;
 
     list_for_each_prev_safe(pos, n, general) {
         a_r = list_entry(pos, struct analyze_request, list);
@@ -1036,18 +1109,17 @@ int add_request(char *file_id, int type, long long offset, long len, loff_t size
 
    a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
    if (a_r == NULL) {
-       printk(KERN_EMERG "\n");
+       printk(KERN_EMERG "[HETFS] Cannot allocate request\n");
        return 1;
    }
 
+    a_r->start_time = a_r->end_time = time;
     a_r->start_offset = offset;
-    a_r->start_offset = offset + len;
-    a_r->start_time = time;
-    a_r->end_time = time;
+    a_r->end_offset = offset + len;
     list_add_tail(&a_r->list, general);
 
-
-/*    if (relay_chan == NULL)
+/*
+    if (relay_chan == NULL)
         relay_chan = relay_open("hetfs", NULL, SUBBUF_SIZE, N_SUBBUFS, \
                                 &relay_callbacks, NULL);
 
@@ -1070,30 +1142,35 @@ int add_request(char *file_id, int type, long long offset, long len, loff_t size
 */
 
 
-    return 1;
+    return 0;
 }
 
-struct data *search(struct rb_root *root, char *string)
+struct data *rb_search(struct rb_root *root, char *string)
 {
-	struct rb_node *node = root->rb_node;
-
-	while (node) {
-		struct data *data = container_of(node, struct data, node);
+	struct rb_node *node;
     int result;
 
-    result = strncmp(string, data->hash, SHA512_DIGEST_SIZE);
+    if (RB_EMPTY_ROOT(root))
+        return NULL;
 
-    if (result < 0)
+	node = root->rb_node;
+
+    while (node) {
+		struct data *data = container_of(node, struct data, node);
+
+        result = strncmp(string, data->hash, SHA512_DIGEST_SIZE);
+
+        if (result < 0)
 			node = node->rb_left;
-    else if (result > 0)
+        else if (result > 0)
 			node = node->rb_right;
-    else
+        else
 			return data;
-  }
-  return NULL;
+    }
+    return NULL;
 }
 
-int insert(struct rb_root *root, struct data *data)
+int rb_insert(struct rb_root *root, struct data *data)
 {
 	struct rb_node **new = &(root->rb_node), *parent = NULL;
 

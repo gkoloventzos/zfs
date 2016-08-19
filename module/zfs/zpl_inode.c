@@ -218,19 +218,19 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
     char *name;
     boolean_t delete;
 	fstrans_cookie_t cookie;
-    long long size = dir->i_size;
+    loff_t size = i_size_read(d_inode(dentry));
 	zfs_sb_t *zsb = dentry->d_sb->s_fs_info;
 
 	crhold(cr);
 	cookie = spl_fstrans_mark();
+	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+    if (zsb->z_mntopts->z_mntpoint != NULL)
+        strncat(name, zsb->z_mntopts->z_mntpoint, strlen(zsb->z_mntopts->z_mntpoint));
+	fullname(dentry, name, &stop);
 	error = -zfs_remove(dir, dname(dentry), cr, 0, &delete);
-    if (delete) {
-        name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
-        fullname(dentry, name, &stop);
-        /* Type 3 is deletion and adding the last known size of file */
-        add_request(name, 3, 0, 0, size);
-        kfree(name);
-    }
+    if (delete)
+        delete_request(dentry, name, size);
+    kfree(name);
 	/*
 	 * For a CI FS we must invalidate the dentry to prevent the
 	 * creation of negative entries.
