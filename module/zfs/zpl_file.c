@@ -43,7 +43,10 @@
 #include <linux/het.h>
 #include <linux/list.h>
 #include <sys/zpl_relay.h>
+#include <linux/kthread.h>
+#include <linux/rwsem.h>
 
+static DECLARE_RWSEM(tree_sem);
 /*static struct dentry *create_buf_file_handler(const char * filename, struct dentry * parent, umode_t mode, struct rchan_buf *buf, int *is_global)
 {
 	*is_global = 1;
@@ -322,15 +325,29 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t read;
+//#ifdef CONFIG_HETFS
+    struct task_struct *thread1;
+    struct kdata *kdata;
+    struct timespec arrival_time;
+
+    ktime_get_ts(&arrival_time);
+//#endif
 
 	crhold(cr);
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
 //#ifdef CONFIG_HETFS
-    if (read > 0)
-	    add_request(file_dentry(filp), UIO_READ, *ppos, read);
-    //Log only how much we read
+    if (read > 0) {
+        kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
+        kdata->dentry = file_dentry(filp);
+        kdata->type = UIO_READ;
+        kdata->offset = *ppos;
+        kdata->length = read;
+        kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+        thread1 = kthread_run(add_request, (void *) kdata,"readreq");
+//	    add_request((void *)kdata);
+    }
 //#endif
 
 	file_accessed(filp);
@@ -431,7 +448,12 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t wrote;
-//ifdef CONFIG_HETFS
+//#ifdef CONFIG_HETFS
+    struct task_struct *thread1;
+    struct kdata *kdata;
+    struct timespec arrival_time;
+
+    ktime_get_ts(&arrival_time);
 //#endif
 
 	crhold(cr);
@@ -439,9 +461,16 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
 //ifdef CONFIG_HETFS
-    if (wrote > 0)
-	    add_request(file_dentry(filp), UIO_WRITE, *ppos, wrote);
-    //We should add how much we actually wrote
+    if (wrote > 0) {
+        kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
+        kdata->dentry = file_dentry(filp);
+        kdata->type = UIO_WRITE;
+        kdata->offset = *ppos;
+        kdata->length = wrote;
+        kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+        thread1 = kthread_run(add_request, (void *) kdata,"writereq");
+//	    add_request((void *)kdata);
+    }
 //#endif
 
 	return (wrote);
@@ -1017,22 +1046,12 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
     kfree(output);
     //for every list free things
     //printk(KERN_EMERG "[HETFS]file: %s was deleted at time: %lld\n", name , time);
-#ifdef CONFIG_HETFS
-	printk(KERN_EMERG "[HETFS]CONFIG_HETFS=y\n");
-#endif
 
     return 0;
 }
 
-
-int add_request(struct dentry *dentry, int type, long long offset, long len)
+int add_request(void *data)
 {
-    //char *buf;
-/*    long request_size = sizeof(int) + sizeof(long long) + sizeof(long) + \
-                        sizeof(unsigned long long int) + 4096 + 255;*/
-    struct timespec arrival_time;
-    unsigned long long int time;
-//    extern unsigned long long dropped;
     struct scatterlist sg;
     struct crypto_hash *tfm;
     struct hash_desc desc;
@@ -1043,9 +1062,12 @@ int add_request(struct dentry *dentry, int type, long long offset, long len)
 	int stop = 0;
     zfs_sb_t *zsb = NULL;
     struct list_head *general, *pos, *n;
-
-    ktime_get_ts(&arrival_time);
-    time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+    struct kdata *kdata = (struct kdata *)data;
+    struct dentry *dentry = kdata->dentry;
+    int type = kdata->type;
+    long long offset = kdata->offset;
+    long len = kdata->length;
+    unsigned long long int time = kdata->time;
 
     if (d_really_is_negative(dentry))
         return 1;
@@ -1070,9 +1092,7 @@ int add_request(struct dentry *dentry, int type, long long offset, long len)
     crypto_hash_final(&desc, output);
     crypto_free_hash(tfm);
 
-	//printk(KERN_EMERG "[HETFS]after sha file: %s time: %lld\n", file_id, time);
     InsNode = rb_search(&hetfstree, output);
-	//printk(KERN_EMERG "[HETFS]after search file: %s time: %lld\n", file_id, time);
 
     if (InsNode == NULL) {
         InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
@@ -1095,23 +1115,29 @@ int add_request(struct dentry *dentry, int type, long long offset, long len)
     else
         general = &InsNode->dentry->write_reqs.list;
 
-    list_for_each_prev_safe(pos, n, general) {
-        a_r = list_entry(pos, struct analyze_request, list);
-        if (time < a_r->start_time)
-            continue;
-        if (offset == a_r->end_offset && \
-           (time - a_r->end_time) < MAX_DIFF) {
-            a_r->end_offset += len;
-            a_r->end_time = time;
-            return 0;
+    if (!list_empty_careful(general)) {
+        list_for_each_prev_safe(pos, n, general) {
+            a_r = list_entry(pos, struct analyze_request, list);
+            if (time < a_r->start_time)
+                continue;
+            if (offset == a_r->end_offset && \
+               (time - a_r->end_time) < MAX_DIFF) {
+                a_r->end_offset += len;
+                a_r->end_time = time;
+                kfree(kdata);
+                do_exit(0);
+                return 0;
+            }
         }
     }
 
-   a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
-   if (a_r == NULL) {
-       printk(KERN_EMERG "[HETFS] Cannot allocate request\n");
-       return 1;
-   }
+    a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
+    if (a_r == NULL) {
+        printk(KERN_EMERG "[HETFS] Cannot allocate request\n");
+        kfree(kdata);
+        do_exit(1);
+        return 1;
+    }
 
     a_r->start_time = a_r->end_time = time;
     a_r->start_offset = offset;
@@ -1141,7 +1167,8 @@ int add_request(struct dentry *dentry, int type, long long offset, long len)
     kfree(buf);
 */
 
-
+    kfree(kdata);
+    do_exit(0);
     return 0;
 }
 
@@ -1153,6 +1180,7 @@ struct data *rb_search(struct rb_root *root, char *string)
     if (RB_EMPTY_ROOT(root))
         return NULL;
 
+    down_read(&tree_sem);
 	node = root->rb_node;
 
     while (node) {
@@ -1164,33 +1192,42 @@ struct data *rb_search(struct rb_root *root, char *string)
 			node = node->rb_left;
         else if (result > 0)
 			node = node->rb_right;
-        else
+        else {
+            up_read(&tree_sem);
+//	        printk(KERN_EMERG "[HETFS] search return data\n");
 			return data;
+        }
     }
+    up_read(&tree_sem);
     return NULL;
 }
 
 int rb_insert(struct rb_root *root, struct data *data)
 {
-	struct rb_node **new = &(root->rb_node), *parent = NULL;
+    struct rb_node **new, *parent = NULL;
+    down_write(&tree_sem);
+    new = &(root->rb_node);
 
-	/* Figure out where to put new node */
-	while (*new) {
-		struct data *this = container_of(*new, struct data, node);
-		int result = strncmp(data->hash, this->hash, SHA512_DIGEST_SIZE);
+    /* Figure out where to put new node */
+    while (*new) {
+        struct data *this = container_of(*new, struct data, node);
+        int result = strncmp(data->hash, this->hash, SHA512_DIGEST_SIZE);
 
         parent = *new;
-		if (result < 0)
-			new = &((*new)->rb_left);
-		else if (result > 0)
-			new = &((*new)->rb_right);
-		else
-			return FALSE;
-	}
+        if (result < 0)
+            new = &((*new)->rb_left);
+        else if (result > 0)
+            new = &((*new)->rb_right);
+        else {
+            up_write(&tree_sem);
+            return FALSE;
+        }
+    }
 
-	/* Add new node and rebalance tree. */
-	rb_link_node(&data->node, parent, new);
-	rb_insert_color(&data->node, root);
+    /* Add new node and rebalance tree. */
+    rb_link_node(&data->node, parent, new);
+    rb_insert_color(&data->node, root);
+    up_write(&tree_sem);
 
-  return TRUE;
+    return TRUE;
 }
