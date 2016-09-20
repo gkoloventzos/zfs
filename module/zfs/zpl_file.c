@@ -40,11 +40,12 @@
 #include <linux/scatterlist.h>
 #include <crypto/sha.h>
 #include <linux/hetfs.h>
-#include <linux/het.h>
 #include <linux/list.h>
 #include <sys/zpl_relay.h>
 #include <linux/kthread.h>
 #include <linux/rwsem.h>
+#include <linux/unistd.h>
+#include <asm/syscall.h>
 
 static DECLARE_RWSEM(tree_sem);
 /*static struct dentry *create_buf_file_handler(const char * filename, struct dentry * parent, umode_t mode, struct rchan_buf *buf, int *is_global)
@@ -1050,6 +1051,16 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
     return 0;
 }
 
+void sha512print(unsigned char *string, int end) {
+    int i;
+    printk(KERN_EMERG "hash:");
+    for (i = 0; i < SHA512_DIGEST_SIZE+1; i++) {
+        printk(KERN_EMERG "%c", string[i]);
+    }
+    if(end)
+        printk(KERN_EMERG "\n");
+}
+
 int add_request(void *data)
 {
     struct scatterlist sg;
@@ -1059,6 +1070,9 @@ int add_request(void *data)
     struct data *InsNode;
     struct analyze_request *a_r;
 	char *name;
+    struct rb_node *node;
+    struct data *entry;
+    struct analyze_request *posh, *nh;
 	int stop = 0;
     zfs_sb_t *zsb = NULL;
     struct list_head *general, *pos, *n;
@@ -1087,7 +1101,7 @@ int add_request(void *data)
 
     InsNode = NULL;
 //	printk(KERN_EMERG "[HETFS]add file: %s time: %lld\n", name, time);
-    output = kzalloc(SHA512_DIGEST_SIZE, GFP_KERNEL);
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
 
     tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
     desc.tfm = tfm;
@@ -1098,7 +1112,10 @@ int add_request(void *data)
     crypto_hash_final(&desc, output);
     crypto_free_hash(tfm);
 
-    InsNode = rb_search(&hetfstree, output);
+    down_write(&tree_sem);
+    if (! RB_EMPTY_ROOT(&hetfstree)) {
+        InsNode = rb_search(&hetfstree, output);
+    }
 
     if (InsNode == NULL) {
         InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
@@ -1124,7 +1141,7 @@ int add_request(void *data)
             return 1;
         }
         strncpy(InsNode->file, name, PATH_MAX+MAX_NAME);
-        strncpy(InsNode->hash, output, SHA512_DIGEST_SIZE);
+        strncpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
         InsNode->dentry = dentry;
 	    INIT_LIST_HEAD(&InsNode->read_reqs.list);
 	    INIT_LIST_HEAD(&InsNode->write_reqs.list);
@@ -1230,6 +1247,32 @@ int add_request(void *data)
 	//printk(KERN_EMERG "[HETFS] after file: %s\n", file_id);
     kfree(buf);
 */
+    if (exact == 100) {
+        printk(KERN_EMERG "[HETFS]Start of hetfs\n");
+        printk(KERN_EMERG "[HETFS] Start of hetfs\n");
+        down_read(&tree_sem);
+        if (RB_EMPTY_ROOT(&hetfstree)) {
+            printk(KERN_EMERG "[HETFS]empty root\n");
+            return 1;
+        }
+        for (node = rb_first(&hetfstree); node; node = rb_next(node)) {
+            entry = rb_entry(node, struct data, node);
+            printk(KERN_EMERG "[HETFS] file: %s with ", entry->file);
+            //sha512print(entry->hash, 1);
+            printk(KERN_EMERG "[HETFS] READ req:\n");
+            list_for_each_entry_safe(posh, nh, &entry->read_reqs.list, list) {
+                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld\n", posh->start_offset
+                                                        ,posh->end_offset);
+            }
+            printk(KERN_EMERG "[HETFS] WRITE req:\n");
+            list_for_each_entry_safe(posh, nh, &entry->write_reqs.list, list) {
+               printk(KERN_EMERG "[HETFS] start: %lld - end:%lld\n", posh->start_offset
+                                                        ,posh->end_offset);
+            }
+        }
+        up_read(&tree_sem);
+        printk(KERN_EMERG "[HETFS] End of hetfs\n");
+    }
 
     kfree(kdata);
     do_exit(0);
@@ -1244,7 +1287,6 @@ struct data *rb_search(struct rb_root *root, char *string)
     if (RB_EMPTY_ROOT(root))
         return NULL;
 
-    down_read(&tree_sem);
 	node = root->rb_node;
 
     while (node) {
@@ -1257,23 +1299,21 @@ struct data *rb_search(struct rb_root *root, char *string)
         else if (result > 0)
 			node = node->rb_right;
         else {
-            up_read(&tree_sem);
 //	        printk(KERN_EMERG "[HETFS] search return data\n");
 			return data;
         }
     }
-    up_read(&tree_sem);
     return NULL;
 }
 
 int rb_insert(struct rb_root *root, struct data *data)
 {
     struct rb_node **new, *parent = NULL;
-    down_write(&tree_sem);
     new = &(root->rb_node);
 
     /* Figure out where to put new node */
     while (*new) {
+        int result;
         struct data *this = container_of(*new, struct data, node);
         if (this->hash == NULL || data->hash == NULL) {
             exact = 0;
@@ -1288,15 +1328,15 @@ int rb_insert(struct rb_root *root, struct data *data)
         else if (result > 0)
             new = &((*new)->rb_right);
         else {
-            up_write(&tree_sem);
+            printk(KERN_EMERG "[HETFS]already in? sem fail\n");
             return FALSE;
         }
     }
 
+    printk(KERN_EMERG "[HETFS] add in tree %s as %d node\n", data->file, exact);
     /* Add new node and rebalance tree. */
     rb_link_node(&data->node, parent, new);
     rb_insert_color(&data->node, root);
-    up_write(&tree_sem);
 
     return TRUE;
 }
