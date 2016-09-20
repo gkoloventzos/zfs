@@ -982,7 +982,7 @@ void analyze(struct data* InsNode)
     loff_t part, half;
     int mid, all = 0;
     half = InsNode->size >> 1;
-    list_for_each_safe(pos, n, &InsNode->dentry->read_reqs.list) {
+    list_for_each_safe(pos, n, &InsNode->read_reqs.list) {
         areq = list_entry(pos, struct analyze_request, list);
         part = areq->end_offset - areq->start_offset;
         InsNode->read_all_file++;
@@ -998,7 +998,7 @@ void analyze(struct data* InsNode)
     if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid)))
         printk(KERN_EMERG "[HETFS] It was read sequentially\n");
     all = 0;
-    list_for_each_safe(pos, n, &InsNode->dentry->write_reqs.list) {
+    list_for_each_safe(pos, n, &InsNode->write_reqs.list) {
         areq = list_entry(pos, struct analyze_request, list);
         part = areq->end_offset - areq->start_offset;
         InsNode->write_all_file++;
@@ -1108,12 +1108,37 @@ int add_request(void *data)
     }
     kfree(output);
     kfree(name);
-    InsNode->size = i_size_read(d_inode(dentry));
+
+    if (&InsNode->write_reqs.list == NULL) {
+        exact = 0;
+        printk(KERN_EMERG "[HETFS]InsNode write null after insert\n");
+        INIT_LIST_HEAD(&InsNode->write_reqs.list);
+        kfree(kdata);
+        do_exit(1);
+        return 1;
+    }
+    if (&InsNode->read_reqs.list == NULL) {
+        exact = 0;
+        printk(KERN_EMERG "[HETFS]InsNode read null after insert\n");
+        INIT_LIST_HEAD(&InsNode->read_reqs.list);
+        kfree(kdata);
+        do_exit(1);
+        return 1;
+    }
+    InsNode->size = i_size_read(d_inode(InsNode->dentry));
 
     if (type == 0)
-        general = &InsNode->dentry->read_reqs.list;
+        general = &InsNode->read_reqs.list;
     else
-        general = &InsNode->dentry->write_reqs.list;
+        general = &InsNode->write_reqs.list;
+    if (general == NULL) {
+        exact = 0;
+        printk(KERN_EMERG "[HETFS]generalnull after insert\n");
+        printk(KERN_EMERG "[HETFS]name %s\n", InsNode->file);
+        kfree(kdata);
+        do_exit(1);
+        return 1;
+    }
 
     if (!list_empty_careful(general)) {
         list_for_each_prev_safe(pos, n, general) {
