@@ -338,7 +338,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
 //#ifdef CONFIG_HETFS
-    if (read > 0) {
+    if (read > 0 && exact > 0) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         kdata->dentry = file_dentry(filp);
         kdata->type = UIO_READ;
@@ -461,7 +461,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
 //ifdef CONFIG_HETFS
-    if (wrote > 0) {
+    if (wrote > 0 && exact > 0) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         kdata->dentry = file_dentry(filp);
         kdata->type = UIO_WRITE;
@@ -1196,6 +1196,7 @@ int add_request(void *data)
 
     a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
     if (a_r == NULL) {
+        exact =0;
         printk(KERN_EMERG "[HETFS] Cannot allocate request\n");
         kfree(kdata);
         do_exit(1);
