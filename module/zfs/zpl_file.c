@@ -1074,6 +1074,12 @@ int add_request(void *data)
     zsb = ITOZSB(d_inode(dentry));
 
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+    if (name == NULL) {
+        printk(KERN_EMERG "[HETFS] Cannot alloc mem for name\n");
+        kfree(kdata);
+        do_exit(1);
+        return 1;
+    }
     if (zsb->z_mntopts->z_mntpoint != NULL)
         strncat(name, zsb->z_mntopts->z_mntpoint,
                 strlen(zsb->z_mntopts->z_mntpoint));
@@ -1096,16 +1102,48 @@ int add_request(void *data)
 
     if (InsNode == NULL) {
         InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
+        if (InsNode == NULL) {
+            exact = 0;
+            printk(KERN_EMERG "[HETFS] Cannot alloc memory for InsNode\n");
+            kfree(kdata);
+            up_write(&tree_sem);
+            do_exit(1);
+            return 1;
+        }
         InsNode->read_all_file = 0;
         InsNode->write_all_file = 0;
         InsNode->deleted = 0;
         InsNode->file = kzalloc(PATH_MAX+MAX_NAME, GFP_KERNEL);
-        InsNode->hash = kzalloc(SHA512_DIGEST_SIZE, GFP_KERNEL);
+        InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+        if (InsNode->file == NULL || InsNode->hash == NULL) {
+            exact = 0;
+            printk(KERN_EMERG "[HETFS] Cannot alloc mem for InsNode file/hash\n");
+            kfree(kdata);
+            do_exit(1);
+            up_write(&tree_sem);
+            return 1;
+        }
         strncpy(InsNode->file, name, PATH_MAX+MAX_NAME);
         strncpy(InsNode->hash, output, SHA512_DIGEST_SIZE);
         InsNode->dentry = dentry;
-        rb_insert(&hetfstree, InsNode);
+	    INIT_LIST_HEAD(&InsNode->read_reqs.list);
+	    INIT_LIST_HEAD(&InsNode->write_reqs.list);
+        if (!rb_insert(&hetfstree, InsNode)) {
+            printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
+            printk(KERN_EMERG "[HETFS] file: %s with ",
+                    InsNode->file);
+            //sha512print(InsNode->hash, 1);
+            exact = 0;
+        }
+        ++exact;
     }
+    up_write(&tree_sem);
+
+    if (RB_EMPTY_ROOT(&hetfstree)) {
+        printk(KERN_EMERG "[HETFS] Tree is empty. Stop all\n");
+        exact = 0;
+    }
+
     kfree(output);
     kfree(name);
 
@@ -1236,7 +1274,12 @@ int rb_insert(struct rb_root *root, struct data *data)
     /* Figure out where to put new node */
     while (*new) {
         struct data *this = container_of(*new, struct data, node);
-        int result = strncmp(data->hash, this->hash, SHA512_DIGEST_SIZE);
+        if (this->hash == NULL || data->hash == NULL) {
+            exact = 0;
+            printk(KERN_EMERG "[HETFS] NULL hash - rb_insert\n");
+            return FALSE;
+        }
+        result = strncmp(data->hash, this->hash, SHA512_DIGEST_SIZE);
 
         parent = *new;
         if (result < 0)
