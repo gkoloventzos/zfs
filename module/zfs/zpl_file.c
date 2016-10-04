@@ -43,11 +43,9 @@
 #include <linux/list.h>
 #include <sys/zpl_relay.h>
 #include <linux/kthread.h>
-#include <linux/rwsem.h>
 #include <linux/unistd.h>
 #include <asm/syscall.h>
 
-static DECLARE_RWSEM(tree_sem);
 /*static struct dentry *create_buf_file_handler(const char * filename, struct dentry * parent, umode_t mode, struct rchan_buf *buf, int *is_global)
 {
 	*is_global = 1;
