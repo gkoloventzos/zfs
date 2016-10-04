@@ -1027,7 +1027,17 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
 
     ktime_get_ts(&arrival_time);
     time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
-    output = kzalloc(SHA512_DIGEST_SIZE, GFP_KERNEL);
+    if (file_id == NULL) {
+        printk(KERN_EMERG "[ERROR]Name is NULL\n");
+        do_exit(1);
+        return 1;
+    }
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for hash in delete\n");
+        do_exit(1);
+        return 1;
+    }
 
     tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
     desc.tfm = tfm;
@@ -1039,8 +1049,10 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
     crypto_free_hash(tfm);
     InsNode = rb_search(&hetfstree, output);
     //remnants from previous execution
-    if (InsNode == NULL)
+    if (InsNode == NULL) {
+        printk(KERN_EMERG "[ERROR]Delete not in the tree %s\n", file_id);
         return 0;
+    }
     InsNode->size = size;
     InsNode->deleted = time;
     kfree(output);
@@ -1088,7 +1100,7 @@ int add_request(void *data)
 
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
     if (name == NULL) {
-        printk(KERN_EMERG "[HETFS] Cannot alloc mem for name\n");
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
         kfree(kdata);
         do_exit(1);
         return 1;
@@ -1159,31 +1171,34 @@ int add_request(void *data)
             printk(KERN_EMERG "[HETFS] file: %s with ",
                     InsNode->file);
             //sha512print(InsNode->hash, 1);
-            exact = 0;
+            exact = -4;
         }
+//        printk(KERN_EMERG "[HETFS]New node with name %s\n", InsNode->file);
         ++exact;
     }
     up_write(&tree_sem);
 
-    if (RB_EMPTY_ROOT(&hetfstree)) {
-        printk(KERN_EMERG "[HETFS] Tree is empty. Stop all\n");
+    if (RB_EMPTY_ROOT(init_task.hetfstree)) {
+        printk(KERN_EMERG "[ERROR] Tree is empty. Stop all\n");
         exact = 0;
     }
 
     kfree(output);
+    printk(KERN_EMERG "[ERROR]name pointer: %p\n", &name);
+    printk(KERN_EMERG "[ERROR]name: %s\n", name);
     kfree(name);
 
     if (&InsNode->write_reqs.list == NULL) {
-        exact = 0;
-        printk(KERN_EMERG "[HETFS]InsNode write null after insert\n");
+        exact = -4;
+        printk(KERN_EMERG "[ERROR]InsNode write null after insert\n");
         INIT_LIST_HEAD(&InsNode->write_reqs.list);
         kfree(kdata);
         do_exit(1);
         return 1;
     }
     if (&InsNode->read_reqs.list == NULL) {
-        exact = 0;
-        printk(KERN_EMERG "[HETFS]InsNode read null after insert\n");
+        exact = -4;
+        printk(KERN_EMERG "[ERROR]InsNode read null after insert\n");
         INIT_LIST_HEAD(&InsNode->read_reqs.list);
         kfree(kdata);
         do_exit(1);
@@ -1196,9 +1211,9 @@ int add_request(void *data)
     else
         general = &InsNode->write_reqs.list;
     if (general == NULL) {
-        exact = 0;
-        printk(KERN_EMERG "[HETFS]generalnull after insert\n");
-        printk(KERN_EMERG "[HETFS]name %s\n", InsNode->file);
+        exact = -4;
+        printk(KERN_EMERG "[ERROR]generalnull after insert\n");
+        printk(KERN_EMERG "[ERROR]name %s\n", InsNode->file);
         kfree(kdata);
         do_exit(1);
         return 1;
@@ -1222,8 +1237,8 @@ int add_request(void *data)
 
     a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
     if (a_r == NULL) {
-        exact =0;
-        printk(KERN_EMERG "[HETFS] Cannot allocate request\n");
+        exact =-4;
+        printk(KERN_EMERG "[ERROR] Cannot allocate request\n");
         kfree(kdata);
         do_exit(1);
         return 1;
@@ -1300,6 +1315,11 @@ struct data *rb_search(struct rb_root *root, char *string)
 
     while (node) {
 		struct data *data = container_of(node, struct data, node);
+        if (data->hash == NULL) {
+            printk(KERN_EMERG "[ERROR]Name ame NULL in tree\n");
+            do_exit(1);
+            return NULL;
+        }
 
         result = strncmp(string, data->hash, SHA512_DIGEST_SIZE);
 
@@ -1325,8 +1345,8 @@ int rb_insert(struct rb_root *root, struct data *data)
         int result;
         struct data *this = container_of(*new, struct data, node);
         if (this->hash == NULL || data->hash == NULL) {
-            exact = 0;
-            printk(KERN_EMERG "[HETFS] NULL hash - rb_insert\n");
+            exact = -4;
+            printk(KERN_EMERG "[ERROR] NULL hash - rb_insert\n");
             return FALSE;
         }
         result = strncmp(data->hash, this->hash, SHA512_DIGEST_SIZE);
@@ -1337,13 +1357,14 @@ int rb_insert(struct rb_root *root, struct data *data)
         else if (result > 0)
             new = &((*new)->rb_right);
         else {
-            printk(KERN_EMERG "[HETFS]already in? sem fail\n");
+            printk(KERN_EMERG "[ERROR]already in? sem fail\n");
             return FALSE;
         }
     }
 
-    printk(KERN_EMERG "[HETFS] add in tree %s as %d node\n", data->file, exact);
+    //printk(KERN_EMERG "[HETFS] add in tree %s as %d node\n", data->file, exact);
     /* Add new node and rebalance tree. */
+    //printk(KERN_EMERG "[ERROR]insert hetfstree %p\n", root);
     rb_link_node(&data->node, parent, new);
     rb_insert_color(&data->node, root);
 
