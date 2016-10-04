@@ -1080,12 +1080,9 @@ int add_request(void *data)
     struct crypto_hash *tfm;
     struct hash_desc desc;
     unsigned char *output;
-    struct data *InsNode;
+    struct data *InsNode, *OutNode;
     struct analyze_request *a_r;
 	char *name;
-    struct rb_node *node;
-    struct data *entry;
-    struct analyze_request *posh, *nh;
 	int stop = 0;
     zfs_sb_t *zsb = NULL;
     struct list_head *general, *pos, *n;
@@ -1094,6 +1091,7 @@ int add_request(void *data)
     int type = kdata->type;
     long long offset = kdata->offset;
     long len = kdata->length;
+    struct rb_root *hetfstree;
     unsigned long long int time = kdata->time;
 
     if (d_really_is_negative(dentry))
@@ -1276,33 +1274,15 @@ int add_request(void *data)
     relay_flush(relay_chan);
 	//printk(KERN_EMERG "[HETFS] after file: %s\n", file_id);
     kfree(buf);
-*/
-    if (exact == 100) {
+    if (exact == 2000) {
         printk(KERN_EMERG "[HETFS]Start of hetfs\n");
-        printk(KERN_EMERG "[HETFS] Start of hetfs\n");
+        printk(KERN_EMERG "[ERROR]print 2000 hetfstree %p\n", init_task.hetfstree);
         down_read(&tree_sem);
-        if (RB_EMPTY_ROOT(&hetfstree)) {
-            printk(KERN_EMERG "[HETFS]empty root\n");
-            return 1;
-        }
-        for (node = rb_first(&hetfstree); node; node = rb_next(node)) {
-            entry = rb_entry(node, struct data, node);
-            printk(KERN_EMERG "[HETFS] file: %s with ", entry->file);
-            //sha512print(entry->hash, 1);
-            printk(KERN_EMERG "[HETFS] READ req:\n");
-            list_for_each_entry_safe(posh, nh, &entry->read_reqs.list, list) {
-                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld\n", posh->start_offset
-                                                        ,posh->end_offset);
-            }
-            printk(KERN_EMERG "[HETFS] WRITE req:\n");
-            list_for_each_entry_safe(posh, nh, &entry->write_reqs.list, list) {
-               printk(KERN_EMERG "[HETFS] start: %lld - end:%lld\n", posh->start_offset
-                                                        ,posh->end_offset);
-            }
-        }
+        print_tree();
         up_read(&tree_sem);
         printk(KERN_EMERG "[HETFS] End of hetfs\n");
     }
+*/
 
     kfree(kdata);
     do_exit(0);
@@ -1317,7 +1297,7 @@ struct data *rb_search(struct rb_root *root, char *string)
     if (RB_EMPTY_ROOT(root))
         return NULL;
 
-	node = root->rb_node;
+    node = root->rb_node;
 
     while (node) {
 		struct data *data = container_of(node, struct data, node);
@@ -1327,7 +1307,7 @@ struct data *rb_search(struct rb_root *root, char *string)
             return NULL;
         }
 
-        result = strncmp(string, data->hash, SHA512_DIGEST_SIZE);
+        result = strncmp(string, data->hash, SHA512_DIGEST_SIZE+1);
 
         if (result < 0)
 			node = node->rb_left;
