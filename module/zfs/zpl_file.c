@@ -45,6 +45,7 @@
 #include <linux/kthread.h>
 #include <linux/unistd.h>
 #include <asm/syscall.h>
+#include <linux/init_task.h>
 
 /*static struct dentry *create_buf_file_handler(const char * filename, struct dentry * parent, umode_t mode, struct rchan_buf *buf, int *is_global)
 {
@@ -1096,7 +1097,17 @@ int add_request(void *data)
         strncat(name, zsb->z_mntopts->z_mntpoint,
                 strlen(zsb->z_mntopts->z_mntpoint));
 	fullname(dentry, name, &stop);
-
+    hetfstree = init_task.hetfstree;
+    if (init_task.hetfstree == NULL) {
+	    init_task.hetfstree = kzalloc(sizeof(struct rb_root),GFP_KERNEL);
+        if (init_task.hetfstree == NULL) {
+            printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
+            kfree(kdata);
+            do_exit(1);
+            return 1;
+        }
+        *init_task.hetfstree = RB_ROOT;
+    }
     InsNode = NULL;
 //	printk(KERN_EMERG "[HETFS]add file: %s time: %lld\n", name, time);
     output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
