@@ -1047,7 +1047,9 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
     crypto_hash_update(&desc, &sg, strlen(file_id));
     crypto_hash_final(&desc, output);
     crypto_free_hash(tfm);
-    InsNode = rb_search(&hetfstree, output);
+    down_read(&tree_sem);
+    InsNode = rb_search(init_task.hetfstree, output);
+    up_read(&tree_sem);
     //remnants from previous execution
     if (InsNode == NULL) {
         printk(KERN_EMERG "[ERROR]Delete not in the tree %s\n", file_id);
@@ -1133,40 +1135,44 @@ int add_request(void *data)
     crypto_hash_final(&desc, output);
     crypto_free_hash(tfm);
 
-    down_write(&tree_sem);
-    if (! RB_EMPTY_ROOT(&hetfstree)) {
-        InsNode = rb_search(&hetfstree, output);
-    }
-
+    InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
     if (InsNode == NULL) {
-        InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
-        if (InsNode == NULL) {
-            exact = 0;
-            printk(KERN_EMERG "[HETFS] Cannot alloc memory for InsNode\n");
-            kfree(kdata);
-            up_write(&tree_sem);
-            do_exit(1);
-            return 1;
-        }
-        InsNode->read_all_file = 0;
-        InsNode->write_all_file = 0;
-        InsNode->deleted = 0;
-        InsNode->file = kzalloc(PATH_MAX+MAX_NAME, GFP_KERNEL);
-        InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-        if (InsNode->file == NULL || InsNode->hash == NULL) {
-            exact = 0;
-            printk(KERN_EMERG "[HETFS] Cannot alloc mem for InsNode file/hash\n");
-            kfree(kdata);
-            do_exit(1);
-            up_write(&tree_sem);
-            return 1;
-        }
-        strncpy(InsNode->file, name, PATH_MAX+MAX_NAME);
-        strncpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
-        InsNode->dentry = dentry;
-	    INIT_LIST_HEAD(&InsNode->read_reqs.list);
-	    INIT_LIST_HEAD(&InsNode->write_reqs.list);
-        if (!rb_insert(&hetfstree, InsNode)) {
+        exact = -4;
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for InsNode\n");
+        kfree(kdata);
+        up_write(&tree_sem);
+        do_exit(1);
+        return 1;
+    }
+    InsNode->read_all_file = 0;
+    InsNode->write_all_file = 0;
+    InsNode->deleted = 0;
+    InsNode->file = kzalloc(PATH_MAX+MAX_NAME, GFP_KERNEL);
+    InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (InsNode->file == NULL || InsNode->hash == NULL) {
+        exact = -4;
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for InsNode file/hash\n");
+        kfree(kdata);
+        do_exit(1);
+        up_write(&tree_sem);
+        return 1;
+    }
+    strncpy(InsNode->file, name, PATH_MAX+MAX_NAME);
+    strncpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
+    InsNode->dentry = dentry;
+	INIT_LIST_HEAD(&InsNode->read_reqs.list);
+	INIT_LIST_HEAD(&InsNode->write_reqs.list);
+
+    down_write(&tree_sem);
+    OutNode = rb_search(init_task.hetfstree, output);
+    if (OutNode != NULL) {
+        kfree(InsNode->file);
+        kfree(InsNode->hash);
+        kfree(InsNode);
+        InsNode = OutNode;
+    }
+    else {
+        if (!rb_insert(init_task.hetfstree, InsNode)) {
             printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
             printk(KERN_EMERG "[HETFS] file: %s with ",
                     InsNode->file);
