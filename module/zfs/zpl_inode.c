@@ -214,23 +214,29 @@ static int
 zpl_unlink(struct inode *dir, struct dentry *dentry)
 {
 	cred_t *cr = CRED();
+//#ifdef CONFIG_HETFS
 	int error, stop = 0;
     char *name;
     boolean_t delete;
+//#endif
 	fstrans_cookie_t cookie;
     loff_t size = i_size_read(d_inode(dentry));
 	zfs_sb_t *zsb = dentry->d_sb->s_fs_info;
 
 	crhold(cr);
 	cookie = spl_fstrans_mark();
+//#ifdef CONFIG_HETFS
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
     if (zsb->z_mntopts->z_mntpoint != NULL)
         strncat(name, zsb->z_mntopts->z_mntpoint, strlen(zsb->z_mntopts->z_mntpoint));
 	fullname(dentry, name, &stop);
+//#endif
 	error = -zfs_remove(dir, dname(dentry), cr, 0, &delete);
+//#ifdef CONFIG_HETFS
     if (delete)
         delete_request(dentry, name, size);
     kfree(name);
+//#endif
 	/*
 	 * For a CI FS we must invalidate the dentry to prevent the
 	 * creation of negative entries.
