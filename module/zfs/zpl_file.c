@@ -1109,6 +1109,12 @@ int add_request(void *data)
         strncat(name, zsb->z_mntopts->z_mntpoint,
                 strlen(zsb->z_mntopts->z_mntpoint));
 	fullname(dentry, name, &stop);
+    if (name == NULL) {
+        printk(KERN_EMERG "[ERROR]name and mountpoint NULL\n");
+        kfree(kdata);
+        do_exit(1);
+        return 1;
+    }
     hetfstree = init_task.hetfstree;
     if (init_task.hetfstree == NULL) {
 	    init_task.hetfstree = kzalloc(sizeof(struct rb_root),GFP_KERNEL);
