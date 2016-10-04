@@ -1194,9 +1194,12 @@ int add_request(void *data)
     }
 
     kfree(output);
-    printk(KERN_EMERG "[ERROR]name pointer: %p\n", &name);
-    printk(KERN_EMERG "[ERROR]name: %s\n", name);
-    kfree(name);
+    //printk(KERN_EMERG "[ERROR]name pointer: %p\n", &name);
+    //printk(KERN_EMERG "[ERROR]name: %s\n", name);
+    if (name == NULL)
+        printk(KERN_EMERG "[ERROR]Name NULL before free %s %s\n",zsb->z_mntopts->z_mntpoint, dentry->d_name.name);
+    else
+        kfree(name);
 
     if (&InsNode->write_reqs.list == NULL) {
         exact = -4;
