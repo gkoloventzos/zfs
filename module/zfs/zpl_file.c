@@ -340,13 +340,16 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 //#ifdef CONFIG_HETFS
     if (read > 0 && exact > 0) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
-        kdata->dentry = file_dentry(filp);
-        kdata->type = UIO_READ;
-        kdata->offset = *ppos;
-        kdata->length = read;
-        kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
-        thread1 = kthread_run(add_request, (void *) kdata,"readreq");
-//	    add_request((void *)kdata);
+        if (kdata != NULL) {
+            kdata->dentry = file_dentry(filp);
+            kdata->type = UIO_READ;
+            kdata->offset = *ppos;
+            kdata->length = read;
+            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+            thread1 = kthread_run(add_request, (void *) kdata,"readreq");
+        }
+        else
+            printk(KERN_EMERG "[ERROR] Kdata null read\n");
     }
 //#endif
 
@@ -463,13 +466,16 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 //ifdef CONFIG_HETFS
     if (wrote > 0 && exact > 0) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
-        kdata->dentry = file_dentry(filp);
-        kdata->type = UIO_WRITE;
-        kdata->offset = *ppos;
-        kdata->length = wrote;
-        kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
-        thread1 = kthread_run(add_request, (void *) kdata,"writereq");
-//	    add_request((void *)kdata);
+        if (kdata != NULL) {
+            kdata->dentry = file_dentry(filp);
+            kdata->type = UIO_WRITE;
+            kdata->offset = *ppos;
+            kdata->length = wrote;
+            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+            thread1 = kthread_run(add_request, (void *) kdata,"writereq");
+        }
+        else
+            printk(KERN_EMERG "[ERROR] Kdata null write\n");
     }
 //#endif
 
@@ -1127,8 +1133,14 @@ int add_request(void *data)
         *init_task.hetfstree = RB_ROOT;
     }
     InsNode = NULL;
-//	printk(KERN_EMERG "[HETFS]add file: %s time: %lld\n", name, time);
     output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL) {
+        exact = -4;
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        kfree(kdata);
+        do_exit(1);
+        return 1;
+    }
 
     tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
     desc.tfm = tfm;
@@ -1164,9 +1176,24 @@ int add_request(void *data)
     strncpy(InsNode->file, name, PATH_MAX+MAX_NAME);
     strncpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
     InsNode->dentry = dentry;
-	INIT_LIST_HEAD(&InsNode->read_reqs.list);
-	INIT_LIST_HEAD(&InsNode->write_reqs.list);
-
+    InsNode->read_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
+    if (InsNode->read_reqs == NULL) {
+        exact = -4;
+        printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
+        kfree(kdata);
+        do_exit(1);
+        return 1;
+    }
+    InsNode->write_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
+    if (InsNode->write_reqs == NULL) {
+        exact = -4;
+        printk(KERN_EMERG "[ERROR]InsNode write null after malloc\n");
+        kfree(kdata);
+        do_exit(1);
+        return 1;
+    }
+	INIT_LIST_HEAD(InsNode->read_reqs);
+	INIT_LIST_HEAD(InsNode->write_reqs);
     down_write(&tree_sem);
     OutNode = rb_search(init_task.hetfstree, output);
     if (OutNode != NULL) {
