@@ -1099,6 +1099,7 @@ int add_request(void *data)
     long len = kdata->length;
     struct rb_root *hetfstree;
     unsigned long long int time = kdata->time;
+    InsNode = NULL;
 
     if (d_really_is_negative(dentry))
         return 1;
@@ -1156,7 +1157,6 @@ int add_request(void *data)
         exact = -4;
         printk(KERN_EMERG "[ERROR] Cannot alloc memory for InsNode\n");
         kfree(kdata);
-        up_write(&tree_sem);
         do_exit(1);
         return 1;
     }
@@ -1170,7 +1170,6 @@ int add_request(void *data)
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for InsNode file/hash\n");
         kfree(kdata);
         do_exit(1);
-        up_write(&tree_sem);
         return 1;
     }
     strncpy(InsNode->file, name, PATH_MAX+MAX_NAME);
@@ -1203,16 +1202,15 @@ int add_request(void *data)
         kfree(InsNode->write_reqs);
         kfree(InsNode);
         InsNode = OutNode;
+//        printk(KERN_EMERG "[DEBUG]Exists in tree\n");
     }
     else {
         if (!rb_insert(init_task.hetfstree, InsNode)) {
             printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
-            printk(KERN_EMERG "[HETFS] file: %s with ",
-                    InsNode->file);
+            printk(KERN_EMERG "[HETFS] file: %s with ", InsNode->file);
             //sha512print(InsNode->hash, 1);
             exact = -4;
         }
-//        printk(KERN_EMERG "[HETFS]New node with name %s\n", InsNode->file);
         ++exact;
     }
     up_write(&tree_sem);
@@ -1223,12 +1221,7 @@ int add_request(void *data)
     }
 
     kfree(output);
-    //printk(KERN_EMERG "[ERROR]name pointer: %p\n", &name);
-    //printk(KERN_EMERG "[ERROR]name: %s\n", name);
-    if (name == NULL)
-        printk(KERN_EMERG "[ERROR]Name NULL before free %s %s\n",zsb->z_mntopts->z_mntpoint, dentry->d_name.name);
-    else
-        kfree(name);
+    kfree(name);
 
 //    printk(KERN_EMERG "[DEBUG]InsNode %p, &InsNode:%p, InsNode-r:%p, InsNode-w:%p\n", InsNode, &InsNode, InsNode->read_reqs, InsNode->write_reqs);
     if (InsNode == NULL || !InsNode) {
