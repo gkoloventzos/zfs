@@ -988,7 +988,7 @@ void analyze(struct data* InsNode)
     loff_t part, half;
     int mid, all = 0;
     half = InsNode->size >> 1;
-    list_for_each_safe(pos, n, &InsNode->read_reqs.list) {
+    list_for_each_safe(pos, n, InsNode->read_reqs) {
         areq = list_entry(pos, struct analyze_request, list);
         part = areq->end_offset - areq->start_offset;
         InsNode->read_all_file++;
@@ -1004,7 +1004,7 @@ void analyze(struct data* InsNode)
     if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid)))
         printk(KERN_EMERG "[HETFS] It was read sequentially\n");
     all = 0;
-    list_for_each_safe(pos, n, &InsNode->write_reqs.list) {
+    list_for_each_safe(pos, n, InsNode->write_reqs) {
         areq = list_entry(pos, struct analyze_request, list);
         part = areq->end_offset - areq->start_offset;
         InsNode->write_all_file++;
@@ -1199,6 +1199,8 @@ int add_request(void *data)
     if (OutNode != NULL) {
         kfree(InsNode->file);
         kfree(InsNode->hash);
+        kfree(InsNode->read_reqs);
+        kfree(InsNode->write_reqs);
         kfree(InsNode);
         InsNode = OutNode;
     }
@@ -1228,18 +1230,25 @@ int add_request(void *data)
     else
         kfree(name);
 
-    if (&InsNode->write_reqs.list == NULL) {
+//    printk(KERN_EMERG "[DEBUG]InsNode %p, &InsNode:%p, InsNode-r:%p, InsNode-w:%p\n", InsNode, &InsNode, InsNode->read_reqs, InsNode->write_reqs);
+    if (InsNode == NULL || !InsNode) {
         exact = -4;
-        printk(KERN_EMERG "[ERROR]InsNode write null after insert\n");
-        INIT_LIST_HEAD(&InsNode->write_reqs.list);
+        printk(KERN_EMERG "[ERROR]InsNode\n");
         kfree(kdata);
         do_exit(1);
         return 1;
     }
-    if (&InsNode->read_reqs.list == NULL) {
+
+    if (InsNode->write_reqs == NULL) {
+        exact = -4;
+        printk(KERN_EMERG "[ERROR]InsNode write null after insert\n");
+        kfree(kdata);
+        do_exit(1);
+        return 1;
+    }
+    if (InsNode->read_reqs == NULL) {
         exact = -4;
         printk(KERN_EMERG "[ERROR]InsNode read null after insert\n");
-        INIT_LIST_HEAD(&InsNode->read_reqs.list);
         kfree(kdata);
         do_exit(1);
         return 1;
@@ -1247,17 +1256,9 @@ int add_request(void *data)
     InsNode->size = i_size_read(d_inode(InsNode->dentry));
 
     if (type == 0)
-        general = &InsNode->read_reqs.list;
+        general = InsNode->read_reqs;
     else
-        general = &InsNode->write_reqs.list;
-    if (general == NULL) {
-        exact = -4;
-        printk(KERN_EMERG "[ERROR]generalnull after insert\n");
-        printk(KERN_EMERG "[ERROR]name %s\n", InsNode->file);
-        kfree(kdata);
-        do_exit(1);
-        return 1;
-    }
+        general = InsNode->write_reqs;
 
     if (!list_empty_careful(general)) {
         list_for_each_prev_safe(pos, n, general) {
