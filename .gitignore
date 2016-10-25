@@ -56,3 +56,4 @@ cscope.*
 
 #kernel files
 module/kernel_key.pem
+kmod-zfs-devel-0.6.6/
