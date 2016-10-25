@@ -1202,7 +1202,6 @@ int add_request(void *data)
         kfree(InsNode->write_reqs);
         kfree(InsNode);
         InsNode = OutNode;
-//        printk(KERN_EMERG "[DEBUG]Exists in tree\n");
     }
     else {
         if (!rb_insert(init_task.hetfstree, InsNode)) {
@@ -1223,7 +1222,6 @@ int add_request(void *data)
     kfree(output);
     kfree(name);
 
-//    printk(KERN_EMERG "[DEBUG]InsNode %p, &InsNode:%p, InsNode-r:%p, InsNode-w:%p\n", InsNode, &InsNode, InsNode->read_reqs, InsNode->write_reqs);
     if (InsNode == NULL || !InsNode) {
         exact = -4;
         printk(KERN_EMERG "[ERROR]InsNode\n");
@@ -1344,7 +1342,6 @@ struct data *rb_search(struct rb_root *root, char *string)
         else if (result > 0)
 			node = node->rb_right;
         else {
-//	        printk(KERN_EMERG "[HETFS] search return data\n");
 			return data;
         }
     }
