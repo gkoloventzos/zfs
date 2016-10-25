@@ -1163,7 +1163,7 @@ int add_request(void *data)
     InsNode->read_all_file = 0;
     InsNode->write_all_file = 0;
     InsNode->deleted = 0;
-    InsNode->file = kzalloc(PATH_MAX+MAX_NAME, GFP_KERNEL);
+    InsNode->file = kzalloc(strlen(name) + 1, GFP_KERNEL);
     InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
     if (InsNode->file == NULL || InsNode->hash == NULL) {
         exact = -4;
@@ -1172,8 +1172,8 @@ int add_request(void *data)
         do_exit(1);
         return 1;
     }
-    strncpy(InsNode->file, name, PATH_MAX+MAX_NAME);
-    strncpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
+    memcpy(InsNode->file, name, strlen(name) + 1);
+    memcpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
     InsNode->dentry = dentry;
     InsNode->read_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
     if (InsNode->read_reqs == NULL) {
