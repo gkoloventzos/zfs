@@ -1279,6 +1279,7 @@ int add_request(void *data)
     a_r->start_time = a_r->end_time = time;
     a_r->start_offset = offset;
     a_r->end_offset = offset + len;
+    a_r->times = 1;
     list_add_tail(&a_r->list, general);
 
 /*
