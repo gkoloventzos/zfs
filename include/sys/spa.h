@@ -620,6 +620,7 @@ extern spa_t *spa_inject_addref(char *pool);
 extern void spa_inject_delref(spa_t *spa);
 extern void spa_scan_stat_init(spa_t *spa);
 extern int spa_scan_get_stats(spa_t *spa, pool_scan_stat_t *ps);
+extern boolean_t spa_get_nonrot(spa_t *spa);
 
 #define	SPA_ASYNC_CONFIG_UPDATE	0x01
 #define	SPA_ASYNC_REMOVE	0x02

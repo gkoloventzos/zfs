@@ -567,6 +567,10 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 
 		n -= nbytes;
 	}
+
+    if (spa_get_nonrot(zsb->z_os->os_spa))
+        printk(KERN_EMERG "[NONROT] SSD read\n");
+
 out:
 	zfs_range_unlock(rl);
 
@@ -928,6 +932,9 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 		if (!xuio && n > 0)
 			uio_prefaultpages(MIN(n, max_blksz), uio);
 	}
+
+    if (spa_get_nonrot(zsb->z_os->os_spa))
+        printk(KERN_EMERG "[NONROT] SSD write\n");
 
 	zfs_inode_update(zp);
 	zfs_range_unlock(rl);

@@ -7001,6 +7001,12 @@ spa_event_notify(spa_t *spa, vdev_t *vd, const char *name)
 #endif
 }
 
+boolean_t
+spa_get_nonrot(spa_t *spa)
+{
+    return spa->spa_root_vdev->vdev_nonrot;
+}
+
 #if defined(_KERNEL) && defined(HAVE_SPL)
 /* state manipulation functions */
 EXPORT_SYMBOL(spa_open);
@@ -7058,6 +7064,7 @@ EXPORT_SYMBOL(spa_prop_clear_bootfs);
 
 /* asynchronous event notification */
 EXPORT_SYMBOL(spa_event_notify);
+EXPORT_SYMBOL(spa_get_nonrot);
 #endif
 
 #if defined(_KERNEL) && defined(HAVE_SPL)
