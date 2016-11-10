@@ -49,5 +49,6 @@ extern int zvol_set_snapdev(const char *, zprop_source_t, uint64_t);
 
 extern int zvol_init(void);
 extern void zvol_fini(void);
+extern void zvol_state_list_print(void);
 #endif /* _KERNEL */
 #endif /* _SYS_ZVOL_H */

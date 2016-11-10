@@ -36,6 +36,7 @@
 
 char *zfs_vdev_scheduler = VDEV_SCHEDULER;
 static void *zfs_vdev_holder = VDEV_HOLDER;
+int ffirst = 1;
 
 /*
  * Virtual device vector for disks.
@@ -493,17 +494,80 @@ bio_map(struct bio *bio, void *bio_ptr, unsigned int bio_size)
 	return (bio_size);
 }
 
+void
+print_io_numbers(void)
+{
+    ffirst = 0;
+    printk(KERN_EMERG "[MEAN] READ %d\n", READ);
+    printk(KERN_EMERG "[MEAN] WRITE %llu\n", WRITE);
+    printk(KERN_EMERG "[MEAN] READA %llu\n", READA);
+    printk(KERN_EMERG "[MEAN] READ_SYNC %llu\n", READ_SYNC);
+    printk(KERN_EMERG "[MEAN] WRITE_SYNC %llu\n", WRITE_SYNC);
+    printk(KERN_EMERG "[MEAN] RWA_MASK %llu\n", RWA_MASK);
+    printk(KERN_EMERG "[MEAN] RW_MASK %llu\n", RW_MASK);
+    printk(KERN_EMERG "[MEAN] WRITE_ODIRECT %llu\n", WRITE_ODIRECT);
+    printk(KERN_EMERG "[MEAN] WRITE_FLUSH %llu\n", WRITE_FLUSH);
+    printk(KERN_EMERG "[MEAN] WRITE_FUA %llu\n", WRITE_FUA);
+    printk(KERN_EMERG "[MEAN] REQ_SYNC %llu\n", REQ_SYNC);
+    printk(KERN_EMERG "[MEAN] REQ_NOIDLE %llu\n", REQ_NOIDLE);
+    printk(KERN_EMERG "[MEAN] REQ_FLUSH %llu\n", REQ_FLUSH);
+    printk(KERN_EMERG "[MEAN] REQ_FUA %llu\n", REQ_FUA);
+    printk(KERN_EMERG "[MEAN] REQ_RAHEAD %llu\n", REQ_RAHEAD);
+    printk(KERN_EMERG "[MEAN] REQ_STARTED %llu\n", REQ_STARTED);
+    printk(KERN_EMERG "[MEAN] REQ_QUEUED %llu\n", REQ_QUEUED);
+    printk(KERN_EMERG "[MEAN] REQ_FLUSH_SEQ %llu\n", REQ_FLUSH_SEQ);
+    printk(KERN_EMERG "[MEAN] REQ_FAILED %llu\n", REQ_FAILED);
+    printk(KERN_EMERG "[MEAN] REQ_WRITE_SAME %llu\n", REQ_WRITE_SAME);
+    printk(KERN_EMERG "[MEAN] REQ_QUIET %llu\n", REQ_QUIET);
+    printk(KERN_EMERG "[MEAN] REQ_PREEMPT %llu\n", REQ_PREEMPT);
+    printk(KERN_EMERG "[MEAN] REQ_IO_STAT %llu\n", REQ_IO_STAT);
+    printk(KERN_EMERG "[MEAN] REQ_THROTTLED %llu\n", REQ_THROTTLED);
+    printk(KERN_EMERG "[MEAN] REQ_FAILFAST_DEV %llu\n", REQ_FAILFAST_DEV);
+    printk(KERN_EMERG "[MEAN] REQ_FAILFAST_TRANSPORT %llu\n", REQ_FAILFAST_TRANSPORT);
+    printk(KERN_EMERG "[MEAN] REQ_FAILFAST_DRIVER %llu\n", REQ_FAILFAST_DRIVER);
+    printk(KERN_EMERG "[MEAN] REQ_PRIO %llu\n", REQ_PRIO);
+    printk(KERN_EMERG "[MEAN] REQ_META %llu\n", REQ_META);
+    printk(KERN_EMERG "[MEAN] REQ_FAILFAST_MASK %llu\n", REQ_FAILFAST_MASK);
+    printk(KERN_EMERG "[MEAN] REQ_FAILFAST_MASK | READ %llu\n", REQ_FAILFAST_MASK | READ);
+    printk(KERN_EMERG "[MEAN] REQ_FAILFAST_MASK | WRITE %llu\n", REQ_FAILFAST_MASK | WRITE);
+#ifdef WRITE_FLUSH_FUA
+    printk(KERN_EMERG "[MEAN] VDEV_WRITE_FLUSH_FUA %llu\n", VDEV_WRITE_FLUSH_FUA);
+    printk(KERN_EMERG "[MEAN] VDEV_REQ_FLUSH %llu\n", VDEV_REQ_FLUSH);
+    printk(KERN_EMERG "[MEAN] VDEV_REQ_FUA %llu\n", VDEV_REQ_FUA);
+#else
+    printk(KERN_EMERG "[MEAN] VDEV_WRITE_FLUSH_FUA %llu\n", VDEV_WRITE_FLUSH_FUA);
+#ifdef HAVE_BIO_RW_BARRIER
+    printk(KERN_EMERG "[MEAN] VDEV_REQ_FLUSH %llu\n", VDEV_REQ_FLUSH);
+    printk(KERN_EMERG "[MEAN] VDEV_REQ_FUA %llu\n", VDEV_REQ_FUA);
+#else
+    printk(KERN_EMERG "[MEAN] VDEV_REQ_FLUSH %llu\n", VDEV_REQ_FLUSH);
+    printk(KERN_EMERG "[MEAN] VDEV_REQ_FUA %llu\n", VDEV_REQ_FUA);
+#endif
+#endif
+}
+
 static inline void
 vdev_submit_bio(int rw, struct bio *bio)
 {
 #ifdef HAVE_CURRENT_BIO_TAIL
 	struct bio **bio_tail = current->bio_tail;
 	current->bio_tail = NULL;
+    print_io_numbers();
+    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev)))
+        printk(KERN_EMERG "[BIO]flag = %d NON ROT\n", rw);
+    else
+        printk(KERN_EMERG "[BIO]flag = %d ROT\n", rw);
 	submit_bio(rw, bio);
 	current->bio_tail = bio_tail;
 #else
 	struct bio_list *bio_list = current->bio_list;
 	current->bio_list = NULL;
+    if (ffirst)
+        print_io_numbers();
+/*    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev)))
+        printk(KERN_EMERG "[BIO]flag = %d NON ROT\n", rw);
+    else
+        printk(KERN_EMERG "[BIO]flag = %d ROT\n", rw);*/
 	submit_bio(rw, bio);
 	current->bio_list = bio_list;
 #endif

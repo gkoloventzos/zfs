@@ -128,6 +128,19 @@ zvol_find_minor(unsigned *minor)
 	return (0);
 }
 
+void zvol_state_list_print(void)
+{
+    zvol_state_t *zv;
+
+    mutex_enter(&zvol_state_lock);
+	for (zv = list_head(&zvol_state_list); zv != NULL;
+	    zv = list_next(&zvol_state_list, zv))
+		printk(KERN_EMERG "[ZVOL]zvol name %s\n",zv->zv_name);
+    mutex_exit(&zvol_state_lock);
+
+}
+EXPORT_SYMBOL(zvol_state_list_print);
+
 /*
  * Find a zvol_state_t given the full major+minor dev_t.
  */
@@ -1317,7 +1330,7 @@ zvol_alloc(dev_t dev, const char *name)
 	zv->zv_disk->queue = zv->zv_queue;
 	snprintf(zv->zv_disk->disk_name, DISK_NAME_LEN, "%s%d",
 	    ZVOL_DEV_NAME, (dev & MINORMASK));
-
+    printk(KERN_EMERG "[ZVOL_]%s\n", name);
 	return (zv);
 
 out_queue:

@@ -7007,6 +7007,29 @@ spa_get_nonrot(spa_t *spa)
     return spa->spa_root_vdev->vdev_nonrot;
 }
 
+char *
+spa_get_vdev_name(spa_t *spa)
+{
+    vdev_disk_t *vd = spa->spa_root_vdev->vdev_tsd;
+    if (vd == NULL) {
+        printk(KERN_EMERG "[SPA_NAME]vd is null\n");
+        return NULL;
+    }
+    if (vd->vd_bdev) {
+        printk(KERN_EMERG "[SPA_NAME]vd->vd_bdev is null\n");
+        return NULL;
+    }
+    if (vd->vd_bdev->bd_disk) {
+        printk(KERN_EMERG "[SPA_NAME]vd->vd_bdev->bd_disk is null\n");
+        return NULL;
+    }
+    if (vd->vd_bdev->bd_disk->disk_name) {
+        printk(KERN_EMERG "[SPA_NAME]vd->vd_bdev->bd_disk->disk_name is null\n");
+        return NULL;
+    }
+    return vd->vd_bdev->bd_disk->disk_name;
+}
+
 #if defined(_KERNEL) && defined(HAVE_SPL)
 /* state manipulation functions */
 EXPORT_SYMBOL(spa_open);
@@ -7065,6 +7088,7 @@ EXPORT_SYMBOL(spa_prop_clear_bootfs);
 /* asynchronous event notification */
 EXPORT_SYMBOL(spa_event_notify);
 EXPORT_SYMBOL(spa_get_nonrot);
+EXPORT_SYMBOL(spa_get_vdev_name);
 #endif
 
 #if defined(_KERNEL) && defined(HAVE_SPL)

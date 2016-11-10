@@ -32,6 +32,7 @@
 #include <sys/zfs_vnops.h>
 #include <sys/zfs_znode.h>
 #include <sys/zpl.h>
+#include <sys/zvol.h>
 #include <linux/time.h>
 
 #include <linux/crypto.h>
@@ -1090,7 +1091,6 @@ int add_request(void *data)
     struct analyze_request *a_r;
 	char *name;
 	int stop = 0;
-    zfs_sb_t *zsb = NULL;
     struct list_head *general, *pos, *n;
     struct kdata *kdata = (struct kdata *)data;
     struct dentry *dentry = kdata->dentry;
@@ -1099,11 +1099,31 @@ int add_request(void *data)
     long len = kdata->length;
     struct rb_root *hetfstree;
     unsigned long long int time = kdata->time;
+    zfs_sb_t *zsb = NULL;
+    znode_t *zn =NULL;
+    struct inode *ip = NULL;
     InsNode = NULL;
+    ip = d_inode(dentry);
+    zsb = ITOZSB(ip);
+    zn = ITOZ(ip);
 
     if (d_really_is_negative(dentry))
         return 1;
-    zsb = ITOZSB(d_inode(dentry));
+    if (exact == 600) {
+        zvol_state_list_print();
+        if (zn->z_inode.i_bdev != NULL) {
+            printk(KERN_EMERG "[DISK_NAME]i_bdev fine\n");
+        if (zn->z_inode.i_bdev->bd_disk != NULL) {
+            printk(KERN_EMERG "[DISK_NAME]i_bdev->bd_disk fine\n");
+        if (zn->z_inode.i_bdev->bd_disk->disk_name != NULL)
+            printk(KERN_EMERG "[DISK_NAME]%s\n",
+                                    d_inode(dentry)->i_bdev->bd_disk->disk_name);
+        else
+            printk(KERN_EMERG "[DISK_NAME]NULL disk name\n");
+        }
+        }
+        printk(KERN_EMERG "[ZIO_]%s\n", spa_get_vdev_name(zsb->z_os->os_spa));
+    }
 
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
     if (name == NULL) {
