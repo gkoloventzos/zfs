@@ -552,11 +552,11 @@ vdev_submit_bio(int rw, struct bio *bio)
 #ifdef HAVE_CURRENT_BIO_TAIL
 	struct bio **bio_tail = current->bio_tail;
 	current->bio_tail = NULL;
-    print_io_numbers();
+/*    print_io_numbers();
     if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev)))
         printk(KERN_EMERG "[BIO]flag = %d NON ROT\n", rw);
     else
-        printk(KERN_EMERG "[BIO]flag = %d ROT\n", rw);
+        printk(KERN_EMERG "[BIO]flag = %d ROT\n", rw);*/
 	submit_bio(rw, bio);
 	current->bio_tail = bio_tail;
 #else
@@ -564,10 +564,10 @@ vdev_submit_bio(int rw, struct bio *bio)
 	current->bio_list = NULL;
     if (ffirst)
         print_io_numbers();
-/*    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev)))
+    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev)))
         printk(KERN_EMERG "[BIO]flag = %d NON ROT\n", rw);
     else
-        printk(KERN_EMERG "[BIO]flag = %d ROT\n", rw);*/
+        printk(KERN_EMERG "[BIO]flag = %d ROT\n", rw);
 	submit_bio(rw, bio);
 	current->bio_list = bio_list;
 #endif
