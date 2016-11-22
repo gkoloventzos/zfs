@@ -41,6 +41,7 @@
 #include <linux/scatterlist.h>
 #include <crypto/sha.h>
 #include <linux/hetfs.h>
+#include <linux/het.h>
 #include <linux/list.h>
 #include <sys/zpl_relay.h>
 #include <linux/kthread.h>
@@ -339,7 +340,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
 //#ifdef CONFIG_HETFS
-    if (read > 0 && exact > 0) {
+    if (__exact > 0) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->dentry = file_dentry(filp);
@@ -465,7 +466,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
 //ifdef CONFIG_HETFS
-    if (wrote > 0 && exact > 0) {
+    if (wrote > 0 && __exact > 0) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->dentry = file_dentry(filp);
@@ -1109,7 +1110,7 @@ int add_request(void *data)
 
     if (d_really_is_negative(dentry))
         return 1;
-    if (exact == 600) {
+    if (__exact == 600) {
         zvol_state_list_print();
         if (zn->z_inode.i_bdev != NULL) {
             printk(KERN_EMERG "[DISK_NAME]i_bdev fine\n");
@@ -1156,7 +1157,7 @@ int add_request(void *data)
     InsNode = NULL;
     output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
     if (output == NULL) {
-        exact = -4;
+        __exact = -4;
         printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
         kfree(kdata);
         do_exit(1);
@@ -1174,7 +1175,7 @@ int add_request(void *data)
 
     InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
     if (InsNode == NULL) {
-        exact = -4;
+        __exact = -4;
         printk(KERN_EMERG "[ERROR] Cannot alloc memory for InsNode\n");
         kfree(kdata);
         do_exit(1);
@@ -1186,7 +1187,7 @@ int add_request(void *data)
     InsNode->file = kzalloc(strlen(name) + 1, GFP_KERNEL);
     InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
     if (InsNode->file == NULL || InsNode->hash == NULL) {
-        exact = -4;
+        __exact = -4;
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for InsNode file/hash\n");
         kfree(kdata);
         do_exit(1);
@@ -1197,7 +1198,7 @@ int add_request(void *data)
     InsNode->dentry = dentry;
     InsNode->read_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
     if (InsNode->read_reqs == NULL) {
-        exact = -4;
+        __exact = -4;
         printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
         kfree(kdata);
         do_exit(1);
@@ -1205,7 +1206,7 @@ int add_request(void *data)
     }
     InsNode->write_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
     if (InsNode->write_reqs == NULL) {
-        exact = -4;
+        __exact = -4;
         printk(KERN_EMERG "[ERROR]InsNode write null after malloc\n");
         kfree(kdata);
         do_exit(1);
@@ -1228,22 +1229,22 @@ int add_request(void *data)
             printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
             printk(KERN_EMERG "[HETFS] file: %s with ", InsNode->file);
             //sha512print(InsNode->hash, 1);
-            exact = -4;
+            __exact = -4;
         }
-        ++exact;
+        ++__exact;
     }
     up_write(&tree_sem);
 
     if (RB_EMPTY_ROOT(init_task.hetfstree)) {
         printk(KERN_EMERG "[ERROR] Tree is empty. Stop all\n");
-        exact = 0;
+        __exact = 0;
     }
 
     kfree(output);
     kfree(name);
 
     if (InsNode == NULL || !InsNode) {
-        exact = -4;
+        __exact = -4;
         printk(KERN_EMERG "[ERROR]InsNode\n");
         kfree(kdata);
         do_exit(1);
@@ -1251,14 +1252,14 @@ int add_request(void *data)
     }
 
     if (InsNode->write_reqs == NULL) {
-        exact = -4;
+        __exact = -4;
         printk(KERN_EMERG "[ERROR]InsNode write null after insert\n");
         kfree(kdata);
         do_exit(1);
         return 1;
     }
     if (InsNode->read_reqs == NULL) {
-        exact = -4;
+        __exact = -4;
         printk(KERN_EMERG "[ERROR]InsNode read null after insert\n");
         kfree(kdata);
         do_exit(1);
@@ -1289,7 +1290,7 @@ int add_request(void *data)
 
     a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
     if (a_r == NULL) {
-        exact =-4;
+        __exact =-4;
         printk(KERN_EMERG "[ERROR] Cannot allocate request\n");
         kfree(kdata);
         do_exit(1);
@@ -1323,7 +1324,7 @@ int add_request(void *data)
     relay_flush(relay_chan);
 	//printk(KERN_EMERG "[HETFS] after file: %s\n", file_id);
     kfree(buf);
-    if (exact == 2000) {
+    if (__exact == 2000) {
         printk(KERN_EMERG "[HETFS]Start of hetfs\n");
         printk(KERN_EMERG "[ERROR]print 2000 hetfstree %p\n", init_task.hetfstree);
         down_read(&tree_sem);
@@ -1379,7 +1380,7 @@ int rb_insert(struct rb_root *root, struct data *data)
         int result;
         struct data *this = container_of(*new, struct data, node);
         if (this->hash == NULL || data->hash == NULL) {
-            exact = -4;
+            __exact = -4;
             printk(KERN_EMERG "[ERROR] NULL hash - rb_insert\n");
             return FALSE;
         }
@@ -1396,7 +1397,7 @@ int rb_insert(struct rb_root *root, struct data *data)
         }
     }
 
-    //printk(KERN_EMERG "[HETFS] add in tree %s as %d node\n", data->file, exact);
+    //printk(KERN_EMERG "[HETFS] add in tree %s as %d node\n", data->file, __exact);
     /* Add new node and rebalance tree. */
     //printk(KERN_EMERG "[ERROR]insert hetfstree %p\n", root);
     rb_link_node(&data->node, parent, new);
