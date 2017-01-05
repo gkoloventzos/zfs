@@ -80,6 +80,7 @@
 #include <sys/attr.h>
 #include <sys/zpl.h>
 
+extern int _myprint;
 /*
  * Programming rules.
  *
@@ -391,6 +392,8 @@ mappedread(struct inode *ip, int nbytes, uio_t *uio, int *rot, const char *name)
 	void *pb;
 
 	//printk(KERN_ERR "mappedread in\n");
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in name %s offset %lld\n",__FUNCTION__, name, uio->uio_loffset);
 	start = uio->uio_loffset;
 	off = start & (PAGE_SIZE-1);
 	for (start &= PAGE_MASK; len > 0; start += PAGE_SIZE) {
@@ -459,6 +462,8 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr, int *rot, const c
 #endif /* HAVE_UIO_ZEROCOPY */
 
     //printk(KERN_ERR "zfs_read in\n");
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, name, uio->uio_loffset);
 	ZFS_ENTER(zsb);
 	ZFS_VERIFY_ZP(zp);
 
@@ -575,6 +580,9 @@ out:
 	zfs_range_unlock(rl);
 
 	ZFS_EXIT(zsb);
+//    if (_myprint)
+        printk(KERN_EMERG "[PRINT]%s offset %lld ROT %d NONROT %d\n",name, uio->uio_loffset, rot[0], rot[1]);
+    //kfree(rot);
     //printk(KERN_ERR "zfs_read out\n");
 	return (error);
 }

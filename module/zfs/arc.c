@@ -152,6 +152,7 @@
 #include <sys/arc_impl.h>
 #include <sys/trace_arc.h>
 
+extern int _myprint;
 #ifndef _KERNEL
 /* set with ZFS_DEBUG=watch, to enable watchpoints on frozen buffers */
 boolean_t arc_watch = B_FALSE;
@@ -4229,6 +4230,12 @@ arc_read(zio_t *pio, spa_t *spa, const blkptr_t *bp, arc_done_func_t *done,
 	uint64_t guid = spa_load_guid(spa);
 	int rc = 0;
 
+    if (_myprint) {
+        if (pio->name == NULL)
+            printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld\n",__FUNCTION__, pio->io_timestamp, pio->io_offset);
+        else
+            printk(KERN_EMERG "[PRINT] Passed %s in name %s time %lld offset %lld\n",__FUNCTION__, pio->name, pio->io_timestamp, pio->io_offset);
+    }
 	ASSERT(!BP_IS_EMBEDDED(bp) ||
 	    BPE_GET_ETYPE(bp) == BP_EMBEDDED_TYPE_DATA);
 

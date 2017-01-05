@@ -42,6 +42,7 @@
  * so it can't hurt performance.
  */
 
+extern int _myprint;
 int zfs_prefetch_disable = B_FALSE;
 
 /* max # of streams per zfetch */
@@ -216,6 +217,8 @@ dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks, int *rot, const char *n
 	 */
 	if (blkid == 0)
 		return;
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in\n",__FUNCTION__);
 
 	rw_enter(&zf->zf_rwlock, RW_READER);
 

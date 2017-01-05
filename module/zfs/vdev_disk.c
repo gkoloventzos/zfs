@@ -33,11 +33,12 @@
 #include <sys/fs/zfs.h>
 #include <sys/zio.h>
 #include <sys/sunldi.h>
+//#include <linux/inhet.h>
 
 char *zfs_vdev_scheduler = VDEV_SCHEDULER;
 static void *zfs_vdev_holder = VDEV_HOLDER;
 int ffirst = 1;
-
+extern int _myprint;
 /*
  * Virtual device vector for disks.
  */
@@ -553,25 +554,37 @@ vdev_submit_bio(int rw, struct bio *bio)
 #ifdef HAVE_CURRENT_BIO_TAIL
 	struct bio **bio_tail = current->bio_tail;
 	current->bio_tail = NULL;
-/*    print_io_numbers();
-    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev)))
-        printk(KERN_EMERG "[BIO]flag = %d NON ROT\n", rw);
-    else
-        printk(KERN_EMERG "[BIO]flag = %d ROT\n", rw);*/
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+/*    print_io_numbers();*/
+    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]flag = %d NON ROT\n", rw);
+    }
+    else {
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]flag = %d ROT\n", rw);
+    }
 	submit_bio(rw, bio);
 	current->bio_tail = bio_tail;
 #else
 	struct bio_list *bio_list = current->bio_list;
 	current->bio_list = NULL;
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
 /*    if (ffirst)
         print_io_numbers();*/
     if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]flag = %d NON ROT\n", rw);
         dio = bio->bi_private;
         if (rw != VDEV_WRITE_FLUSH_FUA)
             if (dio != NULL && dio->dr_zio != NULL && dio->dr_zio->rot != NULL)
                 dio->dr_zio->rot[0]++;
     }
     else {
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]flag = %d ROT\n", rw);
         dio = bio->bi_private;
         if (rw != VDEV_WRITE_FLUSH_FUA)
             if (dio != NULL && dio->dr_zio != NULL && dio->dr_zio->rot != NULL)
@@ -593,6 +606,21 @@ __vdev_disk_physio(struct block_device *bdev, zio_t *zio, caddr_t kbuf_ptr,
 	int i = 0, error = 0;
 
 	ASSERT3U(kbuf_offset + kbuf_size, <=, bdev->bd_inode->i_size);
+
+//    if (_myprint) {
+        printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+        if (zio != NULL) {
+            printk(KERN_EMERG "[PRINT] %lld in a\n", zio->io_timestamp);
+            if (zio->name != NULL)
+            printk(KERN_EMERG "[PRINT] name %s\n", zio->name);
+            if (zio->io_vd->vdev_nonrot)
+                printk(KERN_EMERG "[PRINT] non\n");
+            printk(KERN_EMERG "[PRINT] rotating vdevice\n");
+        }
+        else {
+            printk(KERN_EMERG "[PRINT] zio is NULL?!?!\n");
+        }
+//    }
 
 retry:
 	dr = vdev_disk_dio_alloc(bio_count);
@@ -689,6 +717,8 @@ int
 vdev_disk_physio(struct block_device *bdev, caddr_t kbuf,
     size_t size, uint64_t offset, int flags)
 {
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT] Passed %s in %lld\n",__FUNCTION__, offset);
 	bio_set_flags_failfast(bdev, &flags);
 	return (__vdev_disk_physio(bdev, NULL, kbuf, size, offset, flags, 1));
 }
@@ -726,6 +756,8 @@ vdev_disk_io_flush(struct block_device *bdev, zio_t *zio)
 	if (unlikely(bio == NULL))
 		return (ENOMEM);
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
 	bio->bi_end_io = vdev_disk_io_flush_completion;
 	bio->bi_private = zio;
 	bio->bi_bdev = bdev;
@@ -780,6 +812,8 @@ vdev_disk_io_start(zio_t *zio)
 		zio_execute(zio);
 		return;
 	case ZIO_TYPE_WRITE:
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT] Passed %s in %lld name %s type %d WRITE\n",__FUNCTION__, zio->io_timestamp, zio->name, zio->io_type);
 		if ((pri == ZIO_PRIORITY_SYNC_WRITE) && (v->vdev_nonrot))
 			flags = WRITE_SYNC;
 		else
@@ -787,6 +821,8 @@ vdev_disk_io_start(zio_t *zio)
 		break;
 
 	case ZIO_TYPE_READ:
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT] Passed %s in %lld name %s type %d READ\n",__FUNCTION__, zio->io_timestamp, zio->name, zio->io_type);
 		if ((pri == ZIO_PRIORITY_SYNC_READ) && (v->vdev_nonrot))
 			flags = READ_SYNC;
 		else
@@ -833,6 +869,8 @@ vdev_disk_hold(vdev_t *vd)
 {
 	ASSERT(spa_config_held(vd->vdev_spa, SCL_STATE, RW_WRITER));
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT] Passed %s in %llu\n",__FUNCTION__, vd->vdev_guid);
 	/* We must have a pathname, and it must be absolute. */
 	if (vd->vdev_path == NULL || vd->vdev_path[0] != '/')
 		return;

@@ -51,6 +51,7 @@
 #include <sys/zfs_znode.h>
 #endif
 
+extern int _myprint;
 /*
  * Enable/disable nopwrite feature.
  */
@@ -166,6 +167,8 @@ dmu_buf_hold(objset_t *os, uint64_t object, uint64_t offset,
 	err = dmu_buf_hold_noread(os, object, offset, tag, dbp);
 	if (err == 0) {
 		dmu_buf_impl_t *db = (dmu_buf_impl_t *)(*dbp);
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]Passed %s time %lld\n",__FUNCTION__, gethrtime());
 		err = dbuf_read(db, NULL, db_flags, NULL, NULL);
 		if (err != 0) {
 			dbuf_rele(db, tag);
@@ -296,6 +299,8 @@ dmu_bonus_hold(objset_t *os, uint64_t object, void *tag, dmu_buf_t **dbp)
 
 	dnode_rele(dn, FTAG);
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in zio NULL\n",__FUNCTION__);
 	VERIFY(0 == dbuf_read(db, NULL, DB_RF_MUST_SUCCEED | DB_RF_NOPREFETCH, NULL, NULL));
 
 	*dbp = &db->db;
@@ -326,6 +331,8 @@ dmu_spill_hold_by_dnode(dnode_t *dn, uint32_t flags, void *tag, dmu_buf_t **dbp)
 		rw_exit(&dn->dn_struct_rwlock);
 
 	ASSERT(db != NULL);
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]Passed %s in zio null\n",__FUNCTION__);
 	err = dbuf_read(db, NULL, flags, NULL, NULL);
 	if (err == 0)
 		*dbp = &db->db;
@@ -396,6 +403,8 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	zio_t *zio;
 
 	ASSERT(length <= DMU_MAX_ACCESS);
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, name, offset);
 
 	/*
 	 * Note: We directly notify the prefetch code of this read, so that
@@ -786,6 +795,8 @@ dmu_read(objset_t *os, uint64_t object, uint64_t offset, uint64_t size,
 	if (err)
 		return (err);
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in\n",__FUNCTION__);
 	/*
 	 * Deal with odd block sizes, where there can't be data past the first
 	 * block.  If we ever do the tail block optimization, we will need to
@@ -1076,6 +1087,8 @@ dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, int *rot, const char 
 	 * to be reading in parallel.
 	 */
 	//printk(KERN_ERR "dmu_read_uio_dnode in\n");
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, name, uio->uio_loffset);
 	err = dmu_buf_hold_array_by_dnode(dn, uio->uio_loffset, size,
 	    TRUE, FTAG, &numbufs, &dbp, 0, rot, name);
 	if (err)
@@ -1136,15 +1149,17 @@ dmu_read_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size, int *rot, const cha
 	dnode_t *dn;
 	int err;
 
-	//printk(KERN_ERR "dmu_read_uio_dbuf in\n");
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in %s %lld\n",__FUNCTION__, name, uio->uio_loffset);
 	if (size == 0)
 		return (0);
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s size not 0 %s %lld\n",__FUNCTION__, name, uio->uio_loffset);
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
 	err = dmu_read_uio_dnode(dn, uio, size, rot, name);
 	DB_DNODE_EXIT(db);
-	//printk(KERN_ERR "dmu_read_uio_dbuf out\n");
 	return (err);
 }
 
@@ -1181,6 +1196,8 @@ dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx)
 	int err = 0;
 	int i;
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in zio NULL\n",__FUNCTION__);
 	//printk(KERN_ERR "dmu_write_uio_dnode in\n");
 	err = dmu_buf_hold_array_by_dnode(dn, uio->uio_loffset, size,
 	    FALSE, FTAG, &numbufs, &dbp, DMU_READ_PREFETCH, NULL, NULL);

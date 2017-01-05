@@ -41,6 +41,7 @@
 #include <linux/scatterlist.h>
 #include <crypto/sha.h>
 #include <linux/hetfs.h>
+//#include <linux/inhet.h>
 #include <linux/het.h>
 #include <linux/list.h>
 #include <sys/zpl_relay.h>
@@ -49,6 +50,7 @@
 #include <asm/syscall.h>
 #include <linux/init_task.h>
 
+extern int _myprint;
 /*static struct dentry *create_buf_file_handler(const char * filename, struct dentry * parent, umode_t mode, struct rchan_buf *buf, int *is_global)
 {
 	*is_global = 1;
@@ -266,6 +268,8 @@ zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 	int error;
 	fstrans_cookie_t cookie;
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, name, *ppos);
 	uio.uio_iov = iovp;
 	uio.uio_skip = skip;
 	uio.uio_resid = count;
@@ -293,6 +297,8 @@ zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
 {
 	struct iovec iov;
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, name, *ppos);
 	iov.iov_base = (void *)buf;
 	iov.iov_len = len;
 
@@ -338,6 +344,9 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     rot = kzalloc(2*sizeof(int), GFP_KERNEL);
     rot[0] = rot[1] = 0;
     name = file_dentry(filp)->d_name.name;
+
+//    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, name, *ppos);
 //#endif
 
 	crhold(cr);
@@ -373,6 +382,8 @@ zpl_iter_read_common(struct kiocb *kiocb, const struct iovec *iovp,
 	ssize_t read;
 
 	crhold(cr);
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in %lld\n",__FUNCTION__, kiocb->ki_pos);
 	read = zpl_read_common_iovec(filp->f_mapping->host, iovp, count,
 	    nr_segs, &kiocb->ki_pos, seg, filp->f_flags, cr, skip, NULL, NULL);
 	crfree(cr);

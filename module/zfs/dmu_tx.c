@@ -41,6 +41,8 @@
 #include <sys/trace_dmu.h>
 #include <sys/vdev_impl.h>
 
+extern int _myprint;
+
 typedef void (*dmu_tx_hold_func_t)(dmu_tx_t *tx, struct dnode *dn,
     uint64_t arg1, uint64_t arg2);
 
@@ -179,6 +181,10 @@ dmu_tx_check_ioerr(zio_t *zio, dnode_t *dn, int level, uint64_t blkid)
 	rw_exit(&dn->dn_struct_rwlock);
 	if (db == NULL)
 		return (SET_ERROR(EIO));
+    if (_myprint) {
+        printk(KERN_EMERG "[PRINT]Passed %s in ",__FUNCTION__);
+        printk(KERN_EMERG "\n");
+    }
 	err = dbuf_read(db, zio, DB_RF_CANFAIL | DB_RF_NOPREFETCH, NULL, NULL);
 	dbuf_rele(db, FTAG);
 	return (err);
@@ -552,6 +558,8 @@ dmu_tx_count_free(dmu_tx_hold_t *txh, uint64_t off, uint64_t len)
 		 * memory.
 		 */
 
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]Passed %s in\n",__FUNCTION__);
 		err = dbuf_read(dbuf, NULL, DB_RF_HAVESTRUCT | DB_RF_CANFAIL, NULL, NULL);
 		if (err != 0) {
 			txh->txh_tx->tx_err = err;

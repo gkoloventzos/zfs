@@ -39,6 +39,7 @@
 #include <sys/range_tree.h>
 #include <sys/trace_dnode.h>
 
+extern int _myprint;
 static kmem_cache_t *dnode_cache;
 /*
  * Define DNODE_STATS to turn on statistic gathering. By default, it is only
@@ -1117,6 +1118,8 @@ dnode_hold_impl(objset_t *os, uint64_t object, int flag,
 		rw_exit(&mdn->dn_struct_rwlock);
 	if (db == NULL)
 		return (SET_ERROR(EIO));
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in\n",__FUNCTION__);
 	err = dbuf_read(db, NULL, DB_RF_CANFAIL, NULL, NULL);
 	if (err) {
 		dbuf_rele(db, FTAG);
@@ -1889,6 +1892,8 @@ dnode_next_offset_level(dnode_t *dn, int flags, uint64_t *offset,
 			 */
 			return (SET_ERROR(ESRCH));
 		}
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]Passed %s in zio NULL %lld\n",__FUNCTION__, *offset);
 		error = dbuf_read(db, NULL, DB_RF_CANFAIL | DB_RF_HAVESTRUCT, NULL, NULL);
 		if (error) {
 			dbuf_rele(db, FTAG);

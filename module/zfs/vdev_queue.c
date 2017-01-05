@@ -39,6 +39,8 @@
 
 #define ROT 0
 #define NONROT 1
+
+extern int _myprint;
 /*
  * ZFS I/O Scheduler
  * ---------------
@@ -710,7 +712,10 @@ vdev_queue_io(zio_t *zio)
 {
 	vdev_queue_t *vq = &zio->io_vd->vdev_queue;
 	zio_t *nio;
+    hrtime_t g_now = gethrtime();
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT] Passed %s in %lld time %lld name %s\n",__FUNCTION__, zio->io_timestamp, g_now, zio->name);
 	if (zio->io_flags & ZIO_FLAG_DONT_QUEUE)
 		return (zio);
 
@@ -738,6 +743,8 @@ vdev_queue_io(zio_t *zio)
 	nio = vdev_queue_io_to_issue(vq);
 	mutex_exit(&vq->vq_lock);
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT] Passed %s in %lld time %lld name %s\n",__FUNCTION__, zio->io_timestamp, g_now, zio->name);
 	if (nio == NULL)
 		return (NULL);
 
@@ -762,6 +769,12 @@ vdev_queue_io_done(zio_t *zio)
 	if (zio_injection_enabled)
 		delay(SEC_TO_TICK(zio_handle_io_delay(zio)));
 
+    if (_myprint) {
+        if (zio->name != NULL)
+            printk(KERN_EMERG "[PRINT] Passed %s in file %s %lld\n",__FUNCTION__, zio->name, zio->io_timestamp);
+        else
+            printk(KERN_EMERG "[PRINT] Passed %s in %lld\n",__FUNCTION__, zio->io_timestamp);
+    }
 	mutex_enter(&vq->vq_lock);
 
 	vdev_queue_pending_remove(vq, zio);
@@ -782,6 +795,8 @@ vdev_queue_io_done(zio_t *zio)
 	}
     if (zio->rot != NULL)
         vq->vq_vdev->vdev_nonrot?zio->rot[NONROT]++:zio->rot[ROT]++;
+/*    else
+        printk(KERN_EMERG "[VDEV] vdev_queue_io_done rot is NULL\n");*/
 
 	mutex_exit(&vq->vq_lock);
 }
