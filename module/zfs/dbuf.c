@@ -47,6 +47,7 @@
 #include <sys/trace_dbuf.h>
 #include <sys/callb.h>
 #include <sys/abd.h>
+#include <sys/vdev_impl.h>
 
 struct dbuf_hold_impl_data {
 	/* Function arguments */
@@ -71,7 +72,7 @@ static void __dbuf_hold_impl_init(struct dbuf_hold_impl_data *dh,
     dnode_t *dn, uint8_t level, uint64_t blkid, boolean_t fail_sparse,
 	boolean_t fail_uncached,
 	void *tag, dmu_buf_impl_t **dbp, int depth);
-static int __dbuf_hold_impl(struct dbuf_hold_impl_data *dh);
+static int __dbuf_hold_impl(struct dbuf_hold_impl_data *dh, int *rot);
 
 uint_t zfs_dbuf_evict_key;
 /*
@@ -1159,7 +1160,7 @@ dbuf_fix_old_data(dmu_buf_impl_t *db, uint64_t txg)
 }
 
 int
-dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags)
+dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags, int *rot)
 {
 	int err = 0;
 	boolean_t havepzio = (zio != NULL);
@@ -1200,7 +1201,7 @@ dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags)
 		}
 		mutex_exit(&db->db_mtx);
 		if (prefetch)
-			dmu_zfetch(&dn->dn_zfetch, db->db_blkid, 1, B_TRUE);
+			dmu_zfetch(&dn->dn_zfetch, db->db_blkid, 1, B_TRUE, rot);
 		if ((flags & DB_RF_HAVESTRUCT) == 0)
 			rw_exit(&dn->dn_struct_rwlock);
 		DB_DNODE_EXIT(db);
@@ -1208,15 +1209,17 @@ dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags)
 		spa_t *spa = dn->dn_objset->os_spa;
 
 		if (zio == NULL &&
-		    db->db_blkptr != NULL && !BP_IS_HOLE(db->db_blkptr))
+		    db->db_blkptr != NULL && !BP_IS_HOLE(db->db_blkptr)) {
 			zio = zio_root(spa, NULL, NULL, ZIO_FLAG_CANFAIL);
+            zio->rot = rot;
+        }
 
 		err = dbuf_read_impl(db, zio, flags);
 
 		/* dbuf_read_impl has dropped db_mtx for us */
 
 		if (!err && prefetch)
-			dmu_zfetch(&dn->dn_zfetch, db->db_blkid, 1, B_TRUE);
+			dmu_zfetch(&dn->dn_zfetch, db->db_blkid, 1, B_TRUE, rot);
 
 		if ((flags & DB_RF_HAVESTRUCT) == 0)
 			rw_exit(&dn->dn_struct_rwlock);
@@ -1235,7 +1238,7 @@ dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags)
 		 */
 		mutex_exit(&db->db_mtx);
 		if (prefetch)
-			dmu_zfetch(&dn->dn_zfetch, db->db_blkid, 1, B_TRUE);
+			dmu_zfetch(&dn->dn_zfetch, db->db_blkid, 1, B_TRUE, rot);
 		if ((flags & DB_RF_HAVESTRUCT) == 0)
 			rw_exit(&dn->dn_struct_rwlock);
 		DB_DNODE_EXIT(db);
@@ -1813,7 +1816,7 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 			int epbs = dn->dn_indblkshift - SPA_BLKPTRSHIFT;
 
 			parent = dbuf_hold_level(dn, db->db_level+1,
-			    db->db_blkid >> epbs, FTAG);
+			    db->db_blkid >> epbs, FTAG, NULL);
 			ASSERT(parent != NULL);
 			parent_held = TRUE;
 		}
@@ -1985,7 +1988,7 @@ dmu_buf_will_dirty(dmu_buf_t *db_fake, dmu_tx_t *tx)
 	if (RW_WRITE_HELD(&DB_DNODE(db)->dn_struct_rwlock))
 		rf |= DB_RF_HAVESTRUCT;
 	DB_DNODE_EXIT(db);
-	(void) dbuf_read(db, NULL, rf);
+	(void) dbuf_read(db, NULL, rf, NULL);
 	(void) dbuf_dirty(db, tx);
 }
 
@@ -2243,7 +2246,8 @@ dbuf_destroy(dmu_buf_impl_t *db)
 __attribute__((always_inline))
 static inline int
 dbuf_findbp(dnode_t *dn, int level, uint64_t blkid, int fail_sparse,
-    dmu_buf_impl_t **parentp, blkptr_t **bpp, struct dbuf_hold_impl_data *dh)
+    dmu_buf_impl_t **parentp, blkptr_t **bpp, struct dbuf_hold_impl_data *dh,
+    int *rot)
 {
 	int nlevels, epbs;
 
@@ -2301,17 +2305,17 @@ dbuf_findbp(dnode_t *dn, int level, uint64_t blkid, int fail_sparse,
 		int err;
 		if (dh == NULL) {
 			err = dbuf_hold_impl(dn, level+1,
-			    blkid >> epbs, fail_sparse, FALSE, NULL, parentp);
+			    blkid >> epbs, fail_sparse, FALSE, NULL, parentp, NULL);
 		} else {
 			__dbuf_hold_impl_init(dh + 1, dn, dh->dh_level + 1,
 			    blkid >> epbs, fail_sparse, FALSE, NULL,
 			    parentp, dh->dh_depth + 1);
-			err = __dbuf_hold_impl(dh + 1);
+			err = __dbuf_hold_impl(dh + 1, NULL);
 		}
 		if (err)
 			return (err);
 		err = dbuf_read(*parentp, NULL,
-		    (DB_RF_HAVESTRUCT | DB_RF_NOPREFETCH | DB_RF_CANFAIL));
+		    (DB_RF_HAVESTRUCT | DB_RF_NOPREFETCH | DB_RF_CANFAIL), rot);
 		if (err) {
 			dbuf_rele(*parentp, NULL);
 			*parentp = NULL;
@@ -2492,9 +2496,9 @@ dbuf_prefetch_indirect_done(zio_t *zio, arc_buf_t *abuf, void *private)
 		    (dpa->dpa_epbs * (dpa->dpa_curlevel -
 		    dpa->dpa_zb.zb_level));
 		dmu_buf_impl_t *db = dbuf_hold_level(dpa->dpa_dnode,
-		    dpa->dpa_curlevel, curblkid, FTAG);
+		    dpa->dpa_curlevel, curblkid, FTAG, NULL);
 		(void) dbuf_read(db, NULL,
-		    DB_RF_MUST_SUCCEED | DB_RF_NOPREFETCH | DB_RF_HAVESTRUCT);
+		    DB_RF_MUST_SUCCEED | DB_RF_NOPREFETCH | DB_RF_HAVESTRUCT, NULL);
 		dbuf_rele(db, FTAG);
 	}
 
@@ -2536,7 +2540,7 @@ dbuf_prefetch_indirect_done(zio_t *zio, arc_buf_t *abuf, void *private)
  */
 void
 dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
-    arc_flags_t aflags)
+    arc_flags_t aflags, int *rot)
 {
 	blkptr_t bp;
 	int epbs, nlevels, curlevel;
@@ -2591,7 +2595,7 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 		dmu_buf_impl_t *db;
 
 		if (dbuf_hold_impl(dn, parent_level, parent_blkid,
-		    FALSE, TRUE, FTAG, &db) == 0) {
+		    FALSE, TRUE, FTAG, &db, NULL) == 0) {
 			blkptr_t *bpp = db->db_buf->b_data;
 			bp = bpp[P2PHASE(curblkid, 1 << epbs)];
 			dbuf_rele(db, FTAG);
@@ -2614,6 +2618,7 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 
 	pio = zio_root(dmu_objset_spa(dn->dn_objset), NULL, NULL,
 	    ZIO_FLAG_CANFAIL);
+    pio->rot = rot;
 
 	dpa = kmem_zalloc(sizeof (*dpa), KM_SLEEP);
 	ds = dn->dn_objset->os_dsl_dataset;
@@ -2663,7 +2668,7 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
  * Note: dn_struct_rwlock must be held.
  */
 static int
-__dbuf_hold_impl(struct dbuf_hold_impl_data *dh)
+__dbuf_hold_impl(struct dbuf_hold_impl_data *dh, int *rot)
 {
 	ASSERT3S(dh->dh_depth, <, DBUF_HOLD_IMPL_MAX_DEPTH);
 	dh->dh_parent = NULL;
@@ -2686,7 +2691,7 @@ __dbuf_hold_impl(struct dbuf_hold_impl_data *dh)
 
 		ASSERT3P(dh->dh_parent, ==, NULL);
 		dh->dh_err = dbuf_findbp(dh->dh_dn, dh->dh_level, dh->dh_blkid,
-		    dh->dh_fail_sparse, &dh->dh_parent, &dh->dh_bp, dh);
+		    dh->dh_fail_sparse, &dh->dh_parent, &dh->dh_bp, dh, rot);
 		if (dh->dh_fail_sparse) {
 			if (dh->dh_err == 0 &&
 			    dh->dh_bp && BP_IS_HOLE(dh->dh_bp))
@@ -2766,7 +2771,7 @@ __dbuf_hold_impl(struct dbuf_hold_impl_data *dh)
 int
 dbuf_hold_impl(dnode_t *dn, uint8_t level, uint64_t blkid,
     boolean_t fail_sparse, boolean_t fail_uncached,
-    void *tag, dmu_buf_impl_t **dbp)
+    void *tag, dmu_buf_impl_t **dbp, int *rot)
 {
 	struct dbuf_hold_impl_data *dh;
 	int error;
@@ -2776,7 +2781,7 @@ dbuf_hold_impl(dnode_t *dn, uint8_t level, uint64_t blkid,
 	__dbuf_hold_impl_init(dh, dn, level, blkid, fail_sparse,
 	    fail_uncached, tag, dbp, 0);
 
-	error = __dbuf_hold_impl(dh);
+	error = __dbuf_hold_impl(dh, rot);
 
 	kmem_free(dh, sizeof (struct dbuf_hold_impl_data) *
 	    DBUF_HOLD_IMPL_MAX_DEPTH);
@@ -2811,16 +2816,17 @@ __dbuf_hold_impl_init(struct dbuf_hold_impl_data *dh,
 }
 
 dmu_buf_impl_t *
-dbuf_hold(dnode_t *dn, uint64_t blkid, void *tag)
+dbuf_hold(dnode_t *dn, uint64_t blkid, void *tag, int *rot)
 {
-	return (dbuf_hold_level(dn, 0, blkid, tag));
+	return (dbuf_hold_level(dn, 0, blkid, tag, rot));
 }
 
 dmu_buf_impl_t *
-dbuf_hold_level(dnode_t *dn, int level, uint64_t blkid, void *tag)
+dbuf_hold_level(dnode_t *dn, int level, uint64_t blkid, void *tag, int *rot)
 {
 	dmu_buf_impl_t *db;
-	int err = dbuf_hold_impl(dn, level, blkid, FALSE, FALSE, tag, &db);
+    int err;
+	err = dbuf_hold_impl(dn, level, blkid, FALSE, FALSE, tag, &db, rot);
 	return (err ? NULL : db);
 }
 
@@ -3163,7 +3169,7 @@ dbuf_check_blkptr(dnode_t *dn, dmu_buf_impl_t *db)
 			mutex_exit(&db->db_mtx);
 			rw_enter(&dn->dn_struct_rwlock, RW_READER);
 			parent = dbuf_hold_level(dn, db->db_level + 1,
-			    db->db_blkid >> epbs, db);
+			    db->db_blkid >> epbs, db, NULL);
 			rw_exit(&dn->dn_struct_rwlock);
 			mutex_enter(&db->db_mtx);
 			db->db_parent = parent;
@@ -3198,7 +3204,7 @@ dbuf_sync_indirect(dbuf_dirty_record_t *dr, dmu_tx_t *tx)
 	/* Read the block if it hasn't been read yet. */
 	if (db->db_buf == NULL) {
 		mutex_exit(&db->db_mtx);
-		(void) dbuf_read(db, NULL, DB_RF_MUST_SUCCEED);
+		(void) dbuf_read(db, NULL, DB_RF_MUST_SUCCEED, NULL);
 		mutex_enter(&db->db_mtx);
 	}
 	ASSERT3U(db->db_state, ==, DB_CACHED);
@@ -3778,9 +3784,11 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	ASSERT(zio);
     if (zio->filp == NULL)
         zio->filp = dn->name;
-    if (zio->rot != dn->dn_write_rot) {
-        zio->io_dn = dn;
-        zio->rot = dn->dn_write_rot;
+    if (zio->io_type == ZIO_TYPE_WRITE) {
+        zio->rot = kzalloc(sizeof(int), GFP_KERNEL);
+        if (zio->rot == NULL)
+            printk(KERN_EMERG "[ZIO_ROT]No rot alloc\n");
+        *zio->rot = dn->dn_write_rot;
     }
 
 	SET_BOOKMARK(&zb, os->os_dsl_dataset ?

@@ -144,12 +144,12 @@ static void change_medium(void)
         kzfree(output);
         return;
     }
-    if (tree_entry->d_dn->dn_write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
-        tree_entry->d_dn->dn_write_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
-    else if (tree_entry->d_dn->dn_write_rot == METASLAB_ROTOR_VDEV_TYPE_SSD)
-        tree_entry->d_dn->dn_write_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
+    if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
+        tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+    else if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_SSD)
+        tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
     else
-        printk(KERN_EMERG "[ERROR] Not changed d_dn->dn_write_rot %d\n", tree_entry->d_dn->dn_write_rot);
+        printk(KERN_EMERG "[ERROR] Not changed write_rot %d\n", tree_entry->write_rot);
 
     kzfree(output);
     return;
@@ -184,17 +184,17 @@ static void print_media(void)
         return;
     }
 
-    if (tree_entry->d_dn->dn_write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
+    if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
         printk(KERN_EMERG "[PRINT] File %s dn_write_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
-    else if (tree_entry->d_dn->dn_write_rot < 0 )
-        printk(KERN_EMERG "[PRINT] File %s dn_write_rot %d\n", only_name, tree_entry->d_dn->dn_write_rot);
+    else if (tree_entry->write_rot < 0 )
+        printk(KERN_EMERG "[PRINT] File %s dn_write_rot %d\n", only_name, tree_entry->write_rot);
     else
         printk(KERN_EMERG "[PRINT] File %s dn_write_rot METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name);
 
-    if (tree_entry->d_dn->dn_read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
+    if (tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
         printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
-    else if (tree_entry->d_dn->dn_write_rot < 0 )
-        printk(KERN_EMERG "[PRINT] File %s dn_read_rot %d\n", only_name, tree_entry->d_dn->dn_read_rot);
+    else if (tree_entry->read_rot < 0 )
+        printk(KERN_EMERG "[PRINT] File %s dn_read_rot %d\n", only_name, tree_entry->read_rot);
     else
         printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name);
 

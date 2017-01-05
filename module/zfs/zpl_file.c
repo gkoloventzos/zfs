@@ -261,7 +261,7 @@ zpl_aio_fsync(struct kiocb *kiocb, int datasync)
 static ssize_t
 zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
     unsigned long nr_segs, loff_t *ppos, uio_seg_t segment, int flags,
-    cred_t *cr, size_t skip)
+    cred_t *cr, size_t skip, int *rot)
 {
 	ssize_t read;
 	uio_t uio;
@@ -277,7 +277,7 @@ zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 	uio.uio_segflg = segment;
 
 	cookie = spl_fstrans_mark();
-	error = -zfs_read(ip, &uio, flags, cr);
+	error = -zfs_read(ip, &uio, flags, cr, rot);
 	spl_fstrans_unmark(cookie);
 	if (error < 0)
 		return (error);
@@ -291,7 +291,7 @@ zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 
 inline ssize_t
 zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
-    uio_seg_t segment, int flags, cred_t *cr)
+    uio_seg_t segment, int flags, cred_t *cr, int *rot)
 {
 	struct iovec iov;
 
@@ -299,7 +299,7 @@ zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
 	iov.iov_len = len;
 
 	return (zpl_read_common_iovec(ip, &iov, len, 1, ppos, segment,
-	    flags, cr, 0));
+	    flags, cr, 0, rot));
 }
 
 static ssize_t
@@ -310,26 +310,21 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 
     struct task_struct *thread1;
     struct timespec arrival_time;
-    dnode_t *dn;
     struct kdata *kdata = NULL;
     loff_t start_ppos = *ppos;
-    znode_t     *zp = ITOZ(filp->f_mapping->host);
+    int *rot;
 
     ktime_get_ts(&arrival_time);
+    rot = kzalloc(sizeof(int), GFP_KERNEL);
+    *rot = -2;
+
 	crhold(cr);
 /*    if (only_one && strstr(file_dentry(filp)->d_name.name, only_name) != NULL)
         printk(KERN_EMERG "[ONLY] start: %lld end: %lld len:%ld time: %ld\n", *ppos, *ppos+len, len, arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec);
         */
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
-	    UIO_USERSPACE, filp->f_flags, cr);
+	    UIO_USERSPACE, filp->f_flags, cr, rot);
 	crfree(cr);
-
-    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-/*    if (dn->filp == NULL) {
-        dn->filp = file_dentry(filp)->d_name.name;
-    }*/
-    DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
     if (read > 0) {
 /*        if (only_one && strstr(file_dentry(filp)->d_name.name, only_name) != NULL)
@@ -341,13 +336,15 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
             kdata->type = UIO_READ;
             kdata->offset = start_ppos;
             kdata->length = read;
-            kdata->dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+            kdata->rot = *rot;
             kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"readreq");
         }
         else
             printk(KERN_EMERG "[ERROR] Kdata null read\n");
     }
+    else
+        kzfree(rot);
 
 	file_accessed(filp);
 	return (read);
@@ -363,7 +360,7 @@ zpl_iter_read_common(struct kiocb *kiocb, const struct iovec *iovp,
 
 	crhold(cr);
 	read = zpl_read_common_iovec(filp->f_mapping->host, iovp, count,
-	    nr_segs, &kiocb->ki_pos, seg, filp->f_flags, cr, skip);
+	    nr_segs, &kiocb->ki_pos, seg, filp->f_flags, cr, skip, NULL);
 	crfree(cr);
 
 	file_accessed(filp);
@@ -504,7 +501,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             kdata->type = UIO_WRITE;
             kdata->offset = *ppos;
             kdata->length = wrote;
-            kdata->dn = dn;
+            kdata->rot = rot;
             kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"writereq");
         }
@@ -1244,28 +1241,23 @@ int add_request(void *data)
         init_rwsem(&(InsNode->read_sem));
         init_rwsem(&(InsNode->write_sem));
         InsNode->size = i_size_read(d_inode(InsNode->dentry));
-        InsNode->d_dn = kdata->dn;
         if (!rb_insert(hetfs_tree, InsNode)) {
             printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
             //printk(KERN_EMERG "[HETFS] file: %s with ", InsNode->file);
         }
-/*        if (type == UIO_WRITE) {
-            if (strstr(name, "log") == NULL)
-                printk(KERN_EMERG "[OUTPUT]Write request name %s\n", name);
-        }
-        else
-            printk(KERN_EMERG "[OUTPUT]Read request name %s\n", name);*/
     }
     up_write(&tree_sem);
 
     kzfree(output);
-    if (type == 0) {
+    if (type == UIO_READ) {
         general = InsNode->read_reqs;
         sem = &(InsNode->read_sem);
+        InsNode->read_rot = kdata->rot;
     }
     else {
         general = InsNode->write_reqs;
         sem = &(InsNode->write_sem);
+        InsNode->write_rot = kdata->rot;
     }
 
     down_write(sem);

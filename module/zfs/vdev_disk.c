@@ -526,14 +526,14 @@ vdev_submit_bio(struct bio *bio, int rw)
     }
     if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
         if (rw == READ) {
-            if (zio != NULL && zio->io_dn != NULL)
-                zio->io_dn->dn_read_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+            if (zio != NULL && zio->rot != NULL)
+                *zio->rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
         }
     }
     else {
         if (rw == READ) {
-            if (zio != NULL && zio->io_dn != NULL)
-                zio->io_dn->dn_read_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
+            if (zio != NULL && zio->rot != NULL)
+                *zio->rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
         }
     }
 	vdev_submit_bio_impl(bio);

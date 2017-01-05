@@ -445,6 +445,9 @@ struct zio {
 	void		*io_waiter;
 	kmutex_t	io_lock;
 	kcondvar_t	io_cv;
+//#ifdef CONFIG_HTEFS
+    int     *rot;
+//#endif
 
 	/* FMA state */
 	zio_cksum_report_t *io_cksum_report;
@@ -453,8 +456,6 @@ struct zio {
 	/* Taskq dispatching state */
 	taskq_ent_t	io_tqent;
 
-    int8_t rot;
-    dnode_t *io_dn;
     const char *filp;
     //struct file *filp;
 };

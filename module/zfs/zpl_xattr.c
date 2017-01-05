@@ -298,7 +298,7 @@ zpl_xattr_get_dir(struct inode *ip, const char *name, void *value,
 		goto out;
 	}
 
-	error = zpl_read_common(xip, value, size, &pos, UIO_SYSSPACE, 0, cr);
+	error = zpl_read_common(xip, value, size, &pos, UIO_SYSSPACE, 0, cr, NULL);
 out:
 	if (xip)
 		iput(xip);

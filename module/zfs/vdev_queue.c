@@ -39,6 +39,8 @@
 #include <sys/kstat.h>
 #include <sys/abd.h>
 
+#define ROT 0
+#define NONROT 1
 /*
  * ZFS I/O Scheduler
  * ---------------

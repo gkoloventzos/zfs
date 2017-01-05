@@ -373,7 +373,7 @@ update_pages(struct inode *ip, int64_t start, int len,
  *	 the file is memory mapped.
  */
 static int
-mappedread(struct inode *ip, int nbytes, uio_t *uio)
+mappedread(struct inode *ip, int nbytes, uio_t *uio, int *rot)
 {
 	struct address_space *mp = ip->i_mapping;
 	struct page *pp;
@@ -405,7 +405,7 @@ mappedread(struct inode *ip, int nbytes, uio_t *uio)
 			put_page(pp);
 		} else {
 			error = dmu_read_uio_dbuf(sa_get_db(zp->z_sa_hdl),
-			    uio, bytes);
+			    uio, bytes, rot);
 		}
 
 		len -= bytes;
@@ -439,7 +439,7 @@ unsigned long zfs_delete_blocks = DMU_MAX_DELETEBLKCNT;
  */
 /* ARGSUSED */
 int
-zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
+zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr, int *rot)
 {
 	znode_t		*zp = ITOZ(ip);
 	zfs_sb_t	*zsb = ITOZSB(ip);
@@ -534,10 +534,10 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 		    P2PHASE(uio->uio_loffset, zfs_read_chunk_size));
 
 		if (zp->z_is_mapped && !(ioflag & O_DIRECT)) {
-			error = mappedread(ip, nbytes, uio);
+			error = mappedread(ip, nbytes, uio, rot);
 		} else {
 			error = dmu_read_uio_dbuf(sa_get_db(zp->z_sa_hdl),
-			    uio, nbytes);
+			    uio, nbytes, rot);
 		}
 
 		if (error) {
