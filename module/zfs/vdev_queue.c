@@ -37,6 +37,8 @@
 #include <sys/spa_impl.h>
 #include <sys/kstat.h>
 
+#define ROT 0
+#define NONROT 1
 /*
  * ZFS I/O Scheduler
  * ---------------
@@ -741,6 +743,10 @@ vdev_queue_io(zio_t *zio)
 
 	if (nio->io_done == vdev_queue_agg_io_done) {
 		zio_nowait(nio);
+/*        if (nio->rot != NULL)
+            vq->vq_vdev->vdev_nonrot?nio->rot[NONROT]++:nio->rot[ROT]++;
+        else
+            printk(KERN_EMERG "[VDEV] vdev_queue_io rot is NULL\n");*/
 		return (NULL);
 	}
 
@@ -774,6 +780,8 @@ vdev_queue_io_done(zio_t *zio)
 		}
 		mutex_enter(&vq->vq_lock);
 	}
+    if (zio->rot != NULL)
+        vq->vq_vdev->vdev_nonrot?zio->rot[NONROT]++:zio->rot[ROT]++;
 
 	mutex_exit(&vq->vq_lock);
 }

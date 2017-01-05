@@ -140,7 +140,7 @@ dmu_buf_hold_noread(objset_t *os, uint64_t object, uint64_t offset,
 		return (err);
 	blkid = dbuf_whichblock(dn, 0, offset);
 	rw_enter(&dn->dn_struct_rwlock, RW_READER);
-	db = dbuf_hold(dn, blkid, tag);
+	db = dbuf_hold(dn, blkid, tag, NULL, NULL);
 	rw_exit(&dn->dn_struct_rwlock);
 	dnode_rele(dn, FTAG);
 
@@ -166,7 +166,7 @@ dmu_buf_hold(objset_t *os, uint64_t object, uint64_t offset,
 	err = dmu_buf_hold_noread(os, object, offset, tag, dbp);
 	if (err == 0) {
 		dmu_buf_impl_t *db = (dmu_buf_impl_t *)(*dbp);
-		err = dbuf_read(db, NULL, db_flags);
+		err = dbuf_read(db, NULL, db_flags, NULL, NULL);
 		if (err != 0) {
 			dbuf_rele(db, tag);
 			*dbp = NULL;
@@ -296,7 +296,7 @@ dmu_bonus_hold(objset_t *os, uint64_t object, void *tag, dmu_buf_t **dbp)
 
 	dnode_rele(dn, FTAG);
 
-	VERIFY(0 == dbuf_read(db, NULL, DB_RF_MUST_SUCCEED | DB_RF_NOPREFETCH));
+	VERIFY(0 == dbuf_read(db, NULL, DB_RF_MUST_SUCCEED | DB_RF_NOPREFETCH, NULL, NULL));
 
 	*dbp = &db->db;
 	return (0);
@@ -320,13 +320,13 @@ dmu_spill_hold_by_dnode(dnode_t *dn, uint32_t flags, void *tag, dmu_buf_t **dbp)
 	if ((flags & DB_RF_HAVESTRUCT) == 0)
 		rw_enter(&dn->dn_struct_rwlock, RW_READER);
 
-	db = dbuf_hold(dn, DMU_SPILL_BLKID, tag);
+	db = dbuf_hold(dn, DMU_SPILL_BLKID, tag, NULL, NULL);
 
 	if ((flags & DB_RF_HAVESTRUCT) == 0)
 		rw_exit(&dn->dn_struct_rwlock);
 
 	ASSERT(db != NULL);
-	err = dbuf_read(db, NULL, flags);
+	err = dbuf_read(db, NULL, flags, NULL, NULL);
 	if (err == 0)
 		*dbp = &db->db;
 	else
@@ -386,7 +386,8 @@ dmu_spill_hold_by_bonus(dmu_buf_t *bonus, void *tag, dmu_buf_t **dbp)
  */
 static int
 dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
-    boolean_t read, void *tag, int *numbufsp, dmu_buf_t ***dbpp, uint32_t flags)
+    boolean_t read, void *tag, int *numbufsp, dmu_buf_t ***dbpp, uint32_t flags,
+    int *rot, const char *name)
 {
 	dmu_buf_t **dbp;
 	uint64_t blkid, nblks, i;
@@ -425,9 +426,11 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	dbp = kmem_zalloc(sizeof (dmu_buf_t *) * nblks, KM_SLEEP);
 
 	zio = zio_root(dn->dn_objset->os_spa, NULL, NULL, ZIO_FLAG_CANFAIL);
+    zio->rot = rot;
+    zio->name = name;
 	blkid = dbuf_whichblock(dn, 0, offset);
 	for (i = 0; i < nblks; i++) {
-		dmu_buf_impl_t *db = dbuf_hold(dn, blkid + i, tag);
+		dmu_buf_impl_t *db = dbuf_hold(dn, blkid + i, tag, rot, name);
 		if (db == NULL) {
 			rw_exit(&dn->dn_struct_rwlock);
 			dmu_buf_rele_array(dbp, nblks, tag);
@@ -437,13 +440,13 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 
 		/* initiate async i/o */
 		if (read)
-			(void) dbuf_read(db, zio, dbuf_flags);
+			(void) dbuf_read(db, zio, dbuf_flags, rot, name);
 		dbp[i] = &db->db;
 	}
 
 	if ((flags & DMU_READ_NO_PREFETCH) == 0 && read &&
 	    length <= zfetch_array_rd_sz) {
-		dmu_zfetch(&dn->dn_zfetch, blkid, nblks);
+		dmu_zfetch(&dn->dn_zfetch, blkid, nblks, rot, name);
 	}
 	rw_exit(&dn->dn_struct_rwlock);
 
@@ -489,7 +492,7 @@ dmu_buf_hold_array(objset_t *os, uint64_t object, uint64_t offset,
 		return (err);
 
 	err = dmu_buf_hold_array_by_dnode(dn, offset, length, read, tag,
-	    numbufsp, dbpp, DMU_READ_PREFETCH);
+	    numbufsp, dbpp, DMU_READ_PREFETCH, NULL, NULL);
 
 	dnode_rele(dn, FTAG);
 
@@ -508,7 +511,7 @@ dmu_buf_hold_array_by_bonus(dmu_buf_t *db_fake, uint64_t offset,
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
 	err = dmu_buf_hold_array_by_dnode(dn, offset, length, read, tag,
-	    numbufsp, dbpp, DMU_READ_PREFETCH);
+	    numbufsp, dbpp, DMU_READ_PREFETCH, NULL, NULL);
 	DB_DNODE_EXIT(db);
 
 	return (err);
@@ -556,7 +559,7 @@ dmu_prefetch(objset_t *os, uint64_t object, int64_t level, uint64_t offset,
 		rw_enter(&dn->dn_struct_rwlock, RW_READER);
 		blkid = dbuf_whichblock(dn, level,
 		    object * sizeof (dnode_phys_t));
-		dbuf_prefetch(dn, level, blkid, pri, 0);
+		dbuf_prefetch(dn, level, blkid, pri, 0, NULL, NULL);
 		rw_exit(&dn->dn_struct_rwlock);
 		return;
 	}
@@ -590,7 +593,7 @@ dmu_prefetch(objset_t *os, uint64_t object, int64_t level, uint64_t offset,
 
 		blkid = dbuf_whichblock(dn, level, offset);
 		for (i = 0; i < nblks; i++)
-			dbuf_prefetch(dn, level, blkid + i, pri, 0);
+			dbuf_prefetch(dn, level, blkid + i, pri, 0, NULL, NULL);
 	}
 
 	rw_exit(&dn->dn_struct_rwlock);
@@ -804,7 +807,7 @@ dmu_read(objset_t *os, uint64_t object, uint64_t offset, uint64_t size,
 		 * to be reading in parallel.
 		 */
 		err = dmu_buf_hold_array_by_dnode(dn, offset, mylen,
-		    TRUE, FTAG, &numbufs, &dbp, flags);
+		    TRUE, FTAG, &numbufs, &dbp, flags, NULL, NULL);
 		if (err)
 			break;
 
@@ -1062,7 +1065,7 @@ xuio_stat_wbuf_nocopy()
 
 #ifdef _KERNEL
 static int
-dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size)
+dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, int *rot, const char *name)
 {
 	dmu_buf_t **dbp;
 	int numbufs, i, err;
@@ -1074,7 +1077,7 @@ dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size)
 	 */
 	//printk(KERN_ERR "dmu_read_uio_dnode in\n");
 	err = dmu_buf_hold_array_by_dnode(dn, uio->uio_loffset, size,
-	    TRUE, FTAG, &numbufs, &dbp, 0);
+	    TRUE, FTAG, &numbufs, &dbp, 0, rot, name);
 	if (err)
 		return (err);
 
@@ -1127,7 +1130,7 @@ dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size)
  * because we don't have to find the dnode_t for the object.
  */
 int
-dmu_read_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size)
+dmu_read_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size, int *rot, const char *name)
 {
 	dmu_buf_impl_t *db = (dmu_buf_impl_t *)zdb;
 	dnode_t *dn;
@@ -1139,7 +1142,7 @@ dmu_read_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size)
 
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
-	err = dmu_read_uio_dnode(dn, uio, size);
+	err = dmu_read_uio_dnode(dn, uio, size, rot, name);
 	DB_DNODE_EXIT(db);
 	//printk(KERN_ERR "dmu_read_uio_dbuf out\n");
 	return (err);
@@ -1163,7 +1166,7 @@ dmu_read_uio(objset_t *os, uint64_t object, uio_t *uio, uint64_t size)
 	if (err)
 		return (err);
 
-	err = dmu_read_uio_dnode(dn, uio, size);
+	err = dmu_read_uio_dnode(dn, uio, size, NULL, NULL);
 
 	dnode_rele(dn, FTAG);
 
@@ -1180,7 +1183,7 @@ dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx)
 
 	//printk(KERN_ERR "dmu_write_uio_dnode in\n");
 	err = dmu_buf_hold_array_by_dnode(dn, uio->uio_loffset, size,
-	    FALSE, FTAG, &numbufs, &dbp, DMU_READ_PREFETCH);
+	    FALSE, FTAG, &numbufs, &dbp, DMU_READ_PREFETCH, NULL, NULL);
 	if (err)
 		return (err);
 
@@ -1319,7 +1322,7 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
 	dn = DB_DNODE(dbuf);
 	rw_enter(&dn->dn_struct_rwlock, RW_READER);
 	blkid = dbuf_whichblock(dn, 0, offset);
-	VERIFY((db = dbuf_hold(dn, blkid, FTAG)) != NULL);
+	VERIFY((db = dbuf_hold(dn, blkid, FTAG, NULL, NULL)) != NULL);
 	rw_exit(&dn->dn_struct_rwlock);
 	DB_DNODE_EXIT(dbuf);
 

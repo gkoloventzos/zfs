@@ -259,7 +259,7 @@ zpl_aio_fsync(struct kiocb *kiocb, int datasync)
 static ssize_t
 zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
     unsigned long nr_segs, loff_t *ppos, uio_seg_t segment, int flags,
-    cred_t *cr, size_t skip)
+    cred_t *cr, size_t skip, int *rot, const char *name)
 {
 	ssize_t read;
 	uio_t uio;
@@ -275,7 +275,7 @@ zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 	uio.uio_segflg = segment;
 
 	cookie = spl_fstrans_mark();
-	error = -zfs_read(ip, &uio, flags, cr);
+	error = -zfs_read(ip, &uio, flags, cr, rot, name);
 	spl_fstrans_unmark(cookie);
 	if (error < 0)
 		return (error);
@@ -289,7 +289,7 @@ zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 
 inline ssize_t
 zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
-    uio_seg_t segment, int flags, cred_t *cr)
+    uio_seg_t segment, int flags, cred_t *cr, int *rot, const char *name)
 {
 	struct iovec iov;
 
@@ -297,7 +297,7 @@ zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
 	iov.iov_len = len;
 
 	return (zpl_read_common_iovec(ip, &iov, len, 1, ppos, segment,
-	    flags, cr, 0));
+	    flags, cr, 0, rot, name));
 }
 
 void fullname(struct dentry *dentry, char *name, int *stop)
@@ -329,16 +329,20 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 	ssize_t read;
 //#ifdef CONFIG_HETFS
     struct task_struct *thread1;
-    struct kdata *kdata;
     struct timespec arrival_time;
+    struct kdata *kdata = NULL;
+    int *rot;
+    const char *name;
 
     ktime_get_ts(&arrival_time);
+    rot = kzalloc(2*sizeof(int), GFP_KERNEL);
+    rot[0] = rot[1] = 0;
+    name = file_dentry(filp)->d_name.name;
 //#endif
 
 	crhold(cr);
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
-	    UIO_USERSPACE, filp->f_flags, cr);
-	crfree(cr);
+	    UIO_USERSPACE, filp->f_flags, cr, rot, name);
 //#ifdef CONFIG_HETFS
     if (__exact > 0) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
@@ -354,6 +358,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
             printk(KERN_EMERG "[ERROR] Kdata null read\n");
     }
 //#endif
+	crfree(cr);
 
 	file_accessed(filp);
 	return (read);
@@ -369,7 +374,7 @@ zpl_iter_read_common(struct kiocb *kiocb, const struct iovec *iovp,
 
 	crhold(cr);
 	read = zpl_read_common_iovec(filp->f_mapping->host, iovp, count,
-	    nr_segs, &kiocb->ki_pos, seg, filp->f_flags, cr, skip);
+	    nr_segs, &kiocb->ki_pos, seg, filp->f_flags, cr, skip, NULL, NULL);
 	crfree(cr);
 
 	file_accessed(filp);
@@ -1110,7 +1115,7 @@ int add_request(void *data)
 
     if (d_really_is_negative(dentry))
         return 1;
-    if (__exact == 600) {
+    /*if (__exact == 600) {
         zvol_state_list_print();
         if (zn->z_inode.i_bdev != NULL) {
             printk(KERN_EMERG "[DISK_NAME]i_bdev fine\n");
@@ -1124,7 +1129,7 @@ int add_request(void *data)
         }
         }
         printk(KERN_EMERG "[ZIO_]%s\n", spa_get_vdev_name(zsb->z_os->os_spa));
-    }
+    }*/
 
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
     if (name == NULL) {

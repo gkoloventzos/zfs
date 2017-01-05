@@ -437,6 +437,14 @@ zio_add_child(zio_t *pio, zio_t *cio)
 
 	pio->io_child_count++;
 	cio->io_parent_count++;
+    if (pio->rot != NULL) {
+        cio->rot = pio->rot;
+        cio->name = pio->name;
+    }
+    else {
+        pio->rot = cio->rot;
+        pio->name = cio->name;
+    }
 
 	mutex_exit(&pio->io_lock);
 	mutex_exit(&cio->io_lock);
@@ -567,6 +575,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 			pipeline |= ZIO_GANG_STAGES;
 	}
 
+    zio->io_timestamp = gethrtime();
 	zio->io_spa = spa;
 	zio->io_txg = txg;
 	zio->io_done = done;
@@ -580,6 +589,10 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 	zio->io_orig_flags = zio->io_flags = flags;
 	zio->io_orig_stage = zio->io_stage = stage;
 	zio->io_orig_pipeline = zio->io_pipeline = pipeline;
+//#ifdef CONFIG_HETFS
+    zio->rot = NULL;
+    zio->name = NULL;
+//#endif
 
 	zio->io_state[ZIO_WAIT_READY] = (stage >= ZIO_STAGE_READY);
 	zio->io_state[ZIO_WAIT_DONE] = (stage >= ZIO_STAGE_DONE);
@@ -592,6 +605,11 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 			zio->io_logical = pio->io_logical;
 		if (zio->io_child_type == ZIO_CHILD_GANG)
 			zio->io_gang_leader = pio->io_gang_leader;
+//#ifdef CONFIG_HETFS
+        zio->io_timestamp = pio->io_timestamp;
+        zio->rot = pio->rot;
+        zio->name = pio->name;
+//#endif
 		zio_add_child(pio, zio);
 	}
 

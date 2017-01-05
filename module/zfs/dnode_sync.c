@@ -53,7 +53,7 @@ dnode_increase_indirection(dnode_t *dn, dmu_tx_t *tx)
 	ASSERT(RW_WRITE_HELD(&dn->dn_struct_rwlock));
 	ASSERT(new_level > 1 && dn->dn_phys->dn_nlevels > 0);
 
-	db = dbuf_hold_level(dn, dn->dn_phys->dn_nlevels, 0, FTAG);
+	db = dbuf_hold_level(dn, dn->dn_phys->dn_nlevels, 0, FTAG, NULL, NULL);
 	ASSERT(db != NULL);
 
 	dn->dn_phys->dn_nlevels = new_level;
@@ -66,7 +66,7 @@ dnode_increase_indirection(dnode_t *dn, dmu_tx_t *tx)
 			break;
 	if (i != nblkptr) {
 		/* transfer dnode's block pointers to new indirect block */
-		(void) dbuf_read(db, NULL, DB_RF_MUST_SUCCEED|DB_RF_HAVESTRUCT);
+		(void) dbuf_read(db, NULL, DB_RF_MUST_SUCCEED|DB_RF_HAVESTRUCT, NULL, NULL);
 		ASSERT(db->db.db_data);
 		ASSERT(arc_released(db->db_buf));
 		ASSERT3U(sizeof (blkptr_t) * nblkptr, <=, db->db.db_size);
@@ -192,7 +192,7 @@ free_verify(dmu_buf_impl_t *db, uint64_t start, uint64_t end, dmu_tx_t *tx)
 
 		rw_enter(&dn->dn_struct_rwlock, RW_READER);
 		err = dbuf_hold_impl(dn, db->db_level-1,
-		    (db->db_blkid << epbs) + i, TRUE, FALSE, FTAG, &child);
+		    (db->db_blkid << epbs) + i, TRUE, FALSE, FTAG, &child, NULL, NULL);
 		rw_exit(&dn->dn_struct_rwlock);
 		if (err == ENOENT)
 			continue;
@@ -255,8 +255,9 @@ free_children(dmu_buf_impl_t *db, uint64_t blkid, uint64_t nblks,
 	 *   2 - if this block was evicted since we read it from
 	 *	 dmu_tx_hold_free().
 	 */
-	if (db->db_state != DB_CACHED)
-		(void) dbuf_read(db, NULL, DB_RF_MUST_SUCCEED);
+	if (db->db_state != DB_CACHED) {
+		(void) dbuf_read(db, NULL, DB_RF_MUST_SUCCEED, NULL, NULL);
+    }
 
 	dbuf_release_bp(db);
 	bp = db->db.db_data;
@@ -288,7 +289,7 @@ free_children(dmu_buf_impl_t *db, uint64_t blkid, uint64_t nblks,
 				continue;
 			rw_enter(&dn->dn_struct_rwlock, RW_READER);
 			VERIFY0(dbuf_hold_impl(dn, db->db_level - 1,
-			    i, TRUE, FALSE, FTAG, &subdb));
+			    i, TRUE, FALSE, FTAG, &subdb, NULL, NULL));
 			rw_exit(&dn->dn_struct_rwlock);
 			ASSERT3P(bp, ==, subdb->db_blkptr);
 
@@ -362,7 +363,7 @@ dnode_sync_free_range_impl(dnode_t *dn, uint64_t blkid, uint64_t nblks,
 				continue;
 			rw_enter(&dn->dn_struct_rwlock, RW_READER);
 			VERIFY0(dbuf_hold_impl(dn, dnlevel - 1, i,
-			    TRUE, FALSE, FTAG, &db));
+			    TRUE, FALSE, FTAG, &db, NULL, NULL));
 			rw_exit(&dn->dn_struct_rwlock);
 
 			free_children(db, blkid, nblks, tx);

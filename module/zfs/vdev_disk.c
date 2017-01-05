@@ -549,6 +549,7 @@ print_io_numbers(void)
 static inline void
 vdev_submit_bio(int rw, struct bio *bio)
 {
+    dio_request_t *dio = NULL;
 #ifdef HAVE_CURRENT_BIO_TAIL
 	struct bio **bio_tail = current->bio_tail;
 	current->bio_tail = NULL;
@@ -562,12 +563,20 @@ vdev_submit_bio(int rw, struct bio *bio)
 #else
 	struct bio_list *bio_list = current->bio_list;
 	current->bio_list = NULL;
-    if (ffirst)
-        print_io_numbers();
-    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev)))
-        printk(KERN_EMERG "[BIO]flag = %d NON ROT\n", rw);
-    else
-        printk(KERN_EMERG "[BIO]flag = %d ROT\n", rw);
+/*    if (ffirst)
+        print_io_numbers();*/
+    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
+        dio = bio->bi_private;
+        if (rw != VDEV_WRITE_FLUSH_FUA)
+            if (dio != NULL && dio->dr_zio != NULL && dio->dr_zio->rot != NULL)
+                dio->dr_zio->rot[0]++;
+    }
+    else {
+        dio = bio->bi_private;
+        if (rw != VDEV_WRITE_FLUSH_FUA)
+            if (dio != NULL && dio->dr_zio != NULL && dio->dr_zio->rot != NULL)
+                dio->dr_zio->rot[1]++;
+    }
 	submit_bio(rw, bio);
 	current->bio_list = bio_list;
 #endif

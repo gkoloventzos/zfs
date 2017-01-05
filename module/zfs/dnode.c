@@ -1112,12 +1112,12 @@ dnode_hold_impl(objset_t *os, uint64_t object, int flag,
 
 	blk = dbuf_whichblock(mdn, 0, object * sizeof (dnode_phys_t));
 
-	db = dbuf_hold(mdn, blk, FTAG);
+	db = dbuf_hold(mdn, blk, FTAG, NULL, NULL);
 	if (drop_struct_lock)
 		rw_exit(&mdn->dn_struct_rwlock);
 	if (db == NULL)
 		return (SET_ERROR(EIO));
-	err = dbuf_read(db, NULL, DB_RF_CANFAIL);
+	err = dbuf_read(db, NULL, DB_RF_CANFAIL, NULL, NULL);
 	if (err) {
 		dbuf_rele(db, FTAG);
 		return (err);
@@ -1407,7 +1407,7 @@ dnode_set_blksz(dnode_t *dn, uint64_t size, int ibs, dmu_tx_t *tx)
 		goto fail;
 
 	/* resize the old block */
-	err = dbuf_hold_impl(dn, 0, 0, TRUE, FALSE, FTAG, &db);
+	err = dbuf_hold_impl(dn, 0, 0, TRUE, FALSE, FTAG, &db, NULL, NULL);
 	if (err == 0)
 		dbuf_new_size(db, size, tx);
 	else if (err != ENOENT)
@@ -1486,7 +1486,7 @@ dnode_new_blkid(dnode_t *dn, uint64_t blkid, dmu_tx_t *tx, boolean_t have_read)
 		dn->dn_next_nlevels[txgoff] = new_nlevels;
 
 		/* dirty the left indirects */
-		db = dbuf_hold_level(dn, old_nlevels, 0, FTAG);
+		db = dbuf_hold_level(dn, old_nlevels, 0, FTAG, NULL, NULL);
 		ASSERT(db != NULL);
 		new = dbuf_dirty(db, tx);
 		dbuf_rele(db, FTAG);
@@ -1518,7 +1518,7 @@ out:
 static void
 dnode_dirty_l1(dnode_t *dn, uint64_t l1blkid, dmu_tx_t *tx)
 {
-	dmu_buf_impl_t *db = dbuf_hold_level(dn, 1, l1blkid, FTAG);
+	dmu_buf_impl_t *db = dbuf_hold_level(dn, 1, l1blkid, FTAG, NULL, NULL);
 	if (db != NULL) {
 		dmu_buf_will_dirty(&db->db, tx);
 		dbuf_rele(db, FTAG);
@@ -1581,7 +1581,7 @@ dnode_free_range(dnode_t *dn, uint64_t off, uint64_t len, dmu_tx_t *tx)
 		if (len < head)
 			head = len;
 		if (dbuf_hold_impl(dn, 0, dbuf_whichblock(dn, 0, off),
-		    TRUE, FALSE, FTAG, &db) == 0) {
+		    TRUE, FALSE, FTAG, &db, NULL, NULL) == 0) {
 			caddr_t data;
 
 			/* don't dirty if it isn't on disk and isn't dirty */
@@ -1619,7 +1619,7 @@ dnode_free_range(dnode_t *dn, uint64_t off, uint64_t len, dmu_tx_t *tx)
 		if (len < tail)
 			tail = len;
 		if (dbuf_hold_impl(dn, 0, dbuf_whichblock(dn, 0, off+len),
-		    TRUE, FALSE, FTAG, &db) == 0) {
+		    TRUE, FALSE, FTAG, &db, NULL, NULL) == 0) {
 			/* don't dirty if not on disk and not dirty */
 			if (db->db_last_dirty ||
 			    (db->db_blkptr && !BP_IS_HOLE(db->db_blkptr))) {
@@ -1874,7 +1874,7 @@ dnode_next_offset_level(dnode_t *dn, int flags, uint64_t *offset,
 		data = dn->dn_phys->dn_blkptr;
 	} else {
 		uint64_t blkid = dbuf_whichblock(dn, lvl, *offset);
-		error = dbuf_hold_impl(dn, lvl, blkid, TRUE, FALSE, FTAG, &db);
+		error = dbuf_hold_impl(dn, lvl, blkid, TRUE, FALSE, FTAG, &db, NULL, NULL);
 		if (error) {
 			if (error != ENOENT)
 				return (error);
@@ -1889,7 +1889,7 @@ dnode_next_offset_level(dnode_t *dn, int flags, uint64_t *offset,
 			 */
 			return (SET_ERROR(ESRCH));
 		}
-		error = dbuf_read(db, NULL, DB_RF_CANFAIL | DB_RF_HAVESTRUCT);
+		error = dbuf_read(db, NULL, DB_RF_CANFAIL | DB_RF_HAVESTRUCT, NULL, NULL);
 		if (error) {
 			dbuf_rele(db, FTAG);
 			return (error);

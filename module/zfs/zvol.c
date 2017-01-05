@@ -130,12 +130,12 @@ zvol_find_minor(unsigned *minor)
 
 void zvol_state_list_print(void)
 {
-    zvol_state_t *zv;
+    //zvol_state_t *zv;
 
     mutex_enter(&zvol_state_lock);
-	for (zv = list_head(&zvol_state_list); zv != NULL;
+	/*for (zv = list_head(&zvol_state_list); zv != NULL;
 	    zv = list_next(&zvol_state_list, zv))
-		printk(KERN_EMERG "[ZVOL]zvol name %s\n",zv->zv_name);
+		printk(KERN_EMERG "[ZVOL]zvol name %s\n",zv->zv_name);*/
     mutex_exit(&zvol_state_lock);
 
 }
@@ -774,7 +774,7 @@ zvol_read(zvol_state_t *zv, uio_t *uio)
 		if (bytes > volsize - uio->uio_loffset)
 			bytes = volsize - uio->uio_loffset;
 
-		error = dmu_read_uio_dbuf(zv->zv_dbuf, uio, bytes);
+		error = dmu_read_uio_dbuf(zv->zv_dbuf, uio, bytes, NULL, NULL);
 		if (error) {
 			/* convert checksum errors into IO errors */
 			if (error == ECKSUM)

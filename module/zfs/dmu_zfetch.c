@@ -200,7 +200,7 @@ dmu_zfetch_stream_create(zfetch_t *zf, uint64_t blkid)
  * routines to create, delete, find, or operate upon prefetch streams.
  */
 void
-dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks)
+dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks, int *rot, const char *name)
 {
 	zstream_t *zs;
 	int64_t pf_start;
@@ -282,7 +282,7 @@ dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks)
 	rw_exit(&zf->zf_rwlock);
 	for (i = 0; i < pf_nblks; i++) {
 		dbuf_prefetch(zf->zf_dnode, 0, pf_start + i,
-		    ZIO_PRIORITY_ASYNC_READ, ARC_FLAG_PREDICTIVE_PREFETCH);
+		    ZIO_PRIORITY_ASYNC_READ, ARC_FLAG_PREDICTIVE_PREFETCH, rot, name);
 	}
 	ZFETCHSTAT_BUMP(zfetchstat_hits);
 }

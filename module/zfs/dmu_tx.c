@@ -39,6 +39,7 @@
 #include <sys/zfs_context.h>
 #include <sys/varargs.h>
 #include <sys/trace_dmu.h>
+#include <sys/vdev_impl.h>
 
 typedef void (*dmu_tx_hold_func_t)(dmu_tx_t *tx, struct dnode *dn,
     uint64_t arg1, uint64_t arg2);
@@ -174,11 +175,11 @@ dmu_tx_check_ioerr(zio_t *zio, dnode_t *dn, int level, uint64_t blkid)
 	dmu_buf_impl_t *db;
 
 	rw_enter(&dn->dn_struct_rwlock, RW_READER);
-	db = dbuf_hold_level(dn, level, blkid, FTAG);
+	db = dbuf_hold_level(dn, level, blkid, FTAG, NULL, NULL);
 	rw_exit(&dn->dn_struct_rwlock);
 	if (db == NULL)
 		return (SET_ERROR(EIO));
-	err = dbuf_read(db, zio, DB_RF_CANFAIL | DB_RF_NOPREFETCH);
+	err = dbuf_read(db, zio, DB_RF_CANFAIL | DB_RF_NOPREFETCH, NULL, NULL);
 	dbuf_rele(db, FTAG);
 	return (err);
 }
@@ -333,7 +334,7 @@ dmu_tx_count_write(dmu_tx_hold_t *txh, uint64_t off, uint64_t len)
 
 			rw_enter(&dn->dn_struct_rwlock, RW_READER);
 			err = dbuf_hold_impl(dn, 0, start,
-			    FALSE, FALSE, FTAG, &db);
+			    FALSE, FALSE, FTAG, &db, NULL, NULL);
 			rw_exit(&dn->dn_struct_rwlock);
 
 			if (err) {
@@ -535,7 +536,7 @@ dmu_tx_count_free(dmu_tx_hold_t *txh, uint64_t off, uint64_t len)
 		tochk = MIN(epb - blkoff, nblks);
 
 		err = dbuf_hold_impl(dn, 1, blkid >> epbs,
-		    FALSE, FALSE, FTAG, &dbuf);
+		    FALSE, FALSE, FTAG, &dbuf, NULL, NULL);
 		if (err) {
 			txh->txh_tx->tx_err = err;
 			break;
@@ -551,7 +552,7 @@ dmu_tx_count_free(dmu_tx_hold_t *txh, uint64_t off, uint64_t len)
 		 * memory.
 		 */
 
-		err = dbuf_read(dbuf, NULL, DB_RF_HAVESTRUCT | DB_RF_CANFAIL);
+		err = dbuf_read(dbuf, NULL, DB_RF_HAVESTRUCT | DB_RF_CANFAIL, NULL, NULL);
 		if (err != 0) {
 			txh->txh_tx->tx_err = err;
 			dbuf_rele(dbuf, FTAG);

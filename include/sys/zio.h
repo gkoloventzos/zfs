@@ -446,6 +446,10 @@ struct zio {
 	void		*io_waiter;
 	kmutex_t	io_lock;
 	kcondvar_t	io_cv;
+//#ifdef CONFIG_HTEFS
+    int     *rot;
+    const char    *name;
+//#endif
 
 	/* FMA state */
 	zio_cksum_report_t *io_cksum_report;
