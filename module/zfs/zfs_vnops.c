@@ -78,6 +78,8 @@
 #include <sys/attr.h>
 #include <sys/zpl.h>
 
+extern int _myprint;
+
 /*
  * Programming rules.
  *
@@ -384,6 +386,9 @@ mappedread(struct inode *ip, int nbytes, uio_t *uio)
 	int error = 0;
 	void *pb;
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in name %s offset %lld\n",
+                                        __FUNCTION__, name, uio->uio_loffset);
 	start = uio->uio_loffset;
 	off = start & (PAGE_SIZE-1);
 	for (start &= PAGE_MASK; len > 0; start += PAGE_SIZE) {
@@ -450,6 +455,9 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	xuio_t		*xuio = NULL;
 #endif /* HAVE_UIO_ZEROCOPY */
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__,
+                                                        name, uio->uio_loffset);
 	ZFS_ENTER(zsb);
 	ZFS_VERIFY_ZP(zp);
 

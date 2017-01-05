@@ -37,6 +37,7 @@
 
 char *zfs_vdev_scheduler = VDEV_SCHEDULER;
 static void *zfs_vdev_holder = VDEV_HOLDER;
+extern int _myprint;
 
 /*
  * Virtual device vector for disks.
@@ -510,6 +511,16 @@ vdev_submit_bio(struct bio *bio)
 #else
 	struct bio_list *bio_list = current->bio_list;
 	current->bio_list = NULL;
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]NON ROT\n");
+    }
+    else {
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]ROT\n");
+    }
 	vdev_submit_bio_impl(bio);
 	current->bio_list = bio_list;
 #endif
@@ -652,6 +663,8 @@ vdev_disk_io_flush(struct block_device *bdev, zio_t *zio)
 	if (unlikely(bio == NULL))
 		return (ENOMEM);
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
 	bio->bi_end_io = vdev_disk_io_flush_completion;
 	bio->bi_private = zio;
 	bio->bi_bdev = bdev;
@@ -718,6 +731,8 @@ vdev_disk_io_start(zio_t *zio)
 
 	case ZIO_TYPE_READ:
 		rw = READ;
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT] Passed %s in %lld name %s type %d READ\n",__FUNCTION__, zio->io_timestamp, zio->name, zio->io_type);
 #if defined(HAVE_BLK_QUEUE_HAVE_BIO_RW_UNPLUG)
 		flags = (1 << BIO_RW_UNPLUG);
 #elif defined(REQ_UNPLUG)
@@ -768,6 +783,8 @@ vdev_disk_hold(vdev_t *vd)
 {
 	ASSERT(spa_config_held(vd->vdev_spa, SCL_STATE, RW_WRITER));
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT] Passed %s in %llu\n",__FUNCTION__, vd->vdev_guid);
 	/* We must have a pathname, and it must be absolute. */
 	if (vd->vdev_path == NULL || vd->vdev_path[0] != '/')
 		return;

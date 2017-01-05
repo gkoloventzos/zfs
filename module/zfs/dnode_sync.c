@@ -36,6 +36,8 @@
 #include <sys/range_tree.h>
 #include <sys/zfeature.h>
 
+extern int _myprint;
+
 static void
 dnode_increase_indirection(dnode_t *dn, dmu_tx_t *tx)
 {
@@ -61,6 +63,8 @@ dnode_increase_indirection(dnode_t *dn, dmu_tx_t *tx)
 	    dn->dn_object, dn->dn_phys->dn_nlevels);
 
 	/* transfer dnode's block pointers to new indirect block */
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in zio NULL time %lld\n",__FUNCTION__, tx->tx_start);
 	(void) dbuf_read(db, NULL, DB_RF_MUST_SUCCEED|DB_RF_HAVESTRUCT);
 	ASSERT(db->db.db_data);
 	ASSERT(arc_released(db->db_buf));
@@ -249,8 +253,11 @@ free_children(dmu_buf_impl_t *db, uint64_t blkid, uint64_t nblks,
 	 *   2 - if this block was evicted since we read it from
 	 *	 dmu_tx_hold_free().
 	 */
-	if (db->db_state != DB_CACHED)
+	if (db->db_state != DB_CACHED) {
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]Passed %s in %lld\n",__FUNCTION__, tx->tx_start);
 		(void) dbuf_read(db, NULL, DB_RF_MUST_SUCCEED);
+    }
 
 	dbuf_release_bp(db);
 	bp = db->db.db_data;

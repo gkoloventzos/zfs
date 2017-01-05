@@ -48,6 +48,8 @@
 #include <sys/callb.h>
 #include <sys/abd.h>
 
+extern int _myprint;
+
 struct dbuf_hold_impl_data {
 	/* Function arguments */
 	dnode_t *dh_dn;
@@ -965,6 +967,13 @@ dbuf_read_done(zio_t *zio, arc_buf_t *buf, void *vdb)
 {
 	dmu_buf_impl_t *db = vdb;
 
+    if (_myprint) {
+        if (zio != NULL)
+            printk(KERN_EMERG "[PRINT]Passed %s in %lld\n",__FUNCTION__, zio->io_timestamp);
+        else
+            printk(KERN_EMERG "[PRINT]Passed %s in\n",__FUNCTION__);
+    }
+
 	mutex_enter(&db->db_mtx);
 	ASSERT3U(db->db_state, ==, DB_READ);
 	/*
@@ -1001,6 +1010,13 @@ dbuf_read_impl(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags)
 	zbookmark_phys_t zb;
 	uint32_t aflags = ARC_FLAG_NOWAIT;
 	int err;
+
+    if (_myprint) {
+        if (zio->name == NULL)
+            printk(KERN_EMERG "[PRINT]Passed %s in %lld offset %lld\n",__FUNCTION__, zio->io_timestamp, zio->io_offset);
+        else
+            printk(KERN_EMERG "[PRINT]Passed %s in name %s %lld offset %lld\n",__FUNCTION__, zio->name, zio->io_timestamp, zio->io_offset);
+    }
 
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
@@ -1174,6 +1190,17 @@ dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags)
 
 	if (db->db_state == DB_NOFILL)
 		return (SET_ERROR(EIO));
+
+    if (_myprint) {
+        if (havepzio) {
+            if (zio->name == NULL)
+                printk(KERN_EMERG "[PRINT]Passed %s in %lld offset %lld\n", __FUNCTION__, zio->io_timestamp, zio->io_offset);
+            else
+                printk(KERN_EMERG "[PRINT]Passed %s in %s %lld offset %lld\n", __FUNCTION__, zio->name, zio->io_timestamp, zio->io_offset);
+        }
+        else
+            printk(KERN_EMERG "[PRINT]Passed %s in with zio NULL %lld\n", __FUNCTION__, gethrtime());
+    }
 
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
@@ -1985,6 +2012,8 @@ dmu_buf_will_dirty(dmu_buf_t *db_fake, dmu_tx_t *tx)
 	if (RW_WRITE_HELD(&DB_DNODE(db)->dn_struct_rwlock))
 		rf |= DB_RF_HAVESTRUCT;
 	DB_DNODE_EXIT(db);
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in zio NULL %lld\n",__FUNCTION__, tx->tx_start);
 	(void) dbuf_read(db, NULL, rf);
 	(void) dbuf_dirty(db, tx);
 }
@@ -2310,6 +2339,8 @@ dbuf_findbp(dnode_t *dn, int level, uint64_t blkid, int fail_sparse,
 		}
 		if (err)
 			return (err);
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]Passed %s in\n",__FUNCTION__);
 		err = dbuf_read(*parentp, NULL,
 		    (DB_RF_HAVESTRUCT | DB_RF_NOPREFETCH | DB_RF_CANFAIL));
 		if (err) {
@@ -2771,6 +2802,9 @@ dbuf_hold_impl(dnode_t *dn, uint8_t level, uint64_t blkid,
 	struct dbuf_hold_impl_data *dh;
 	int error;
 
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in name %s\n", __FUNCTION__, name);
+
 	dh = kmem_alloc(sizeof (struct dbuf_hold_impl_data) *
 	    DBUF_HOLD_IMPL_MAX_DEPTH, KM_SLEEP);
 	__dbuf_hold_impl_init(dh, dn, level, blkid, fail_sparse,
@@ -2813,6 +2847,8 @@ __dbuf_hold_impl_init(struct dbuf_hold_impl_data *dh,
 dmu_buf_impl_t *
 dbuf_hold(dnode_t *dn, uint64_t blkid, void *tag)
 {
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in name %s\n", __FUNCTION__, name);
 	return (dbuf_hold_level(dn, 0, blkid, tag));
 }
 
@@ -3198,6 +3234,8 @@ dbuf_sync_indirect(dbuf_dirty_record_t *dr, dmu_tx_t *tx)
 	/* Read the block if it hasn't been read yet. */
 	if (db->db_buf == NULL) {
 		mutex_exit(&db->db_mtx);
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]Passed %s in zio NULL %lld\n",__FUNCTION__, tx->tx_start
 		(void) dbuf_read(db, NULL, DB_RF_MUST_SUCCEED);
 		mutex_enter(&db->db_mtx);
 	}
