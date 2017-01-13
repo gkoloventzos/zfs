@@ -341,8 +341,8 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     const char *name;
 
     ktime_get_ts(&arrival_time);
-    rot = kzalloc(2*sizeof(int), GFP_KERNEL);
-    rot[0] = rot[1] = 0;
+    rot = kzalloc(3*sizeof(int), GFP_KERNEL);
+    rot[0] = rot[1] = rot[2] = 0;
     name = file_dentry(filp)->d_name.name;
 
 //    if (_myprint)
@@ -1200,6 +1200,7 @@ int add_request(void *data)
     InsNode->read_all_file = 0;
     InsNode->write_all_file = 0;
     InsNode->deleted = 0;
+    InsNode->to_rot = -1;
     InsNode->file = kzalloc(strlen(name) + 1, GFP_KERNEL);
     InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
     if (InsNode->file == NULL || InsNode->hash == NULL) {
