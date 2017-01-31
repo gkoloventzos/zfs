@@ -258,12 +258,41 @@ zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
 	    flags, cr, 0));
 }
 
+void fullname(struct dentry *dentry, char *name, int *stop)
+{
+    if (dentry == dentry->d_parent)
+        *stop =-1;
+    while((void *)dentry != (void *)dentry->d_parent && *stop >= 0) {
+		if (*stop < 0 || *stop > 10) {
+			*stop =-1;
+			return;
+		}
+		(*stop)++;
+		fullname(dentry->d_parent, name, stop);
+	}
+	strncat(name, dentry->d_name.name, strlen(dentry->d_name.name));
+    if ((void *)dentry != (void *)dentry->d_parent && \
+        !list_empty(&dentry->d_child) && \
+        !list_empty(&dentry->d_subdirs)) {
+		strncat(name,"/",1);
+	}
+}
+
 static ssize_t
 zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t read;
+#ifdef CONFIG_HETFS
+    char *name;
+    int stop = 0;
+    zfs_sb_t *zsb = ITOZSB(filp->f_mapping->host);
 
+    name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+    if (zsb->z_mntopts->z_mntpoint != NULL)
+        strncat(name, zsb->z_mntopts->z_mntpoint, strlen(zsb->z_mntopts->z_mntpoint));
+    fullname(filp->f_path.dentry, name, &stop);
+#endif
 	crhold(cr);
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);
@@ -367,6 +396,16 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t wrote;
+#ifdef CONFIG_HETFS
+    char *name;
+    int stop = 0;
+    zfs_sb_t *zsb = ITOZSB(filp->f_mapping->host);
+
+    name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+    if (zsb->z_mntopts->z_mntpoint != NULL)
+        strncat(name, zsb->z_mntopts->z_mntpoint, strlen(zsb->z_mntopts->z_mntpoint));
+    fullname(filp->f_path.dentry, name, &stop);
+#endif
 
 	crhold(cr);
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
