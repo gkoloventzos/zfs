@@ -272,6 +272,15 @@ zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
 
 void fullname(struct dentry *dentry, char *name, int *stop)
 {
+    zfs_sb_t *zsb = NULL;
+    struct inode *ip = NULL;
+
+    ip = d_inode(dentry);
+    zsb = ITOZSB(ip);
+
+    if (zsb->z_mntopts->z_mntpoint != NULL)
+        strncat(name, zsb->z_mntopts->z_mntpoint,
+                strlen(zsb->z_mntopts->z_mntpoint));
     if (dentry == dentry->d_parent)
         *stop =-1;
     while((void *)dentry != (void *)dentry->d_parent && *stop >= 0) {
@@ -1070,13 +1079,7 @@ int add_request(void *data)
     long len = kdata->length;
     struct rb_root *hetfstree;
     unsigned long long int time = kdata->time;
-    zfs_sb_t *zsb = NULL;
-    znode_t *zn =NULL;
-    struct inode *ip = NULL;
     InsNode = NULL;
-    ip = d_inode(dentry);
-    zsb = ITOZSB(ip);
-    zn = ITOZ(ip);
 
     if (d_really_is_negative(dentry))
         return 1;
@@ -1088,9 +1091,6 @@ int add_request(void *data)
         do_exit(1);
         return 1;
     }
-    if (zsb->z_mntopts->z_mntpoint != NULL)
-        strncat(name, zsb->z_mntopts->z_mntpoint,
-                strlen(zsb->z_mntopts->z_mntpoint));
 	fullname(dentry, name, &stop);
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR]name and mountpoint NULL\n");
