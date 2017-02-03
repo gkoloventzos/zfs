@@ -308,13 +308,45 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     struct task_struct *thread1;
     struct timespec arrival_time;
     struct kdata *kdata = NULL;
-    int *rot;
+    struct data *InsNode = NULL;
+    int *rot, stop;
+    char *filename;
     const char *name;
+    struct scatterlist sg;
+    struct crypto_hash *tfm;
+    struct hash_desc desc;
+    unsigned char *output;
 
     ktime_get_ts(&arrival_time);
     rot = kzalloc(3*sizeof(int), GFP_KERNEL);
     rot[0] = rot[1] = rot[2] = 0;
     name = file_dentry(filp)->d_name.name;
+    filename = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+    if (filename == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
+        kfree(kdata);
+        return 1;
+    }
+    fullname(file_dentry(filp), filename, &stop);
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for hash in delete\n");
+        kfree(filename);
+        return 1;
+    }
+    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+    desc.tfm = tfm;
+    desc.flags = 0;
+    sg_init_one(&sg, filename, strlen(filename));
+    crypto_hash_init(&desc);
+    crypto_hash_update(&desc, &sg, strlen(filename));
+    crypto_hash_final(&desc, output);
+    crypto_free_hash(tfm);
+    down_read(&tree_sem);
+    InsNode = rb_search(init_task.hetfstree, output);
+    up_read(&tree_sem);
+    if (InsNode)
+        rot = InsNode->to_rot;
 #endif
 	crhold(cr);
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
