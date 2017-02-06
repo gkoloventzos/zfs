@@ -1273,7 +1273,7 @@ struct data *rb_search(struct rb_root *root, char *string)
 	struct rb_node *node;
     int result;
 
-    if (RB_EMPTY_ROOT(root))
+    if (root == NULL || RB_EMPTY_ROOT(root))
         return NULL;
 
     node = root->rb_node;
