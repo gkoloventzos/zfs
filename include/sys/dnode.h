@@ -271,6 +271,11 @@ struct dnode {
 	 */
 	avl_tree_t dn_dbufs;
 
+#ifdef CONFIG_HETFS
+    const char *name;
+    int *rot;
+    struct file *filp;
+#endif
 	/* protected by dn_struct_rwlock */
 	struct dmu_buf_impl *dn_bonus;	/* bonus buffer dbuf */
 
