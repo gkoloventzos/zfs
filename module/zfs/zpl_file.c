@@ -318,8 +318,6 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     unsigned char *output;
 
     ktime_get_ts(&arrival_time);
-    rot = kzalloc(3*sizeof(int), GFP_KERNEL);
-    rot[0] = rot[1] = rot[2] = 0;
     name = file_dentry(filp)->d_name.name;
     filename = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
     if (filename == NULL) {
@@ -346,7 +344,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     InsNode = rb_search(init_task.hetfstree, output);
     up_read(&tree_sem);
     if (InsNode)
-        rot = InsNode->to_rot;
+        *rot = InsNode->to_rot;
 #endif
 	crhold(cr);
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
