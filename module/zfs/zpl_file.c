@@ -324,14 +324,14 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     filename = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
     if (filename == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
-        kfree(kdata);
+        kzfree(kdata);
         return 1;
     }
     fullname(file_dentry(filp), filename, &stop);
     output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
     if (output == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for hash in delete\n");
-        kfree(filename);
+        kzfree(filename);
         return 1;
     }
     tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
@@ -1076,7 +1076,7 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
     }
     InsNode->size = size;
     InsNode->deleted = time;
-    kfree(output);
+    kzfree(output);
 
     return 0;
 }
@@ -1117,13 +1117,13 @@ int add_request(void *data)
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
-        kfree(kdata);
+        kzfree(kdata);
         return 1;
     }
 	fullname(dentry, name, &stop);
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR]name and mountpoint NULL\n");
-        kfree(kdata);
+        kzfree(kdata);
         return 1;
     }
     hetfstree = init_task.hetfstree;
@@ -1131,7 +1131,7 @@ int add_request(void *data)
 	    init_task.hetfstree = kzalloc(sizeof(struct rb_root),GFP_KERNEL);
         if (init_task.hetfstree == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
-            kfree(kdata);
+            kzfree(kdata);
             return 1;
         }
         *init_task.hetfstree = RB_ROOT;
@@ -1140,7 +1140,7 @@ int add_request(void *data)
     output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
     if (output == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
-        kfree(kdata);
+        kzfree(kdata);
         return 1;
     }
 
@@ -1156,7 +1156,7 @@ int add_request(void *data)
     InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
     if (InsNode == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc memory for InsNode\n");
-        kfree(kdata);
+        kzfree(kdata);
         return 1;
     }
     InsNode->read_all_file = 0;
@@ -1167,7 +1167,7 @@ int add_request(void *data)
     InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
     if (InsNode->file == NULL || InsNode->hash == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for InsNode file/hash\n");
-        kfree(kdata);
+        kzfree(kdata);
         return 1;
     }
     memcpy(InsNode->file, name, strlen(name) + 1);
@@ -1176,13 +1176,13 @@ int add_request(void *data)
     InsNode->read_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
     if (InsNode->read_reqs == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
-        kfree(kdata);
+        kzfree(kdata);
         return 1;
     }
     InsNode->write_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
     if (InsNode->write_reqs == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode write null after malloc\n");
-        kfree(kdata);
+        kzfree(kdata);
         return 1;
     }
 	INIT_LIST_HEAD(InsNode->read_reqs);
@@ -1190,11 +1190,11 @@ int add_request(void *data)
     down_write(&tree_sem);
     OutNode = rb_search(init_task.hetfstree, output);
     if (OutNode != NULL) {
-        kfree(InsNode->file);
-        kfree(InsNode->hash);
-        kfree(InsNode->read_reqs);
-        kfree(InsNode->write_reqs);
-        kfree(InsNode);
+        kzfree(InsNode->file);
+        kzfree(InsNode->hash);
+        kzfree(InsNode->read_reqs);
+        kzfree(InsNode->write_reqs);
+        kzfree(InsNode);
         InsNode = OutNode;
     }
     else {
@@ -1210,23 +1210,23 @@ int add_request(void *data)
         printk(KERN_EMERG "[ERROR] Tree is empty. Stop all\n");
     }
 
-    kfree(output);
-    kfree(name);
+    kzfree(output);
+    kzfree(name);
 
     if (InsNode == NULL || !InsNode) {
         printk(KERN_EMERG "[ERROR]InsNode\n");
-        kfree(kdata);
+        kzfree(kdata);
         return 1;
     }
 
     if (InsNode->write_reqs == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode write null after insert\n");
-        kfree(kdata);
+        kzfree(kdata);
         return 1;
     }
     if (InsNode->read_reqs == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode read null after insert\n");
-        kfree(kdata);
+        kzfree(kdata);
         return 1;
     }
     InsNode->size = i_size_read(d_inode(InsNode->dentry));
@@ -1245,7 +1245,7 @@ int add_request(void *data)
                (time - a_r->end_time) < MAX_DIFF) {
                 a_r->end_offset += len;
                 a_r->end_time = time;
-                kfree(kdata);
+                kzfree(kdata);
                 return 0;
             }
         }
@@ -1254,7 +1254,7 @@ int add_request(void *data)
     a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
     if (a_r == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot allocate request\n");
-        kfree(kdata);
+        kzfree(kdata);
         return 1;
     }
 
@@ -1264,7 +1264,7 @@ int add_request(void *data)
     a_r->times = 1;
     list_add_tail(&a_r->list, general);
 
-    kfree(kdata);
+    kzfree(kdata);
     return 0;
 }
 
