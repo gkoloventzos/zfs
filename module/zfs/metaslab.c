@@ -3360,7 +3360,7 @@ int ditto_same_vdev_distance_shift = 3;
 static int
 metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
     dva_t *dva, int d, dva_t *hintdva, uint64_t txg, int flags,
-    zio_alloc_list_t *zal, int alloc_class)
+    zio_alloc_list_t *zal, int alloc_class, int rot)
 {
 	metaslab_group_t *mg, *fast_mg, *rotor;
 	vdev_t *vd;
@@ -3389,10 +3389,15 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 		nrot++;
 	}
 
+    if (rot != -1)
+        nrot = rot;
+
 	for (; nrot < METASLAB_CLASS_ROTORS; nrot++)
 		if (mc->mc_rotorv[nrot])
 			break;
 
+    if (rot != -1)
+        printk(KERN_EMERG "[SSD_FILE]File sample will go to %d\n", nrot);
 	/*
 	 * Start at the rotor and loop through all mgs until we find something.
 	 * Note that there's no locking on mc_rotor or mc_aliquot because
@@ -3828,6 +3833,7 @@ metaslab_alloc(spa_t *spa, metaslab_class_t *mc, uint64_t psize, blkptr_t *bp,
 	int d, error = 0;
 	int i;
 	int alloc_class;
+    int rot = -1;
 
 	ASSERT(bp->blk_birth == 0);
 	ASSERT(BP_PHYSICAL_BIRTH(bp) == 0);
@@ -3858,7 +3864,7 @@ has_vdev:
 
 	for (d = 0; d < ndvas; d++) {
 		error = metaslab_alloc_dva(spa, mc, psize, dva, d, hintdva,
-		    txg, flags, zal, alloc_class);
+		    txg, flags, zal, alloc_class, rot);
 		if (error != 0) {
 			for (d--; d >= 0; d--) {
 				metaslab_free_dva(spa, &dva[d], txg, B_TRUE);
