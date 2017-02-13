@@ -453,8 +453,8 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 
 	ASSERT(length <= DMU_MAX_ACCESS);
 
-    if (_myprint)
-        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, name, offset);
+    if (_myprint && dn->name != NULL)
+        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, dn->name, offset);
 	/*
 	 * Note: We directly notify the prefetch code of this read, so that
 	 * we can tell it about the multi-block read.  dbuf_read() only knows
@@ -1238,16 +1238,13 @@ dmu_read_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size)
 	dnode_t *dn;
 	int err;
 
-    if (_myprint)
-        printk(KERN_EMERG "[PRINT]Passed %s in %s %lld\n",__FUNCTION__, name, uio->uio_loffset);
 	if (size == 0)
 		return (0);
 
-    if (_myprint)
-        printk(KERN_EMERG "[PRINT]Passed %s size not 0 %s %lld\n",__FUNCTION__, name, uio->uio_loffset);
-
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
+    if (_myprint && dn->name != NULL)
+        printk(KERN_EMERG "[PRINT]Passed %s size not 0 %s %lld\n",__FUNCTION__, dn->name, uio->uio_loffset);
 	err = dmu_read_uio_dnode(dn, uio, size);
 	DB_DNODE_EXIT(db);
 

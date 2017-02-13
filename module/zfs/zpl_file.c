@@ -41,6 +41,8 @@
 #include <linux/hetfs.h>
 #include <linux/list.h>
 #include <linux/kthread.h>
+#include <sys/dnode.h>
+#include <sys/dbuf.h>
 
 extern int _myprint;
 int add_request(void *);
@@ -237,7 +239,7 @@ zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 	fstrans_cookie_t cookie;
 
     if (_myprint)
-        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, name, *ppos);
+        printk(KERN_EMERG "[PRINT]Passed %s in name-name  offset %lld\n",__FUNCTION__, *ppos);
 	uio.uio_iov = iovp;
 	uio.uio_skip = skip;
 	uio.uio_resid = count;
@@ -266,7 +268,7 @@ zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
 	struct iovec iov;
 
     if (_myprint)
-        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, name, *ppos);
+        printk(KERN_EMERG "[PRINT]Passed %s in name-nameoffset %lld\n",__FUNCTION__,  *ppos);
 	iov.iov_base = (void *)buf;
 	iov.iov_len = len;
 
@@ -320,8 +322,15 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     struct crypto_hash *tfm;
     struct hash_desc desc;
     unsigned char *output;
+    dnode_t *dn;
+	znode_t		*zp = ITOZ(filp->f_mapping->host);
 
     ktime_get_ts(&arrival_time);
+/*    rot = kzalloc(3*sizeof(int), GFP_KERNEL);
+    rot[0] = rot[1]  = 0;
+    rot[2] = -1;*/
+    rot = NULL;
+    stop = 0;
     name = file_dentry(filp)->d_name.name;
     filename = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
     if (filename == NULL) {
@@ -347,8 +356,16 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     down_read(&tree_sem);
     InsNode = rb_search(init_task.hetfstree, output);
     up_read(&tree_sem);
-    if (InsNode)
-        *rot = InsNode->to_rot;
+    /*if (InsNode)
+        *rot = InsNode->to_rot;*/
+    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    if (dn->name == NULL)
+        dn->name = name;
+    if (dn->filp == NULL)
+        dn->filp = filp;
+//    dn->rot = rot;
+    DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 #endif
 	crhold(cr);
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
@@ -452,6 +469,7 @@ zpl_write_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 
 	return (wrote);
 }
+
 inline ssize_t
 zpl_write_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
     uio_seg_t segment, int flags, cred_t *cr)
@@ -471,19 +489,53 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 	cred_t *cr = CRED();
 	ssize_t wrote;
 #ifdef CONFIG_HETFS
-  struct task_struct *thread1;
-  struct kdata *kdata;
-  struct timespec arrival_time;
+    struct task_struct *thread1;
+    struct kdata *kdata;
+    struct timespec arrival_time;
+    const char *name;
+    dnode_t *dn;
+    char *filename;
+    int rot = -1;
+    int stop = 0;
+	znode_t		*zp = ITOZ(filp->f_mapping->host);
 
-  ktime_get_ts(&arrival_time);
+    ktime_get_ts(&arrival_time);
+	filename = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
+    if (filename == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
+        return 1;
+    }
+	//dentry_path_raw(file_dentry(filp), filename, PATH_MAX+NAME_MAX);
+    fullname(file_dentry(filp), filename, &stop);
+    name = file_dentry(filp)->d_name.name;
+    if (name == NULL)
+        printk(KERN_EMERG "[ERROR]name is NULL %s\n", file_dentry(filp)->d_name.name);
+    else {
+        if (strstr(filename, "log") != NULL) {
+            name = NULL;
+        }
+        else if (strstr(filename, "sample_ssd") != NULL) {
+            //printk(KERN_EMERG "[SSD]fullname is %s name is %s\n", filename, name);
+            rot = 0;
+        }
+    }
+    kzfree(filename);
+    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    if (dn->name == NULL)
+        dn->name = name;
+    if (dn->filp == NULL)
+        dn->filp = filp;
+    if (dn->rot == NULL)
+        dn->rot = &rot;
+    DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 #endif
 
 	crhold(cr);
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);
-	crfree(cr);
 #ifdef CONFIG_HETFS
-    if (wrote > 0)
+    if (wrote > 0) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->dentry = file_dentry(filp);
@@ -497,6 +549,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             printk(KERN_EMERG "[ERROR] Kdata null write\n");
     }
 #endif
+	crfree(cr);
 
 	return (wrote);
 }
@@ -1124,6 +1177,7 @@ int add_request(void *data)
         kzfree(kdata);
         return 1;
     }
+	//dentry_path_raw(dentry, name, PATH_MAX+NAME_MAX);
 	fullname(dentry, name, &stop);
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR]name and mountpoint NULL\n");

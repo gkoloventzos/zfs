@@ -801,6 +801,8 @@ vdev_queue_io_done(zio_t *zio)
 		}
 		mutex_enter(&vq->vq_lock);
 	}
+/*    if (zio->rot != NULL)
+        vq->vq_vdev->vdev_nonrot?zio->rot[NONROT]++:zio->rot[ROT]++;*/
 
 	mutex_exit(&vq->vq_lock);
 }

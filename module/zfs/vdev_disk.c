@@ -516,10 +516,18 @@ vdev_submit_bio(struct bio *bio)
     if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
         if (_myprint)
             printk(KERN_EMERG "[PRINT]NON ROT\n");
+/*        dio = bio->bi_private;
+        if (bio->bi_rw != WRITE_FLUSH_FUA)
+            if (dio != NULL && dio->dr_zio != NULL && dio->dr_zio->rot != NULL)
+                dio->dr_zio->rot[0]++;*/
     }
     else {
         if (_myprint)
             printk(KERN_EMERG "[PRINT]ROT\n");
+/*        dio = bio->bi_private;
+        if (bio->bi_rw != WRITE_FLUSH_FUA)
+            if (dio != NULL && dio->dr_zio != NULL && dio->dr_zio->rot != NULL)
+                dio->dr_zio->rot[1]++;*/
     }
 	vdev_submit_bio_impl(bio);
 	current->bio_list = bio_list;

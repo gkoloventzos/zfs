@@ -461,6 +461,19 @@ zio_add_child(zio_t *pio, zio_t *cio)
 	pio->io_child_count++;
 	cio->io_parent_count++;
 
+#ifdef CONFIG_HETFS
+    if (pio->filp != NULL) {
+        cio->rot = pio->rot;
+        cio->filp = pio->filp;
+        cio->name = pio->name;
+    }
+    else {
+        pio->rot = cio->rot;
+        pio->filp = cio->filp;
+        pio->name = cio->name;
+    }
+#endif
+
 	mutex_exit(&pio->io_lock);
 	mutex_exit(&cio->io_lock);
 }
@@ -653,6 +666,12 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 	zio->io_state[ZIO_WAIT_READY] = (stage >= ZIO_STAGE_READY);
 	zio->io_state[ZIO_WAIT_DONE] = (stage >= ZIO_STAGE_DONE);
 
+#ifdef CONFIG_HETFS
+    zio->rot = NULL;
+    zio->name = NULL;
+    zio->filp = NULL;
+#endif
+
 	if (zb != NULL)
 		zio->io_bookmark = *zb;
 
@@ -661,8 +680,15 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 			zio->io_logical = pio->io_logical;
 		if (zio->io_child_type == ZIO_CHILD_GANG)
 			zio->io_gang_leader = pio->io_gang_leader;
+#ifdef CONFIG_HETFS
+        zio->io_timestamp = pio->io_timestamp;
+        zio->rot = pio->rot;
+        zio->name = pio->name;
+        zio->filp = pio->filp;
+#endif
 		zio_add_child(pio, zio);
 	}
+
 
 	taskq_init_ent(&zio->io_tqent);
 
