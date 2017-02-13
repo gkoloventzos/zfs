@@ -515,7 +515,6 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             name = NULL;
         }
         else if (strstr(filename, "sample_ssd") != NULL) {
-            //printk(KERN_EMERG "[SSD]fullname is %s name is %s\n", filename, name);
             rot = 0;
         }
     }
