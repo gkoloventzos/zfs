@@ -1154,7 +1154,7 @@ int add_request(void *data)
     struct crypto_hash *tfm;
     struct hash_desc desc;
     unsigned char *output;
-    struct data *InsNode, *OutNode;
+    struct data *InsNode;//, *OutNode;
     struct analyze_request *a_r;
 	char *name;
 	int stop = 0;
@@ -1212,43 +1212,54 @@ int add_request(void *data)
     crypto_hash_final(&desc, output);
     crypto_free_hash(tfm);
 
-    InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
-    if (InsNode == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc memory for InsNode\n");
-        kzfree(kdata);
-        return 1;
-    }
-    InsNode->read_all_file = 0;
-    InsNode->write_all_file = 0;
-    InsNode->deleted = 0;
-    InsNode->to_rot = -1;
-    InsNode->file = kzalloc(strlen(name) + 1, GFP_KERNEL);
-    InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-    if (InsNode->file == NULL || InsNode->hash == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc mem for InsNode file/hash\n");
-        kzfree(kdata);
-        return 1;
-    }
-    memcpy(InsNode->file, name, strlen(name) + 1);
-    memcpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
-    InsNode->dentry = dentry;
-    InsNode->read_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
-    if (InsNode->read_reqs == NULL) {
-        printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
-        kzfree(kdata);
-        return 1;
-    }
-    InsNode->write_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
-    if (InsNode->write_reqs == NULL) {
-        printk(KERN_EMERG "[ERROR]InsNode write null after malloc\n");
-        kzfree(kdata);
-        return 1;
-    }
-	INIT_LIST_HEAD(InsNode->read_reqs);
-	INIT_LIST_HEAD(InsNode->write_reqs);
     down_write(&tree_sem);
+    InsNode = rb_search(init_task.hetfstree, output);
+    if (InsNode  == NULL) {
+        InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
+        if (InsNode == NULL) {
+            printk(KERN_EMERG "[ERROR] Cannot alloc memory for InsNode\n");
+            kzfree(kdata);
+            return 1;
+        }
+        InsNode->read_all_file = 0;
+        InsNode->write_all_file = 0;
+        InsNode->deleted = 0;
+        InsNode->to_rot = -1;
+        InsNode->file = kzalloc(strlen(name) + 1, GFP_KERNEL);
+        InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+        if (InsNode->file == NULL || InsNode->hash == NULL) {
+            printk(KERN_EMERG "[ERROR] Cannot alloc mem for InsNode file/hash\n");
+            kzfree(kdata);
+            return 1;
+        }
+        memcpy(InsNode->file, name, strlen(name) + 1);
+        memcpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
+        InsNode->dentry = dentry;
+        InsNode->read_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
+        if (InsNode->read_reqs == NULL) {
+            printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
+            kzfree(kdata);
+            return 1;
+        }
+        InsNode->write_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
+        if (InsNode->write_reqs == NULL) {
+            printk(KERN_EMERG "[ERROR]InsNode write null after malloc\n");
+            kzfree(kdata);
+            return 1;
+        }
+        INIT_LIST_HEAD(InsNode->read_reqs);
+        INIT_LIST_HEAD(InsNode->write_reqs);
         init_rwsem(&(InsNode->read_sem));
         init_rwsem(&(InsNode->write_sem));
+        InsNode->size = i_size_read(d_inode(InsNode->dentry));
+        if (!rb_insert(init_task.hetfstree, InsNode)) {
+            printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
+            printk(KERN_EMERG "[HETFS] file: %s with ", InsNode->file);
+            //sha512print(InsNode->hash, 1);
+        }
+    }
+    up_write(&tree_sem);
+    /*down_write(&tree_sem);
     OutNode = rb_search(init_task.hetfstree, output);
     if (OutNode != NULL) {
         kzfree(InsNode->file);
@@ -1259,11 +1270,6 @@ int add_request(void *data)
         InsNode = OutNode;
     }
     else {
-        if (!rb_insert(init_task.hetfstree, InsNode)) {
-            printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
-            printk(KERN_EMERG "[HETFS] file: %s with ", InsNode->file);
-            //sha512print(InsNode->hash, 1);
-        }
     }
     up_write(&tree_sem);
 
@@ -1271,8 +1277,6 @@ int add_request(void *data)
         printk(KERN_EMERG "[ERROR] Tree is empty. Stop all\n");
     }
 
-    kzfree(output);
-    kzfree(name);
 
     if (InsNode == NULL || !InsNode) {
         printk(KERN_EMERG "[ERROR]InsNode\n");
@@ -1289,9 +1293,10 @@ int add_request(void *data)
         printk(KERN_EMERG "[ERROR]InsNode read null after insert\n");
         kzfree(kdata);
         return 1;
-    }
-    InsNode->size = i_size_read(d_inode(InsNode->dentry));
+    }*/
 
+    kzfree(output);
+    kzfree(name);
     if (type == 0) {
         general = InsNode->read_reqs;
         sem = &(InsNode->read_sem);
