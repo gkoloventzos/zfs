@@ -3823,6 +3823,22 @@ metaslab_class_throttle_unreserve(metaslab_class_t *mc, int slots, zio_t *zio)
 	mutex_exit(&mc->mc_lock);
 }
 
+int get_metaslab_class(metaslab_class_t *mc, int rot)
+{
+    int i;
+
+    //printk(KERN_EMERG "[METASLAB] get_metaslab_class\n");
+    for(i = 0; i < METASLAB_CLASS_ROTORS; i++) {
+        //printk(KERN_EMERG "[METASLAB] METASLAB_CLASS %d\n", i);
+        if (mc->mc_rotvec_categories[i] & rot) {
+            //printk(KERN_EMERG "[METASLAB] About to return %d\n", i);
+            return i;
+        }
+    }
+
+    return (-1);
+}
+
 int
 metaslab_alloc(spa_t *spa, metaslab_class_t *mc, uint64_t psize, blkptr_t *bp,
     int ndvas, uint64_t txg, blkptr_t *hintbp, int flags,
@@ -3861,7 +3877,21 @@ has_vdev:
 	if (BP_GET_LEVEL(bp) > 0)
 		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
 
-
+    if (zio != NULL) {
+        if (zio->name != NULL) {
+            printk(KERN_EMERG "[SSD_FILE]Found file name %s\n", zio->name);
+            if (strstr(zio->name, "sample_ssd") != NULL) {
+                rot = get_metaslab_class(mc, METASLAB_ROTOR_VDEV_TYPE_SSD);
+                printk(KERN_EMERG "[ROT]rot %d\n", rot);
+            }
+        }
+        /*if (zio->rot != NULL) {
+            rot = *(zio->rot);
+            if (rot > -1)
+                printk(KERN_EMERG "[SSD_FILE]Found rot %d\n", rot);
+            rot = *(zio->rot);
+        }*/
+    }
 	for (d = 0; d < ndvas; d++) {
 		error = metaslab_alloc_dva(spa, mc, psize, dva, d, hintdva,
 		    txg, flags, zal, alloc_class, rot);
