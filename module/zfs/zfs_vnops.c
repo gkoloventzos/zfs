@@ -388,7 +388,7 @@ mappedread(struct inode *ip, int nbytes, uio_t *uio)
 
     if (_myprint)
         printk(KERN_EMERG "[PRINT]Passed %s in name %s offset %lld\n",
-                                        __FUNCTION__, name, uio->uio_loffset);
+                                        __FUNCTION__, DB_DNODE(((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl)))->name, uio->uio_loffset);
 	start = uio->uio_loffset;
 	off = start & (PAGE_SIZE-1);
 	for (start &= PAGE_MASK; len > 0; start += PAGE_SIZE) {
@@ -457,7 +457,7 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 
     if (_myprint)
         printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__,
-                                                        name, uio->uio_loffset);
+                                                 DB_DNODE(((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl)))->name, uio->uio_loffset);
 	ZFS_ENTER(zsb);
 	ZFS_VERIFY_ZP(zp);
 
@@ -609,6 +609,9 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	sa_bulk_attr_t	bulk[4];
 	uint64_t	mtime[2], ctime[2];
 	uint32_t	uid;
+#ifdef CONFIG_HETFS
+    dnode_t *dn;
+#endif
 #ifdef HAVE_UIO_ZEROCOPY
 	int		i_iov = 0;
 	const iovec_t	*iovp = uio->uio_iov;
@@ -724,6 +727,11 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	 * in a separate transaction; this keeps the intent log records small
 	 * and allows us to do more fine-grained space accounting.
 	 */
+#ifdef CONFIG_HETFS
+    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    if (dn->name != NULL)
+        printk(KERN_EMERG "[SSD]Name %s\n", dn->name);
+#endif
 	while (n > 0) {
 		abuf = NULL;
 		woff = uio->uio_loffset;
@@ -822,6 +830,7 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 			tx_bytes = uio->uio_resid;
 			error = dmu_write_uio_dbuf(sa_get_db(zp->z_sa_hdl),
 			    uio, nbytes, tx);
+
 			tx_bytes -= uio->uio_resid;
 		} else {
 			tx_bytes = nbytes;
