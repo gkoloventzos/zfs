@@ -1159,6 +1159,7 @@ int add_request(void *data)
 	char *name;
 	int stop = 0;
     struct list_head *general, *pos, *n;
+    struct rw_semaphore *sem;
     struct kdata *kdata = (struct kdata *)data;
     struct dentry *dentry = kdata->dentry;
     int type = kdata->type;
@@ -1246,6 +1247,8 @@ int add_request(void *data)
 	INIT_LIST_HEAD(InsNode->read_reqs);
 	INIT_LIST_HEAD(InsNode->write_reqs);
     down_write(&tree_sem);
+        init_rwsem(&(InsNode->read_sem));
+        init_rwsem(&(InsNode->write_sem));
     OutNode = rb_search(init_task.hetfstree, output);
     if (OutNode != NULL) {
         kzfree(InsNode->file);
@@ -1289,11 +1292,16 @@ int add_request(void *data)
     }
     InsNode->size = i_size_read(d_inode(InsNode->dentry));
 
-    if (type == 0)
+    if (type == 0) {
         general = InsNode->read_reqs;
-    else
+        sem = &(InsNode->read_sem);
+    }
+    else {
         general = InsNode->write_reqs;
+        sem = &(InsNode->write_sem);
+    }
 
+    down_write(sem);
     if (!list_empty_careful(general)) {
         list_for_each_prev_safe(pos, n, general) {
             a_r = list_entry(pos, struct analyze_request, list);
@@ -1304,6 +1312,7 @@ int add_request(void *data)
                 a_r->end_offset += len;
                 a_r->end_time = time;
                 kzfree(kdata);
+                up_write(sem);
                 return 0;
             }
         }
@@ -1312,6 +1321,7 @@ int add_request(void *data)
     a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
     if (a_r == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot allocate request\n");
+        up_write(sem);
         kzfree(kdata);
         return 1;
     }
@@ -1321,6 +1331,7 @@ int add_request(void *data)
     a_r->end_offset = offset + len;
     a_r->times = 1;
     list_add_tail(&a_r->list, general);
+    up_write(sem);
 
     kzfree(kdata);
     return 0;
