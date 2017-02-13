@@ -446,6 +446,11 @@ struct zio {
 	kmutex_t	io_lock;
 	kcondvar_t	io_cv;
 
+#ifdef CONFIG_HETFS
+    int *rot;
+    const char *name;
+    struct file *filp;
+#endif
 	/* FMA state */
 	zio_cksum_report_t *io_cksum_report;
 	uint64_t	io_ena;
