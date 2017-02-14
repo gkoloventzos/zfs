@@ -356,6 +356,8 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     down_read(&tree_sem);
     InsNode = rb_search(init_task.hetfstree, output);
     up_read(&tree_sem);
+    kzfree(output);
+    kzfree(filename);
     /*if (InsNode)
         *rot = InsNode->to_rot;*/
     DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
@@ -1128,6 +1130,7 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
     //remnants from previous execution
     if (InsNode == NULL) {
         printk(KERN_EMERG "[ERROR]Delete not in the tree %s\n", file_id);
+        kzfree(output);
         return 0;
     }
     InsNode->size = size;
@@ -1190,6 +1193,7 @@ int add_request(void *data)
         if (init_task.hetfstree == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
             kzfree(kdata);
+            kzfree(name);
             return 1;
         }
         *init_task.hetfstree = RB_ROOT;
@@ -1199,6 +1203,7 @@ int add_request(void *data)
     if (output == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
         kzfree(kdata);
+        kzfree(name);
         return 1;
     }
 
@@ -1218,6 +1223,7 @@ int add_request(void *data)
         if (InsNode == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot alloc memory for InsNode\n");
             kzfree(kdata);
+            kzfree(name);
             return 1;
         }
         InsNode->read_all_file = 0;
@@ -1229,6 +1235,7 @@ int add_request(void *data)
         if (InsNode->file == NULL || InsNode->hash == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot alloc mem for InsNode file/hash\n");
             kzfree(kdata);
+            kzfree(name);
             return 1;
         }
         memcpy(InsNode->file, name, strlen(name) + 1);
@@ -1237,13 +1244,17 @@ int add_request(void *data)
         InsNode->read_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
         if (InsNode->read_reqs == NULL) {
             printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
+            kzfree(output);
             kzfree(kdata);
+            kzfree(name);
             return 1;
         }
         InsNode->write_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
         if (InsNode->write_reqs == NULL) {
             printk(KERN_EMERG "[ERROR]InsNode write null after malloc\n");
+            kzfree(output);
             kzfree(kdata);
+            kzfree(name);
             return 1;
         }
         INIT_LIST_HEAD(InsNode->read_reqs);
