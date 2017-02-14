@@ -1264,46 +1264,10 @@ int add_request(void *data)
         InsNode->size = i_size_read(d_inode(InsNode->dentry));
         if (!rb_insert(init_task.hetfstree, InsNode)) {
             printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
-            printk(KERN_EMERG "[HETFS] file: %s with ", InsNode->file);
-            //sha512print(InsNode->hash, 1);
+            //printk(KERN_EMERG "[HETFS] file: %s with ", InsNode->file);
         }
     }
     up_write(&tree_sem);
-    /*down_write(&tree_sem);
-    OutNode = rb_search(init_task.hetfstree, output);
-    if (OutNode != NULL) {
-        kzfree(InsNode->file);
-        kzfree(InsNode->hash);
-        kzfree(InsNode->read_reqs);
-        kzfree(InsNode->write_reqs);
-        kzfree(InsNode);
-        InsNode = OutNode;
-    }
-    else {
-    }
-    up_write(&tree_sem);
-
-    if (RB_EMPTY_ROOT(init_task.hetfstree)) {
-        printk(KERN_EMERG "[ERROR] Tree is empty. Stop all\n");
-    }
-
-
-    if (InsNode == NULL || !InsNode) {
-        printk(KERN_EMERG "[ERROR]InsNode\n");
-        kzfree(kdata);
-        return 1;
-    }
-
-    if (InsNode->write_reqs == NULL) {
-        printk(KERN_EMERG "[ERROR]InsNode write null after insert\n");
-        kzfree(kdata);
-        return 1;
-    }
-    if (InsNode->read_reqs == NULL) {
-        printk(KERN_EMERG "[ERROR]InsNode read null after insert\n");
-        kzfree(kdata);
-        return 1;
-    }*/
 
     kzfree(output);
     kzfree(name);
