@@ -3396,8 +3396,8 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 		if (mc->mc_rotorv[nrot])
 			break;
 
-    if (rot != -1)
-        printk(KERN_EMERG "[SSD_FILE]File sample will go to %d\n", nrot);
+/*    if (rot != -1)
+        printk(KERN_EMERG "[SSD_FILE]File sample will go to %d\n", nrot);*/
 	/*
 	 * Start at the rotor and loop through all mgs until we find something.
 	 * Note that there's no locking on mc_rotor or mc_aliquot because
@@ -3879,7 +3879,7 @@ has_vdev:
 
     if (zio != NULL) {
         if (zio->name != NULL) {
-            printk(KERN_EMERG "[SSD_FILE]Found file name %s\n", zio->name);
+//            printk(KERN_EMERG "[SSD_FILE]Found file name %s\n", zio->name);
             if (strstr(zio->name, "sample_ssd") != NULL) {
                 rot = get_metaslab_class(mc, METASLAB_ROTOR_VDEV_TYPE_SSD);
                 printk(KERN_EMERG "[ROT]rot %d\n", rot);

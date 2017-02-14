@@ -727,11 +727,11 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	 * in a separate transaction; this keeps the intent log records small
 	 * and allows us to do more fine-grained space accounting.
 	 */
-#ifdef CONFIG_HETFS
+/*#ifdef CONFIG_HETFS
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     if (dn->name != NULL)
         printk(KERN_EMERG "[SSD]Name %s\n", dn->name);
-#endif
+#endif*/
 	while (n > 0) {
 		abuf = NULL;
 		woff = uio->uio_loffset;
