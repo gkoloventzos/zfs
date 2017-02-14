@@ -1230,15 +1230,15 @@ int add_request(void *data)
         InsNode->write_all_file = 0;
         InsNode->deleted = 0;
         InsNode->to_rot = -1;
-        InsNode->file = kzalloc(strlen(name) + 1, GFP_KERNEL);
+        //InsNode->file = kzalloc(strlen(name) + 1, GFP_KERNEL);
         InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-        if (InsNode->file == NULL || InsNode->hash == NULL) {
-            printk(KERN_EMERG "[ERROR] Cannot alloc mem for InsNode file/hash\n");
+        if (InsNode->hash == NULL) {
+            printk(KERN_EMERG "[ERROR] Cannot alloc mem for InsNode hash\n");
             kzfree(kdata);
             kzfree(name);
             return 1;
         }
-        memcpy(InsNode->file, name, strlen(name) + 1);
+        //memcpy(InsNode->file, name, strlen(name) + 1);
         memcpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
         InsNode->dentry = dentry;
         InsNode->read_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
