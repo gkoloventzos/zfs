@@ -521,7 +521,6 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             rot = 0;
         }
     }
-    kzfree(filename);
     DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     if (dn->name == NULL)
@@ -529,7 +528,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     if (dn->filp == NULL)
         dn->filp = filp;
     if (dn->rot == NULL) {
-        for (stop = 0; stop <= 483; stop++) {
+        for (stop = 0; stop <= 482; stop++) {
             if (strstr(filename, boot_files[stop]) != NULL) {
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
                 break;
@@ -538,6 +537,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         dn->rot = &rot;
     }
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    kzfree(filename);
 #endif
 
 	crhold(cr);
