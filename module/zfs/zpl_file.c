@@ -43,6 +43,7 @@
 #include <linux/kthread.h>
 #include <sys/dnode.h>
 #include <sys/dbuf.h>
+#include <linux/boot_files.h>
 
 extern int _myprint;
 int add_request(void *);
@@ -527,8 +528,15 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         dn->name = name;
     if (dn->filp == NULL)
         dn->filp = filp;
-    if (dn->rot == NULL)
+    if (dn->rot == NULL) {
+        for (stop = 0; stop <= 483; stop++) {
+            if (strstr(filename, boot_files[stop]) != NULL) {
+                rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+                break;
+            }
+        }
         dn->rot = &rot;
+    }
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 #endif
 

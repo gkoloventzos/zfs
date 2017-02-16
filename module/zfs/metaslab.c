@@ -3878,19 +3878,19 @@ has_vdev:
 		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
 
     if (zio != NULL) {
-        if (zio->name != NULL) {
-//            printk(KERN_EMERG "[SSD_FILE]Found file name %s\n", zio->name);
+        /*if (zio->name != NULL) {
+            printk(KERN_EMERG "[SSD_FILE]Found file name %s\n", zio->name);
             if (strstr(zio->name, "sample_ssd") != NULL) {
                 rot = get_metaslab_class(mc, METASLAB_ROTOR_VDEV_TYPE_SSD);
                 printk(KERN_EMERG "[ROT]rot %d\n", rot);
             }
-        }
-        /*if (zio->rot != NULL) {
-            rot = *(zio->rot);
-            if (rot > -1)
-                printk(KERN_EMERG "[SSD_FILE]Found rot %d\n", rot);
-            rot = *(zio->rot);
         }*/
+        if (zio->rot != NULL) {
+            rot = *(zio->rot);
+            if (rot > -1) {
+                rot = get_metaslab_class(mc, rot);
+            }
+        }
     }
 	for (d = 0; d < ndvas; d++) {
 		error = metaslab_alloc_dva(spa, mc, psize, dva, d, hintdva,
