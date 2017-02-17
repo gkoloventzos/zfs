@@ -228,8 +228,10 @@ dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks, boolean_t fetch_data)
 	if (blkid == 0)
 		return;
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT]Passed %s in\n",__FUNCTION__);
+#endif
 
 	rw_enter(&zf->zf_rwlock, RW_READER);
 

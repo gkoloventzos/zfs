@@ -589,7 +589,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
     enum zio_stage pipeline)
 {
 	zio_t *zio;
-
+#ifdef CONFIG_HETFS
     if (_myprint) {
         if (pio != NULL) {
             if (pio->name == NULL)
@@ -600,6 +600,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
         else
             printk(KERN_EMERG "[PRINT] Passed %s in zio NULL\n",__FUNCTION__);
     }
+#endif
 	ASSERT3U(psize, <=, SPA_MAXBLOCKSIZE);
 	ASSERT(P2PHASE(psize, SPA_MINBLOCKSIZE) == 0);
 	ASSERT(P2PHASE(offset, SPA_MINBLOCKSIZE) == 0);
@@ -644,8 +645,10 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 			pipeline |= ZIO_GANG_STAGES;
 	}
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] %lld\n", zio->io_timestamp);
+#endif
 
 	zio->io_spa = spa;
 	zio->io_txg = txg;
@@ -712,6 +715,7 @@ zio_null(zio_t *pio, spa_t *spa, vdev_t *vd, zio_done_func_t *done,
 {
 	zio_t *zio;
 
+#ifdef CONFIG_HETFS
     if (_myprint) {
         if (pio != NULL) {
             if (pio->name == NULL)
@@ -722,6 +726,7 @@ zio_null(zio_t *pio, spa_t *spa, vdev_t *vd, zio_done_func_t *done,
         else
             printk(KERN_EMERG "[PRINT] Passed %s in zio NULL %lld\n",__FUNCTION__, gethrtime());
     }
+#endif
 
 	zio = zio_create(pio, spa, 0, NULL, NULL, 0, 0, done, private,
 	    ZIO_TYPE_NULL, ZIO_PRIORITY_NOW, flags, vd, 0, NULL,
@@ -733,8 +738,10 @@ zio_null(zio_t *pio, spa_t *spa, vdev_t *vd, zio_done_func_t *done,
 zio_t *
 zio_root(spa_t *spa, zio_done_func_t *done, void *private, enum zio_flag flags)
 {
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %lld\n",__FUNCTION__, gethrtime());
+#endif
 	return (zio_null(NULL, spa, NULL, done, private, flags));
 }
 
@@ -831,12 +838,14 @@ zio_read(zio_t *pio, spa_t *spa, const blkptr_t *bp,
 {
 	zio_t *zio;
 
+#ifdef CONFIG_HETFS
     if (_myprint) {
         if (pio->name != NULL)
             printk(KERN_EMERG "[PRINT] Passed %s in name %s time %lld offset %lld",__FUNCTION__,pio->name, pio->io_timestamp, pio->io_offset);
         else
             printk(KERN_EMERG "[PRINT] Passed %s in time %lld offset %lld",__FUNCTION__, pio->io_timestamp, pio->io_offset);
     }
+#endif
 
 	zfs_blkptr_verify(spa, bp);
 
@@ -933,8 +942,10 @@ zio_free(spa_t *spa, uint64_t txg, const blkptr_t *bp)
 	 * process the free here (by ignoring it) rather than
 	 * putting it on the list and then processing it in zio_free_sync().
 	 */
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+#endif
 	if (BP_IS_EMBEDDED(bp))
 		return;
 	metaslab_check_free(spa, bp);
@@ -992,8 +1003,10 @@ zio_claim(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 {
 	zio_t *zio;
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+#endif
 	dprintf_bp(bp, "claiming in txg %llu", txg);
 
 	if (BP_IS_EMBEDDED(bp))
@@ -1030,8 +1043,10 @@ zio_ioctl(zio_t *pio, spa_t *spa, vdev_t *vd, int cmd,
 	zio_t *zio;
 	int c;
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+#endif
 	if (vd->vdev_children == 0) {
 		zio = zio_create(pio, spa, 0, NULL, NULL, 0, 0, done, private,
 		    ZIO_TYPE_IOCTL, ZIO_PRIORITY_NOW, flags, vd, 0, NULL,
@@ -1056,8 +1071,10 @@ zio_read_phys(zio_t *pio, vdev_t *vd, uint64_t offset, uint64_t size,
 {
 	zio_t *zio;
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+#endif
 	ASSERT(vd->vdev_children == 0);
 	ASSERT(!labels || offset + size <= VDEV_LABEL_START_SIZE ||
 	    offset >= vd->vdev_psize - VDEV_LABEL_END_SIZE);
@@ -1117,9 +1134,11 @@ zio_vdev_child_io(zio_t *pio, blkptr_t *bp, vdev_t *vd, uint64_t offset,
 	enum zio_stage pipeline = ZIO_VDEV_CHILD_PIPELINE;
 	zio_t *zio;
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in time %lld offset %lld name %s\n",
                         __FUNCTION__, pio->io_timestamp, pio->io_offset, pio->name);
+#endif
 	ASSERT(vd->vdev_parent ==
 	    (pio->io_vd ? pio->io_vd : pio->io_spa->spa_root_vdev));
 
@@ -1187,8 +1206,10 @@ zio_vdev_delegated_io(vdev_t *vd, uint64_t offset, abd_t *data, uint64_t size,
 	zio_t *zio;
 
 	ASSERT(vd->vdev_ops->vdev_op_leaf);
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+#endif
 
 	zio = zio_create(NULL, vd->vdev_spa, 0, NULL,
 	    data, size, size, done, private, type, priority,
@@ -1202,8 +1223,10 @@ zio_vdev_delegated_io(vdev_t *vd, uint64_t offset, abd_t *data, uint64_t size,
 void
 zio_flush(zio_t *zio, vdev_t *vd)
 {
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %lld\n",__FUNCTION__, zio->io_timestamp);
+#endif
 	zio_nowait(zio_ioctl(zio, zio->io_spa, vd, DKIOCFLUSHWRITECACHE,
 	    NULL, NULL,
 	    ZIO_FLAG_CANFAIL | ZIO_FLAG_DONT_PROPAGATE | ZIO_FLAG_DONT_RETRY));
@@ -1240,9 +1263,11 @@ zio_read_bp_init(zio_t *zio)
 {
 	blkptr_t *bp = zio->io_bp;
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in name %s time %lld offset %lld\n",
                     __FUNCTION__, zio->name, zio->io_timestamp, zio->io_offset);
+#endif
 	if (BP_GET_COMPRESS(bp) != ZIO_COMPRESS_OFF &&
 	    zio->io_child_type == ZIO_CHILD_LOGICAL &&
 	    !(zio->io_flags & ZIO_FLAG_RAW)) {
@@ -1561,8 +1586,10 @@ zio_taskq_dispatch(zio_t *zio, zio_taskq_type_t q, boolean_t cutinline)
 		q++;
 
 	ASSERT3U(q, <, ZIO_TASKQ_TYPES);
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %lld\n",__FUNCTION__, zio->io_timestamp);
+#endif
 
 	/*
 	 * NB: We are assuming that the zio can only be dispatched
@@ -1705,8 +1732,10 @@ zio_execute(zio_t *zio)
 {
 	fstrans_cookie_t cookie;
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %lld\n",__FUNCTION__, zio->io_timestamp);
+#endif
 	cookie = spl_fstrans_mark();
 	__zio_execute(zio);
 	spl_fstrans_unmark(cookie);
@@ -1745,9 +1774,11 @@ __zio_execute(zio_t *zio)
 
 	ASSERT3U(zio->io_queued_timestamp, >, 0);
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld\n",
                             __FUNCTION__, zio->io_timestamp, zio->io_offset);
+#endif
 	while (zio->io_stage < ZIO_STAGE_DONE) {
 		enum zio_stage pipeline = zio->io_pipeline;
 		enum zio_stage stage = zio->io_stage;
@@ -1816,9 +1847,11 @@ zio_wait(zio_t *zio)
 	ASSERT(zio->io_stage == ZIO_STAGE_OPEN);
 	ASSERT(zio->io_executor == NULL);
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld\n",
                                 __FUNCTION__, zio->io_timestamp, zio->io_offset);
+#endif
 	zio->io_waiter = curthread;
 	ASSERT0(zio->io_queued_timestamp);
 	zio->io_queued_timestamp = gethrtime();
@@ -1841,9 +1874,11 @@ zio_nowait(zio_t *zio)
 {
 	ASSERT(zio->io_executor == NULL);
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld\n",
                                 __FUNCTION__, zio->io_timestamp, zio->io_offset);
+#endif
 	if (zio->io_child_type == ZIO_CHILD_LOGICAL &&
 	    zio_unique_parent(zio) == NULL) {
 		zio_t *pio;
@@ -1884,8 +1919,10 @@ zio_reexecute(zio_t *pio)
 	ASSERT(pio->io_gang_leader == NULL);
 	ASSERT(pio->io_gang_tree == NULL);
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+#endif
 	pio->io_flags = pio->io_orig_flags;
 	pio->io_stage = pio->io_orig_stage;
 	pio->io_pipeline = pio->io_orig_pipeline;
@@ -2072,8 +2109,10 @@ zio_read_gang(zio_t *pio, blkptr_t *bp, zio_gang_node_t *gn, abd_t *data,
 	if (gn != NULL)
 		return (pio);
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %lld\n",__FUNCTION__, pio->io_timestamp);
+#endif
 	return (zio_read(pio, pio->io_spa, bp, abd_get_offset(data, offset),
 	    BP_GET_PSIZE(bp), zio_gang_issue_func_done,
 	    NULL, pio->io_priority, ZIO_GANG_CHILD_FLAGS(pio),
@@ -2573,8 +2612,10 @@ zio_ddt_child_read_done(zio_t *zio)
 	ddt_phys_t *ddp;
 	zio_t *pio = zio_unique_parent(zio);
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+#endif
 	mutex_enter(&pio->io_lock);
 	ddp = ddt_phys_select(dde, bp);
 	if (zio->io_error == 0)
@@ -2597,8 +2638,10 @@ zio_ddt_read_start(zio_t *zio)
 	ASSERT(BP_GET_PSIZE(bp) == zio->io_size);
 	ASSERT(zio->io_child_type == ZIO_CHILD_LOGICAL);
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+#endif
 	if (zio->io_child_error[ZIO_CHILD_DDT]) {
 		ddt_t *ddt = ddt_select(zio->io_spa, bp);
 		ddt_entry_t *dde = ddt_repair_start(ddt, bp);
@@ -2638,8 +2681,10 @@ zio_ddt_read_done(zio_t *zio)
 {
 	blkptr_t *bp = zio->io_bp;
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+#endif
 	if (zio_wait_for_children(zio, ZIO_CHILD_DDT, ZIO_WAIT_DONE))
 		return (ZIO_PIPELINE_STOP);
 
@@ -3254,6 +3299,7 @@ zio_vdev_io_start(zio_t *zio)
 	spa_t *spa = zio->io_spa;
 
 	zio->io_delay = 0;
+#ifdef CONFIG_HETFS
     if (_myprint) {
         if (zio == NULL)
             printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld\n",
@@ -3262,7 +3308,7 @@ zio_vdev_io_start(zio_t *zio)
             printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld name %s\n",
                     __FUNCTION__, zio->io_timestamp, zio->io_offset, zio->name);
     }
-
+#endif
 	ASSERT(zio->io_error == 0);
 	ASSERT(zio->io_child_error[ZIO_CHILD_VDEV] == 0);
 
@@ -3387,6 +3433,7 @@ zio_vdev_io_done(zio_t *zio)
 
 	ASSERT(zio->io_type == ZIO_TYPE_READ || zio->io_type == ZIO_TYPE_WRITE);
 
+#ifdef CONFIG_HETFS
     if (_myprint) {
         if (zio == NULL)
             printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld\n",
@@ -3395,6 +3442,7 @@ zio_vdev_io_done(zio_t *zio)
              printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld name %s\n",
                     __FUNCTION__, zio->io_timestamp, zio->io_offset, zio->name);
     }
+#endif
 	if (zio->io_delay)
 		zio->io_delay = gethrtime() - zio->io_delay;
 
@@ -3460,14 +3508,18 @@ zio_vdev_io_assess(zio_t *zio)
 {
 	vdev_t *vd = zio->io_vd;
 
+#ifdef _KERNEL
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %lld\n",__FUNCTION__, zio->io_timestamp);
+#endif
 	if (zio_wait_for_children(zio, ZIO_CHILD_VDEV, ZIO_WAIT_DONE))
 		return (ZIO_PIPELINE_STOP);
 
+#ifdef _KERNEL
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s no children waiting %lld\n",\
                                                 __FUNCTION__, zio->io_timestamp);
+#endif
 	if (vd == NULL && !(zio->io_flags & ZIO_FLAG_CONFIG_WRITER))
 		spa_config_exit(zio->io_spa, SCL_ZIO, zio);
 
@@ -3534,8 +3586,10 @@ zio_vdev_io_reissue(zio_t *zio)
 	ASSERT(zio->io_stage == ZIO_STAGE_VDEV_IO_START);
 	ASSERT(zio->io_error == 0);
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %lld\n",__FUNCTION__, zio->io_timestamp);
+#endif
 	zio->io_stage >>= 1;
 }
 
@@ -3544,8 +3598,10 @@ zio_vdev_io_redone(zio_t *zio)
 {
 	ASSERT(zio->io_stage == ZIO_STAGE_VDEV_IO_DONE);
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %lld\n",__FUNCTION__, zio->io_timestamp);
+#endif
 	zio->io_stage >>= 1;
 }
 
@@ -3555,8 +3611,10 @@ zio_vdev_io_bypass(zio_t *zio)
 	ASSERT(zio->io_stage == ZIO_STAGE_VDEV_IO_START);
 	ASSERT(zio->io_error == 0);
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %lld\n",__FUNCTION__, zio->io_timestamp);
+#endif
 	zio->io_flags |= ZIO_FLAG_IO_BYPASS;
 	zio->io_stage = ZIO_STAGE_VDEV_IO_ASSESS >> 1;
 }
@@ -3677,14 +3735,18 @@ zio_ready(zio_t *zio)
 	zio_t *pio, *pio_next;
 	zio_link_t *zl = NULL;
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in name %s time %lld offset %lld\n",__FUNCTION__, zio->name, zio->io_timestamp, zio->io_offset);
+#endif
 	if (zio_wait_for_children(zio, ZIO_CHILD_GANG, ZIO_WAIT_READY) ||
 	    zio_wait_for_children(zio, ZIO_CHILD_DDT, ZIO_WAIT_READY))
 		return (ZIO_PIPELINE_STOP);
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in (no kids) name %s time %lld offset %lld\n",__FUNCTION__, zio->name, zio->io_timestamp, zio->io_offset);
+#endif
 	if (zio->io_ready) {
 		ASSERT(IO_IS_ALLOCATING(zio));
 		ASSERT(bp->blk_birth == zio->io_txg || BP_IS_HOLE(bp) ||
@@ -3823,24 +3885,28 @@ zio_done(zio_t *zio)
 	 * If our children haven't all completed,
 	 * wait for them and then repeat this pipeline stage.
 	 */
+#ifdef CONFIG_HETFS
     if (_myprint) {
         if (zio == NULL)
             printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld\n",__FUNCTION__, zio->io_timestamp, zio->io_offset);
         else
             printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld name %s\n",__FUNCTION__, zio->io_timestamp, zio->io_offset, zio->name);
     }
+#endif
 	if (zio_wait_for_children(zio, ZIO_CHILD_VDEV, ZIO_WAIT_DONE) ||
 	    zio_wait_for_children(zio, ZIO_CHILD_GANG, ZIO_WAIT_DONE) ||
 	    zio_wait_for_children(zio, ZIO_CHILD_DDT, ZIO_WAIT_DONE) ||
 	    zio_wait_for_children(zio, ZIO_CHILD_LOGICAL, ZIO_WAIT_DONE))
 		return (ZIO_PIPELINE_STOP);
 
+#ifdef CONFIG_HETFS
     if (_myprint) {
         if (zio == NULL)
             printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld\n",__FUNCTION__, zio->io_timestamp, zio->io_offset);
         else
             printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld name %s\n",__FUNCTION__, zio->io_timestamp, zio->io_offset, zio->name);
     }
+#endif
 	/*
 	 * If the allocation throttle is enabled, then update the accounting.
 	 * We only track child I/Os that are part of an allocating async

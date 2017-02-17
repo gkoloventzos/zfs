@@ -239,8 +239,10 @@ zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 	int error;
 	fstrans_cookie_t cookie;
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT]Passed %s in name-name  offset %lld\n",__FUNCTION__, *ppos);
+#endif
 	uio.uio_iov = iovp;
 	uio.uio_skip = skip;
 	uio.uio_resid = count;
@@ -268,8 +270,10 @@ zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
 {
 	struct iovec iov;
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT]Passed %s in name-nameoffset %lld\n",__FUNCTION__,  *ppos);
+#endif
 	iov.iov_base = (void *)buf;
 	iov.iov_len = len;
 
@@ -403,8 +407,10 @@ zpl_iter_read_common(struct kiocb *kiocb, const struct iovec *iovp,
 	ssize_t read;
 
 	crhold(cr);
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT]Passed %s in %lld\n",__FUNCTION__, kiocb->ki_pos);
+#endif
 	read = zpl_read_common_iovec(filp->f_mapping->host, iovp, count,
 	    nr_segs, &kiocb->ki_pos, seg, filp->f_flags, cr, skip);
 	crfree(cr);

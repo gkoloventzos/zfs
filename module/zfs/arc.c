@@ -5052,13 +5052,14 @@ arc_read(zio_t *pio, spa_t *spa, const blkptr_t *bp, arc_done_func_t *done,
 	uint64_t guid = spa_load_guid(spa);
 	boolean_t compressed_read = (zio_flags & ZIO_FLAG_RAW) != 0;
 	int rc = 0;
-
+#ifdef CONFIG_HETFS
     if (_myprint) {
         if (pio->name == NULL)
             printk(KERN_EMERG "[PRINT] Passed %s in %lld offset %lld\n",__FUNCTION__, pio->io_timestamp, pio->io_offset);
         else
             printk(KERN_EMERG "[PRINT] Passed %s in name %s time %lld offset %lld\n",__FUNCTION__, pio->name, pio->io_timestamp, pio->io_offset);
     }
+#endif
 
 	ASSERT(!BP_IS_EMBEDDED(bp) ||
 	    BPE_GET_ETYPE(bp) == BP_EMBEDDED_TYPE_DATA);

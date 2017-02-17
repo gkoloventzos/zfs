@@ -3395,8 +3395,10 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
     if (rot != -1)
         nrot = rot;
 
+#ifdef CONFIG_HETFS
     if (rot != -1)
         printk(KERN_EMERG "[SSD_FILE]alloc_dva nrot %d\n", nrot);
+#endif
 	for (; nrot < METASLAB_CLASS_ROTORS; nrot++)
 		if (mc->mc_rotorv[nrot])
 			break;
@@ -3832,11 +3834,8 @@ int get_metaslab_class(metaslab_class_t *mc, int rot)
 {
     int i;
 
-    //printk(KERN_EMERG "[METASLAB] get_metaslab_class\n");
     for(i = 0; i < METASLAB_CLASS_ROTORS; i++) {
-        //printk(KERN_EMERG "[METASLAB] METASLAB_CLASS %d\n", i);
         if (mc->mc_rotvec_categories[i] & rot) {
-            //printk(KERN_EMERG "[METASLAB] About to return %d\n", i);
             return i;
         }
     }
@@ -3895,7 +3894,9 @@ has_vdev:
             if (rot > -1) {
                 rot = get_metaslab_class(mc, rot);
             }
+#ifdef CONFIG_HETFS
             printk(KERN_EMERG "[SSD_FILE]ROT %d\n", rot);
+#endif
         }
     }
 	for (d = 0; d < ndvas; d++) {

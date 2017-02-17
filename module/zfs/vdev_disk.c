@@ -511,6 +511,7 @@ vdev_submit_bio(struct bio *bio)
 #else
 	struct bio_list *bio_list = current->bio_list;
 	current->bio_list = NULL;
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
     if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
@@ -532,7 +533,10 @@ vdev_submit_bio(struct bio *bio)
 	vdev_submit_bio_impl(bio);
 	current->bio_list = bio_list;
 #endif
-}
+        vdev_submit_bio_impl(bio);
+        current->bio_list = bio_list;
+#endif
+    }
 
 static int
 __vdev_disk_physio(struct block_device *bdev, zio_t *zio,
@@ -671,8 +675,10 @@ vdev_disk_io_flush(struct block_device *bdev, zio_t *zio)
 	if (unlikely(bio == NULL))
 		return (ENOMEM);
 
-    if (_myprint)
-        printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+#ifdef CONFIG_HETFS
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT] Passed %s in\n",__FUNCTION__);
+#endif
 	bio->bi_end_io = vdev_disk_io_flush_completion;
 	bio->bi_private = zio;
 	bio->bi_bdev = bdev;
@@ -739,8 +745,10 @@ vdev_disk_io_start(zio_t *zio)
 
 	case ZIO_TYPE_READ:
 		rw = READ;
+#ifdef CONFIG_HETFS
         if (_myprint)
             printk(KERN_EMERG "[PRINT] Passed %s in %lld name %s type %d READ\n",__FUNCTION__, zio->io_timestamp, zio->name, zio->io_type);
+#endif
 #if defined(HAVE_BLK_QUEUE_HAVE_BIO_RW_UNPLUG)
 		flags = (1 << BIO_RW_UNPLUG);
 #elif defined(REQ_UNPLUG)
@@ -791,8 +799,10 @@ vdev_disk_hold(vdev_t *vd)
 {
 	ASSERT(spa_config_held(vd->vdev_spa, SCL_STATE, RW_WRITER));
 
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT] Passed %s in %llu\n",__FUNCTION__, vd->vdev_guid);
+#endif
 	/* We must have a pathname, and it must be absolute. */
 	if (vd->vdev_path == NULL || vd->vdev_path[0] != '/')
 		return;

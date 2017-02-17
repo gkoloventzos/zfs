@@ -198,8 +198,10 @@ dmu_tx_check_ioerr(zio_t *zio, dnode_t *dn, int level, uint64_t blkid)
 	rw_exit(&dn->dn_struct_rwlock);
 	if (db == NULL)
 		return (SET_ERROR(EIO));
+#ifdef _KERNEL
     if (_myprint)
         printk(KERN_EMERG "[PRINT]Passed %s in \n",__FUNCTION__);
+#endif
 	err = dbuf_read(db, zio, DB_RF_CANFAIL | DB_RF_NOPREFETCH);
 	dbuf_rele(db, FTAG);
 	return (err);
@@ -607,8 +609,10 @@ dmu_tx_count_free(dmu_tx_hold_t *txh, uint64_t off, uint64_t len)
 		 * memory.
 		 */
 
+#ifdef _KERNEL
         if (_myprint)
             printk(KERN_EMERG "[PRINT]Passed %s in\n",__FUNCTION__);
+#endif
 		err = dbuf_read(dbuf, NULL, DB_RF_HAVESTRUCT | DB_RF_CANFAIL);
 		if (err != 0) {
 			txh->txh_tx->tx_err = err;

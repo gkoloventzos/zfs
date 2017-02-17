@@ -1257,8 +1257,10 @@ dnode_hold_impl(objset_t *os, uint64_t object, int flag, int slots,
 		rw_exit(&mdn->dn_struct_rwlock);
 	if (db == NULL)
 		return (SET_ERROR(EIO));
+#ifdef CONFIG_HETFS
     if (_myprint)
         printk(KERN_EMERG "[PRINT]Passed %s in\n",__FUNCTION__);
+#endif
 	err = dbuf_read(db, NULL, DB_RF_CANFAIL);
 	if (err) {
 		dbuf_rele(db, FTAG);
@@ -2035,8 +2037,10 @@ dnode_next_offset_level(dnode_t *dn, int flags, uint64_t *offset,
 			 */
 			return (SET_ERROR(ESRCH));
 		}
+#ifdef CONFIG_HETFS
         if (_myprint)
             printk(KERN_EMERG "[PRINT]Passed %s in zio NULL %lld\n",__FUNCTION__, *offset);
+#endif
 		error = dbuf_read(db, NULL, DB_RF_CANFAIL | DB_RF_HAVESTRUCT);
 		if (error) {
 			dbuf_rele(db, FTAG);
