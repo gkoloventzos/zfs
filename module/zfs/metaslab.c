@@ -3389,13 +3389,14 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 		nrot++;
 	}
 
+    if (rot >= METASLAB_CLASS_ROTORS)
+        rot = METASLAB_CLASS_ROTORS-1;
+
     if (rot != -1)
         nrot = rot;
 
     if (rot != -1)
         printk(KERN_EMERG "[SSD_FILE]alloc_dva nrot %d\n", nrot);
-    if (rot >= METASLAB_CLASS_ROTORS)
-        rot = METASLAB_CLASS_ROTORS-1;
 	for (; nrot < METASLAB_CLASS_ROTORS; nrot++)
 		if (mc->mc_rotorv[nrot])
 			break;
