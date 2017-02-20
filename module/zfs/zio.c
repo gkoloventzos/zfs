@@ -670,7 +670,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 	zio->io_state[ZIO_WAIT_DONE] = (stage >= ZIO_STAGE_DONE);
 
 #ifdef CONFIG_HETFS
-    zio->rot = NULL;
+    zio->rot = -2;
     zio->name = NULL;
     zio->filp = NULL;
 #endif

@@ -273,7 +273,7 @@ struct dnode {
 
 #ifdef CONFIG_HETFS
     const char *name;
-    int *rot;
+    int rot;
     struct file *filp;
 #endif
 	/* protected by dn_struct_rwlock */

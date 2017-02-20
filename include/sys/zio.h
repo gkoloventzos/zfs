@@ -447,7 +447,7 @@ struct zio {
 	kcondvar_t	io_cv;
 
 #ifdef CONFIG_HETFS
-    int *rot;
+    int rot;
     const char *name;
     struct file *filp;
 #endif
