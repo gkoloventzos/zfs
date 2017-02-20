@@ -3889,13 +3889,12 @@ has_vdev:
                 printk(KERN_EMERG "[ROT]rot %d\n", rot);
             }
         }*/
+#ifdef CONFIG_HETFS
         if (zio->rot > -1) {
             rot = get_metaslab_class(mc, zio->rot);
-        }
-#ifdef CONFIG_HETFS
             printk(KERN_EMERG "[SSD_FILE]ROT %d\n", rot);
-#endif
         }
+#endif
     }
 	for (d = 0; d < ndvas; d++) {
 		error = metaslab_alloc_dva(spa, mc, psize, dva, d, hintdva,
