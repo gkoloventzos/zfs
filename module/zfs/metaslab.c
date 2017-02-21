@@ -3396,6 +3396,10 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
     if (rot > -1 && rot < METASLAB_CLASS_ROTORS)
         nrot = rot;
 
+    printk(KERN_EMERG "[SSD_FILE]alloc_dva nrot %d\n", nrot);
+    printk(KERN_EMERG "[SSD_FILE]alloc_dva nrot %d\n", nrot);
+    printk(KERN_EMERG "[SSD_FILE]alloc_dva nrot %d\n", nrot);
+    printk(KERN_EMERG "[SSD_FILE]alloc_dva nrot %d\n", nrot);
     if (rot != -1)
         printk(KERN_EMERG "[SSD_FILE]alloc_dva nrot %d\n", nrot);
 #endif
@@ -3429,6 +3433,9 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 	 */
 	if (hintdva) {
 		vd = vdev_lookup_top(spa, DVA_GET_VDEV(&hintdva[d]));
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]hintdva after vdev_lookup %d\n", nrot);
+#endif
 
 		/*
 		 * It's possible the vdev we're using as the hint no
@@ -3445,7 +3452,13 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 			mg = mc->mc_rotorv[nrot];
 		}
 	} else if (d != 0) {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]else if (d != 0) before vdev_lookup_top %d\n", nrot);
+#endif
 		vd = vdev_lookup_top(spa, DVA_GET_VDEV(&dva[d - 1]));
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]else if (d != 0) after vdev_lookup_top %d\n", nrot);
+#endif
 		/*
 		 * TODO: with multiple rotors, we should also
 		 * switch rotor at some point?
@@ -3454,6 +3467,9 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 	} else if (flags & METASLAB_FASTWRITE) {
 		mg = fast_mg = mc->mc_rotorv[nrot];
 
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]else if (flags & METASLAB_FASTWRITE) %d\n", nrot);
+#endif
 		do {
 			if (fast_mg->mg_vd->vdev_pending_fastwrite <
 			    mg->mg_vd->vdev_pending_fastwrite)
@@ -3461,6 +3477,9 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 		} while ((fast_mg = fast_mg->mg_next) != mc->mc_rotorv[nrot]);
 
 	} else {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]else %d\n", nrot);
+#endif
 		mg = mc->mc_rotorv[nrot];
 	}
 
@@ -3472,6 +3491,9 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 	 */
 	if (mg->mg_class != mc || mg->mg_activation_count <= 0 ||
 	    mg->mg_nrot < nrot) {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]inside if (mg->mg_class != mc || mg->mg_activation_count <= 0 %d\n", nrot);
+#endif
 		for (i = nrot; i < METASLAB_CLASS_ROTORS; i++) {
 			/* Better than failing we try the better options. */
 			j = (i + nrot) % METASLAB_CLASS_ROTORS;
@@ -3480,6 +3502,9 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 				break;
 			}
 		}
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]j %d\n", j);
+#endif
 		ASSERT(mg->mg_class == mc);
 		ASSERT(mg->mg_activation_count > 0);
 		/* VERIFY3U(mg->mg_nrot, >=, nrot); */
@@ -3500,11 +3525,23 @@ top2:
 		 * Don't allocate from faulted devices.
 		 */
 		if (try_hard) {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]try hard before allocatable %d\n", j);
+#endif
 			spa_config_enter(spa, SCL_ZIO, FTAG, RW_READER);
 			allocatable = vdev_allocatable(vd);
 			spa_config_exit(spa, SCL_ZIO, FTAG);
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]try hard after allocatable\n");
+#endif
 		} else {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]else before allocatable\n");
+#endif
 			allocatable = vdev_allocatable(vd);
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]else after allocatable\n");
+#endif
 		}
 
 		/*
@@ -3515,11 +3552,17 @@ top2:
 		 * even though space is still available.
 		 */
 		if (allocatable && !GANG_ALLOCATION(flags) && !try_hard) {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]if (allocatable && !GANG_ALLOCATION( before metaslab_group_allocatable\n");
+#endif
 			allocatable = metaslab_group_allocatable(mg, rotor,
 			    psize);
 		}
 
 		if (!allocatable) {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]if (!allocatable\n");
+#endif
 			metaslab_trace_add(zal, mg, NULL, psize, d,
 			    TRACE_NOT_ALLOCATABLE);
 			goto next;
