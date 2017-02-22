@@ -51,6 +51,9 @@
 #ifdef _KERNEL
 #include <sys/vmsystm.h>
 #include <sys/zfs_znode.h>
+#ifdef CONFIG_HETFS
+#include <linux/hetfs.h>
+#endif
 #endif
 
 extern int _myprint;
@@ -460,8 +463,8 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	ASSERT(length <= DMU_MAX_ACCESS);
 
 #ifdef CONFIG_HETFS
-    if (_myprint && dn->name != NULL)
-        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, dn->name, offset);
+    if (_myprint && dn->filp != NULL)
+        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, filp2name(dn->filp), offset);
 #endif
 	/*
 	 * Note: We directly notify the prefetch code of this read, so that
@@ -1254,8 +1257,8 @@ dmu_read_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size)
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
 #ifdef CONFIG_HETFS
-    if (_myprint && dn->name != NULL)
-        printk(KERN_EMERG "[PRINT]Passed %s size not 0 %s %lld\n",__FUNCTION__, dn->name, uio->uio_loffset);
+    if (_myprint && dn->filp != NULL)
+        printk(KERN_EMERG "[PRINT]Passed %s size not 0 %s %lld\n",__FUNCTION__, filp2name(dn->filp), uio->uio_loffset);
 #endif
 	err = dmu_read_uio_dnode(dn, uio, size);
 	DB_DNODE_EXIT(db);

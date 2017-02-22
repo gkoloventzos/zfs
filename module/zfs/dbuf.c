@@ -47,6 +47,9 @@
 #include <sys/trace_dbuf.h>
 #include <sys/callb.h>
 #include <sys/abd.h>
+#ifdef CONFIG_HETFS
+#include <linux/hetfs.h>
+#endif
 
 extern int _myprint;
 
@@ -2813,8 +2816,8 @@ dbuf_hold_impl(dnode_t *dn, uint8_t level, uint64_t blkid,
 	int error;
 
 #ifdef CONFIG_HETFS
-    if (_myprint && dn->name != NULL)
-        printk(KERN_EMERG "[PRINT]Passed %s in name %s\n", __FUNCTION__, dn->name);
+    if (_myprint && dn->filp != NULL)
+        printk(KERN_EMERG "[PRINT]Passed %s in name %s\n", __FUNCTION__, filp2name(dn->filp));
 #endif
 
 	dh = kmem_alloc(sizeof (struct dbuf_hold_impl_data) *
@@ -2860,8 +2863,8 @@ dmu_buf_impl_t *
 dbuf_hold(dnode_t *dn, uint64_t blkid, void *tag)
 {
 #ifdef CONFIG_HETFS
-    if (_myprint && dn->name != NULL)
-        printk(KERN_EMERG "[PRINT]Passed %s in name %s\n", __FUNCTION__, dn->name);
+    if (_myprint && dn->filp != NULL)
+        printk(KERN_EMERG "[PRINT]Passed %s in name %s\n", __FUNCTION__, filp2name(dn->filp));
 #endif
 	return (dbuf_hold_level(dn, 0, blkid, tag));
 }
