@@ -3526,7 +3526,7 @@ top2:
 		 */
 		if (try_hard) {
 #ifdef CONFIG_HETFS
-    printk(KERN_EMERG "[SSD_FILE]try hard before allocatable %d\n", j);
+    printk(KERN_EMERG "[SSD_FILE]try hard before allocatable\n");
 #endif
 			spa_config_enter(spa, SCL_ZIO, FTAG, RW_READER);
 			allocatable = vdev_allocatable(vd);

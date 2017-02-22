@@ -2817,7 +2817,7 @@ dbuf_hold_impl(dnode_t *dn, uint8_t level, uint64_t blkid,
 
 #ifdef CONFIG_HETFS
     if (_myprint && dn->filp != NULL)
-        printk(KERN_EMERG "[PRINT]Passed %s in name %s\n", __FUNCTION__, filp2name(dn->filp));
+        printk(KERN_EMERG "[PRINT]Passed %s in name %s\n", __FUNCTION__, dn->filp->f_path.dentry->d_name.name);
 #endif
 
 	dh = kmem_alloc(sizeof (struct dbuf_hold_impl_data) *
@@ -2864,7 +2864,7 @@ dbuf_hold(dnode_t *dn, uint64_t blkid, void *tag)
 {
 #ifdef CONFIG_HETFS
     if (_myprint && dn->filp != NULL)
-        printk(KERN_EMERG "[PRINT]Passed %s in name %s\n", __FUNCTION__, filp2name(dn->filp));
+        printk(KERN_EMERG "[PRINT]Passed %s in name %s\n", __FUNCTION__, dn->filp->f_path.dentry->d_name.name);
 #endif
 	return (dbuf_hold_level(dn, 0, blkid, tag));
 }
