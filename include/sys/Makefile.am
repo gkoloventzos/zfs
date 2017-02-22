@@ -110,6 +110,7 @@ COMMON_H = \
 	$(top_srcdir)/include/sys/zio_compress.h \
 	$(top_srcdir)/include/sys/zio.h \
 	$(top_srcdir)/include/sys/zio_impl.h \
+	$(top_srcdir)/include/sys/boot_files.h \
 	$(top_srcdir)/include/sys/zio_priority.h \
 	$(top_srcdir)/include/sys/zrlock.h
 

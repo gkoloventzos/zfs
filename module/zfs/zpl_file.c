@@ -43,7 +43,7 @@
 #include <linux/kthread.h>
 #include <sys/dnode.h>
 #include <sys/dbuf.h>
-#include <linux/boot_files.h>
+#include <sys/boot_files.h>
 
 extern int _myprint;
 int add_request(void *);
