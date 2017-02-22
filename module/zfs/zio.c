@@ -465,12 +465,12 @@ zio_add_child(zio_t *pio, zio_t *cio)
     if (pio->filp != NULL) {
         cio->rot = pio->rot;
         cio->filp = pio->filp;
-        cio->name = pio->name;
+        //cio->name = pio->name;
     }
     else {
         pio->rot = cio->rot;
         pio->filp = cio->filp;
-        pio->name = cio->name;
+        //pio->name = cio->name;
     }
 #endif
 

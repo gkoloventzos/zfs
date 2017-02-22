@@ -3834,8 +3834,8 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	ASSERT3U(db->db_blkptr->blk_birth, <=, txg);
 	ASSERT(zio);
 #ifdef CONFIG_HETFS
-    if (zio->name == NULL)
-        zio->name = dn->name;
+    if (zio->filp == NULL)
+        zio->filp = dn->filp;
     if (zio->rot < 0)
         zio->rot = dn->rot;
 #endif

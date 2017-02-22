@@ -432,7 +432,6 @@ dnode_create(objset_t *os, dnode_phys_t *dnp, dmu_buf_impl_t *db,
 	dn->dn_have_spill = ((dnp->dn_flags & DNODE_FLAG_SPILL_BLKPTR) != 0);
 	dn->dn_id_flags = 0;
 #ifdef CONFIG_HETFS
-    dn->name = NULL;
     dn->rot = -2;
     dn->filp = NULL;
 #endif

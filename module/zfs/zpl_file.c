@@ -367,8 +367,6 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
         *rot = InsNode->to_rot;*/
     DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-    if (dn->name == NULL)
-        dn->name = name;
     if (dn->filp == NULL)
         dn->filp = filp;
 //    dn->rot = rot;
@@ -529,13 +527,12 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     }
     DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-    if (dn->name == NULL)
-        dn->name = name;
     if (dn->filp == NULL)
         dn->filp = filp;
     if (dn->rot == -2) {
         for (stop = 0; stop <= 482; stop++) {
             if (strstr(filename, boot_files[stop]) != NULL) {
+                printk(KERN_EMERG "[ERROR]Setting rot for %s\n", filename);
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
                 break;
             }
