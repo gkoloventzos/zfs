@@ -38,7 +38,11 @@
 #include <sys/spa_impl.h>
 #include <sys/kstat.h>
 #include <sys/abd.h>
-
+#ifdef CONFIG_HETFS
+//#include <sys/hetfs.h>
+#define filp2name(filp) filp->f_path.dentry->d_name.name
+extern int _myprint;
+#endif
 /*
  * ZFS I/O Scheduler
  * ---------------
@@ -726,7 +730,12 @@ vdev_queue_io(zio_t *zio)
 {
 	vdev_queue_t *vq = &zio->io_vd->vdev_queue;
 	zio_t *nio;
+    hrtime_t g_now = gethrtime();
 
+#ifdef _KERNEL
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT] Passed %s in %lld time %lld name %s\n",__FUNCTION__, zio->io_timestamp, g_now, filp2name(zio->filp));
+#endif
 	if (zio->io_flags & ZIO_FLAG_DONT_QUEUE)
 		return (zio);
 
@@ -754,6 +763,10 @@ vdev_queue_io(zio_t *zio)
 	nio = vdev_queue_io_to_issue(vq);
 	mutex_exit(&vq->vq_lock);
 
+#ifdef _KERNEL
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT] Passed %s in %lld time %lld name %s\n",__FUNCTION__, zio->io_timestamp, g_now, filp2name(zio->filp));
+#endif
 	if (nio == NULL)
 		return (NULL);
 
@@ -779,6 +792,14 @@ vdev_queue_io_done(zio_t *zio)
 	vq->vq_io_complete_ts = gethrtime();
 	vq->vq_io_delta_ts = vq->vq_io_complete_ts - zio->io_timestamp;
 
+#ifdef _KERNEL
+    if (_myprint) {
+        if (zio->filp != NULL)
+            printk(KERN_EMERG "[PRINT] Passed %s in file %s %lld\n",__FUNCTION__, filp2name(zio->filp), zio->io_timestamp);
+        else
+            printk(KERN_EMERG "[PRINT] Passed %s in %lld\n",__FUNCTION__, zio->io_timestamp);
+    }
+#endif
 	while ((nio = vdev_queue_io_to_issue(vq)) != NULL) {
 		mutex_exit(&vq->vq_lock);
 		if (nio->io_done == vdev_queue_agg_io_done) {
@@ -789,6 +810,8 @@ vdev_queue_io_done(zio_t *zio)
 		}
 		mutex_enter(&vq->vq_lock);
 	}
+/*    if (zio->rot != NULL)
+        vq->vq_vdev->vdev_nonrot?zio->rot[NONROT]++:zio->rot[ROT]++;*/
 
 	mutex_exit(&vq->vq_lock);
 }

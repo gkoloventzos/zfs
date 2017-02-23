@@ -35,6 +35,8 @@
 #include <sys/dbuf.h>
 #include <sys/kstat.h>
 
+extern int _myprint;
+
 /*
  * This tunable disables predictive prefetch.  Note that it leaves "prescient"
  * prefetch (e.g. prefetch for zfs send) intact.  Unlike predictive prefetch,
@@ -225,6 +227,11 @@ dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks, boolean_t fetch_data)
 	 */
 	if (blkid == 0)
 		return;
+
+#ifdef CONFIG_HETFS
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in\n",__FUNCTION__);
+#endif
 
 	rw_enter(&zf->zf_rwlock, RW_READER);
 

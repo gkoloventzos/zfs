@@ -3360,7 +3360,7 @@ int ditto_same_vdev_distance_shift = 3;
 static int
 metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
     dva_t *dva, int d, dva_t *hintdva, uint64_t txg, int flags,
-    zio_alloc_list_t *zal, int alloc_class)
+    zio_alloc_list_t *zal, int alloc_class, int rot)
 {
 	metaslab_group_t *mg, *fast_mg, *rotor;
 	vdev_t *vd;
@@ -3389,10 +3389,26 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 		nrot++;
 	}
 
+#ifdef CONFIG_HETFS
+    if (rot >= METASLAB_CLASS_ROTORS)
+        rot = METASLAB_CLASS_ROTORS-1;
+
+    if (rot > -1 && rot < METASLAB_CLASS_ROTORS)
+        nrot = rot;
+
+    printk(KERN_EMERG "[SSD_FILE]alloc_dva nrot %d\n", nrot);
+    printk(KERN_EMERG "[SSD_FILE]alloc_dva nrot %d\n", nrot);
+    printk(KERN_EMERG "[SSD_FILE]alloc_dva nrot %d\n", nrot);
+    printk(KERN_EMERG "[SSD_FILE]alloc_dva nrot %d\n", nrot);
+    if (rot != -1)
+        printk(KERN_EMERG "[SSD_FILE]alloc_dva nrot %d\n", nrot);
+#endif
 	for (; nrot < METASLAB_CLASS_ROTORS; nrot++)
 		if (mc->mc_rotorv[nrot])
 			break;
 
+/*    if (rot != -1)
+        printk(KERN_EMERG "[SSD_FILE]File sample will go to %d\n", nrot);*/
 	/*
 	 * Start at the rotor and loop through all mgs until we find something.
 	 * Note that there's no locking on mc_rotor or mc_aliquot because
@@ -3417,6 +3433,9 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 	 */
 	if (hintdva) {
 		vd = vdev_lookup_top(spa, DVA_GET_VDEV(&hintdva[d]));
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]hintdva after vdev_lookup %d\n", nrot);
+#endif
 
 		/*
 		 * It's possible the vdev we're using as the hint no
@@ -3433,7 +3452,13 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 			mg = mc->mc_rotorv[nrot];
 		}
 	} else if (d != 0) {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]else if (d != 0) before vdev_lookup_top %d\n", nrot);
+#endif
 		vd = vdev_lookup_top(spa, DVA_GET_VDEV(&dva[d - 1]));
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]else if (d != 0) after vdev_lookup_top %d\n", nrot);
+#endif
 		/*
 		 * TODO: with multiple rotors, we should also
 		 * switch rotor at some point?
@@ -3442,6 +3467,9 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 	} else if (flags & METASLAB_FASTWRITE) {
 		mg = fast_mg = mc->mc_rotorv[nrot];
 
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]else if (flags & METASLAB_FASTWRITE) %d\n", nrot);
+#endif
 		do {
 			if (fast_mg->mg_vd->vdev_pending_fastwrite <
 			    mg->mg_vd->vdev_pending_fastwrite)
@@ -3449,6 +3477,9 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 		} while ((fast_mg = fast_mg->mg_next) != mc->mc_rotorv[nrot]);
 
 	} else {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]else %d\n", nrot);
+#endif
 		mg = mc->mc_rotorv[nrot];
 	}
 
@@ -3460,6 +3491,9 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 	 */
 	if (mg->mg_class != mc || mg->mg_activation_count <= 0 ||
 	    mg->mg_nrot < nrot) {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]inside if (mg->mg_class != mc || mg->mg_activation_count <= 0 %d\n", nrot);
+#endif
 		for (i = nrot; i < METASLAB_CLASS_ROTORS; i++) {
 			/* Better than failing we try the better options. */
 			j = (i + nrot) % METASLAB_CLASS_ROTORS;
@@ -3467,6 +3501,9 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 				mg = mc->mc_rotorv[j];
 				break;
 			}
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]for j %d\n", j);
+#endif
 		}
 		ASSERT(mg->mg_class == mc);
 		ASSERT(mg->mg_activation_count > 0);
@@ -3488,11 +3525,23 @@ top2:
 		 * Don't allocate from faulted devices.
 		 */
 		if (try_hard) {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]try hard before allocatable\n");
+#endif
 			spa_config_enter(spa, SCL_ZIO, FTAG, RW_READER);
 			allocatable = vdev_allocatable(vd);
 			spa_config_exit(spa, SCL_ZIO, FTAG);
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]try hard after allocatable\n");
+#endif
 		} else {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]else before allocatable\n");
+#endif
 			allocatable = vdev_allocatable(vd);
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]else after allocatable\n");
+#endif
 		}
 
 		/*
@@ -3503,11 +3552,17 @@ top2:
 		 * even though space is still available.
 		 */
 		if (allocatable && !GANG_ALLOCATION(flags) && !try_hard) {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]if (allocatable && !GANG_ALLOCATION( before metaslab_group_allocatable\n");
+#endif
 			allocatable = metaslab_group_allocatable(mg, rotor,
 			    psize);
 		}
 
 		if (!allocatable) {
+#ifdef CONFIG_HETFS
+    printk(KERN_EMERG "[SSD_FILE]if (!allocatable\n");
+#endif
 			metaslab_trace_add(zal, mg, NULL, psize, d,
 			    TRACE_NOT_ALLOCATABLE);
 			goto next;
@@ -3818,6 +3873,19 @@ metaslab_class_throttle_unreserve(metaslab_class_t *mc, int slots, zio_t *zio)
 	mutex_exit(&mc->mc_lock);
 }
 
+int get_metaslab_class(metaslab_class_t *mc, int rot)
+{
+    int i;
+
+    for(i = 0; i < METASLAB_CLASS_ROTORS; i++) {
+        if (mc->mc_rotvec_categories[i] & rot) {
+            return i;
+        }
+    }
+
+    return (-1);
+}
+
 int
 metaslab_alloc(spa_t *spa, metaslab_class_t *mc, uint64_t psize, blkptr_t *bp,
     int ndvas, uint64_t txg, blkptr_t *hintbp, int flags,
@@ -3828,6 +3896,7 @@ metaslab_alloc(spa_t *spa, metaslab_class_t *mc, uint64_t psize, blkptr_t *bp,
 	int d, error = 0;
 	int i;
 	int alloc_class;
+    int rot = -1;
 
 	ASSERT(bp->blk_birth == 0);
 	ASSERT(BP_PHYSICAL_BIRTH(bp) == 0);
@@ -3855,10 +3924,24 @@ has_vdev:
 	if (BP_GET_LEVEL(bp) > 0)
 		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
 
-
+    if (zio != NULL) {
+        /*if (zio->name != NULL) {
+            printk(KERN_EMERG "[SSD_FILE]Found file name %s\n", zio->name);
+            if (strstr(zio->name, "sample_ssd") != NULL) {
+                rot = get_metaslab_class(mc, METASLAB_ROTOR_VDEV_TYPE_SSD);
+                printk(KERN_EMERG "[ROT]rot %d\n", rot);
+            }
+        }*/
+#ifdef CONFIG_HETFS
+        if (zio->rot > -1) {
+            rot = get_metaslab_class(mc, zio->rot);
+            printk(KERN_EMERG "[SSD_FILE]ROT %d\n", rot);
+        }
+#endif
+    }
 	for (d = 0; d < ndvas; d++) {
 		error = metaslab_alloc_dva(spa, mc, psize, dva, d, hintdva,
-		    txg, flags, zal, alloc_class);
+		    txg, flags, zal, alloc_class, rot);
 		if (error != 0) {
 			for (d--; d >= 0; d--) {
 				metaslab_free_dva(spa, &dva[d], txg, B_TRUE);

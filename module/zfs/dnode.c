@@ -39,6 +39,7 @@
 #include <sys/range_tree.h>
 #include <sys/trace_dnode.h>
 
+extern int _myprint;
 static kmem_cache_t *dnode_cache;
 /*
  * Define DNODE_STATS to turn on statistic gathering. By default, it is only
@@ -430,6 +431,10 @@ dnode_create(objset_t *os, dnode_phys_t *dnp, dmu_buf_impl_t *db,
 	dn->dn_maxblkid = dnp->dn_maxblkid;
 	dn->dn_have_spill = ((dnp->dn_flags & DNODE_FLAG_SPILL_BLKPTR) != 0);
 	dn->dn_id_flags = 0;
+#ifdef CONFIG_HETFS
+    dn->rot = -2;
+    dn->filp = NULL;
+#endif
 
 	dmu_zfetch_init(&dn->dn_zfetch, dn);
 
@@ -1251,6 +1256,10 @@ dnode_hold_impl(objset_t *os, uint64_t object, int flag, int slots,
 		rw_exit(&mdn->dn_struct_rwlock);
 	if (db == NULL)
 		return (SET_ERROR(EIO));
+#ifdef CONFIG_HETFS
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in\n",__FUNCTION__);
+#endif
 	err = dbuf_read(db, NULL, DB_RF_CANFAIL);
 	if (err) {
 		dbuf_rele(db, FTAG);
@@ -2027,6 +2036,10 @@ dnode_next_offset_level(dnode_t *dn, int flags, uint64_t *offset,
 			 */
 			return (SET_ERROR(ESRCH));
 		}
+#ifdef CONFIG_HETFS
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]Passed %s in zio NULL %lld\n",__FUNCTION__, *offset);
+#endif
 		error = dbuf_read(db, NULL, DB_RF_CANFAIL | DB_RF_HAVESTRUCT);
 		if (error) {
 			dbuf_rele(db, FTAG);

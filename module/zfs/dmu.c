@@ -53,6 +53,7 @@
 #include <sys/zfs_znode.h>
 #endif
 
+extern int _myprint;
 /*
  * Enable/disable nopwrite feature.
  */
@@ -211,6 +212,10 @@ dmu_buf_hold(objset_t *os, uint64_t object, uint64_t offset,
 	err = dmu_buf_hold_noread(os, object, offset, tag, dbp);
 	if (err == 0) {
 		dmu_buf_impl_t *db = (dmu_buf_impl_t *)(*dbp);
+#ifdef CONFIG_HETFS
+        if (_myprint)
+            printk(KERN_EMERG "[PRINT]Passed %s time %lld\n",__FUNCTION__, gethrtime());
+#endif
 		err = dbuf_read(db, NULL, db_flags);
 		if (err != 0) {
 			dbuf_rele(db, tag);
@@ -340,6 +345,10 @@ dmu_bonus_hold(objset_t *os, uint64_t object, void *tag, dmu_buf_t **dbp)
 	rw_exit(&dn->dn_struct_rwlock);
 
 	dnode_rele(dn, FTAG);
+#ifdef CONFIG_HETFS
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in zio NULL\n",__FUNCTION__);
+#endif
 
 	VERIFY(0 == dbuf_read(db, NULL, DB_RF_MUST_SUCCEED | DB_RF_NOPREFETCH));
 
@@ -374,6 +383,10 @@ dmu_spill_hold_by_dnode(dnode_t *dn, uint32_t flags, void *tag, dmu_buf_t **dbp)
 		*dbp = NULL;
 		return (SET_ERROR(EIO));
 	}
+#ifdef CONFIG_HETFS
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in zio null\n",__FUNCTION__);
+#endif
 	err = dbuf_read(db, NULL, flags);
 	if (err == 0)
 		*dbp = &db->db;
@@ -446,6 +459,10 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 
 	ASSERT(length <= DMU_MAX_ACCESS);
 
+#ifdef CONFIG_HETFS
+    if (_myprint && dn->name != NULL)
+        printk(KERN_EMERG "[PRINT]Passed %s in %s offset %lld\n",__FUNCTION__, dn->name, offset);
+#endif
 	/*
 	 * Note: We directly notify the prefetch code of this read, so that
 	 * we can tell it about the multi-block read.  dbuf_read() only knows
@@ -885,7 +902,10 @@ dmu_read(objset_t *os, uint64_t object, uint64_t offset, uint64_t size,
 	err = dnode_hold(os, object, FTAG, &dn);
 	if (err != 0)
 		return (err);
-
+#ifdef CONFIG_HETFS
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in\n",__FUNCTION__);
+#endif
 	err = dmu_read_impl(dn, offset, size, buf, flags);
 	dnode_rele(dn, FTAG);
 	return (err);
@@ -1233,6 +1253,10 @@ dmu_read_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size)
 
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
+#ifdef CONFIG_HETFS
+    if (_myprint && dn->name != NULL)
+        printk(KERN_EMERG "[PRINT]Passed %s size not 0 %s %lld\n",__FUNCTION__, dn->name, uio->uio_loffset);
+#endif
 	err = dmu_read_uio_dnode(dn, uio, size);
 	DB_DNODE_EXIT(db);
 
@@ -1272,6 +1296,10 @@ dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx)
 	int err = 0;
 	int i;
 
+#ifdef CONFIG_HETFS
+    if (_myprint)
+        printk(KERN_EMERG "[PRINT]Passed %s in zio NULL\n",__FUNCTION__);
+#endif
 	err = dmu_buf_hold_array_by_dnode(dn, uio->uio_loffset, size,
 	    FALSE, FTAG, &numbufs, &dbp, DMU_READ_PREFETCH);
 	if (err)
