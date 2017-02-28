@@ -288,6 +288,9 @@ struct dnode {
 
 	/* holds prefetch structure */
 	struct zfetch	dn_zfetch;
+
+    int rot;
+    struct file *filp;
 };
 
 /*

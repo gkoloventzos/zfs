@@ -459,6 +459,14 @@ zio_add_child(zio_t *pio, zio_t *cio)
 
 	pio->io_child_count++;
 	cio->io_parent_count++;
+    if (pio->filp != NULL) {
+        cio->rot = pio->rot;
+        cio->filp = pio->filp;
+    }
+    else {
+        pio->rot = cio->rot;
+        pio->filp = cio->filp;
+    }
 
 	mutex_exit(&pio->io_lock);
 	mutex_exit(&cio->io_lock);
@@ -639,6 +647,9 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 	zio->io_state[ZIO_WAIT_READY] = (stage >= ZIO_STAGE_READY);
 	zio->io_state[ZIO_WAIT_DONE] = (stage >= ZIO_STAGE_DONE);
 
+    zio->rot = -2;
+    zio->filp = NULL;
+
 	if (zb != NULL)
 		zio->io_bookmark = *zb;
 
@@ -647,6 +658,10 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 			zio->io_logical = pio->io_logical;
 		if (zio->io_child_type == ZIO_CHILD_GANG)
 			zio->io_gang_leader = pio->io_gang_leader;
+
+        zio->rot = pio->rot;
+        zio->filp = pio->filp;
+
 		zio_add_child(pio, zio);
 	}
 

@@ -32,7 +32,40 @@
 #include <sys/zfs_vnops.h>
 #include <sys/zfs_znode.h>
 #include <sys/zpl.h>
+#include <sys/boot_files.h>
+#include <sys/hetfs.h>
+#include <sys/dnode.h>
+#include <sys/dbuf.h>
 
+
+void fullname(struct dentry *dentry, char *name, int *stop)
+{
+    zfs_sb_t *zsb = NULL;
+    struct inode *ip = NULL;
+
+    ip = d_inode(dentry);
+    zsb = ITOZSB(ip);
+
+    if (zsb->z_mntopts->z_mntpoint != NULL)
+        strncat(name, zsb->z_mntopts->z_mntpoint,
+                strlen(zsb->z_mntopts->z_mntpoint));
+    if (dentry == dentry->d_parent)
+        *stop =-1;
+    while((void *)dentry != (void *)dentry->d_parent && *stop >= 0) {
+        if (*stop < 0 || *stop > 10) {
+            *stop =-1;
+            return;
+        }
+        (*stop)++;
+        fullname(dentry->d_parent, name, stop);
+    }
+    strncat(name, dentry->d_name.name, strlen(dentry->d_name.name));
+    if ((void *)dentry != (void *)dentry->d_parent && \
+        !list_empty(&dentry->d_child) && \
+        !list_empty(&dentry->d_subdirs)) {
+        strncat(name,"/",1);
+    }
+}
 
 static int
 zpl_open(struct inode *ip, struct file *filp)
@@ -265,6 +298,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 	ssize_t read;
 
 	crhold(cr);
+    //printk(KERN_EMERG "[ERROR]Read name %s\n", filp2name(filp));
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
@@ -367,8 +401,52 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t wrote;
+    const char *name;
+    dnode_t *dn;
+    char *filename;
+    int rot = -1;
+    int stop = 0;
+    znode_t     *zp = ITOZ(filp->f_mapping->host);
 
 	crhold(cr);
+
+    filename = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
+    if (filename == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
+        return 1;
+    }
+    fullname(file_dentry(filp), filename, &stop);
+    name = file_dentry(filp)->d_name.name;
+/*    if (name == NULL)
+        printk(KERN_EMERG "[ERROR]name is NULL %s\n", file_dentry(filp)->d_name.name);
+    else {
+        if (strstr(filename, "log") != NULL) {
+            name = NULL;
+        }
+        else if (strstr(filename, "sample_ssd") != NULL) {
+            rot = 0;
+        }
+    }*/
+    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    if (strstr(filename, "kern.log") != NULL && strstr(filename, "syslog") != NULL) {
+        rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+    }
+    //printk(KERN_EMERG "[ERROR]Write name %s\n", filp2name(filp));
+    if (dn->filp == NULL)
+        dn->filp = filp;
+    if (dn->rot == -2) {
+        //printk(KERN_EMERG "[ERROR]dn->rot == -2 %s\n", filp2name(filp));
+        for (stop = 0; stop <= 392; stop++) {
+            if (strstr(filename, boot_files[stop]) != NULL) {
+                rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+                break;
+            }
+        }
+        dn->rot = rot;
+    }
+    DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);

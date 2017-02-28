@@ -34,6 +34,7 @@
 #include <sys/spa_impl.h>
 #include <sys/zfeature.h>
 #include <linux/kernel.h>
+#include <sys/hetfs.h>
 
 #define	WITH_DF_BLOCK_ALLOCATOR
 
@@ -3360,7 +3361,7 @@ int ditto_same_vdev_distance_shift = 3;
 static int
 metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
     dva_t *dva, int d, dva_t *hintdva, uint64_t txg, int flags,
-    zio_alloc_list_t *zal, int alloc_class)
+    zio_alloc_list_t *zal, int alloc_class, int rot)
 {
 	metaslab_group_t *mg, *fast_mg, *rotor;
 	vdev_t *vd;
@@ -3388,6 +3389,11 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 			break; /* Size below threshold, accept. */
 		nrot++;
 	}
+
+    if (rot >= METASLAB_CLASS_ROTORS)
+        rot = METASLAB_CLASS_ROTORS-1;
+    if (rot > -1 && rot < METASLAB_CLASS_ROTORS)
+        nrot = rot;
 
 	for (; nrot < METASLAB_CLASS_ROTORS; nrot++)
 		if (mc->mc_rotorv[nrot])
@@ -3818,6 +3824,19 @@ metaslab_class_throttle_unreserve(metaslab_class_t *mc, int slots, zio_t *zio)
 	mutex_exit(&mc->mc_lock);
 }
 
+int get_metaslab_class(metaslab_class_t *mc, int rot)
+{
+    int i;
+
+    for(i = 0; i < METASLAB_CLASS_ROTORS; i++) {
+        if (mc->mc_rotvec_categories[i] & rot) {
+            return i;
+        }
+    }
+
+    return (-1);
+}
+
 int
 metaslab_alloc(spa_t *spa, metaslab_class_t *mc, uint64_t psize, blkptr_t *bp,
     int ndvas, uint64_t txg, blkptr_t *hintbp, int flags,
@@ -3828,6 +3847,7 @@ metaslab_alloc(spa_t *spa, metaslab_class_t *mc, uint64_t psize, blkptr_t *bp,
 	int d, error = 0;
 	int i;
 	int alloc_class;
+    int rot = -1;
 
 	ASSERT(bp->blk_birth == 0);
 	ASSERT(BP_PHYSICAL_BIRTH(bp) == 0);
@@ -3855,10 +3875,15 @@ has_vdev:
 	if (BP_GET_LEVEL(bp) > 0)
 		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
 
+    if (zio != NULL) {
+        if (zio->rot > -1) {
+            rot = get_metaslab_class(mc, zio->rot);
+        }
+    }
 
 	for (d = 0; d < ndvas; d++) {
 		error = metaslab_alloc_dva(spa, mc, psize, dva, d, hintdva,
-		    txg, flags, zal, alloc_class);
+		    txg, flags, zal, alloc_class, rot);
 		if (error != 0) {
 			for (d--; d >= 0; d--) {
 				metaslab_free_dva(spa, &dva[d], txg, B_TRUE);
