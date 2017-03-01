@@ -475,6 +475,8 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	dbp = kmem_zalloc(sizeof (dmu_buf_t *) * nblks, KM_SLEEP);
 
 	zio = zio_root(dn->dn_objset->os_spa, NULL, NULL, ZIO_FLAG_CANFAIL);
+    if (zio->filp == NULL)
+        zio->filp = dn->filp;
 	blkid = dbuf_whichblock(dn, 0, offset);
 	for (i = 0; i < nblks; i++) {
 		dmu_buf_impl_t *db = dbuf_hold(dn, blkid + i, tag);
@@ -530,12 +532,16 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 
 static int
 dmu_buf_hold_array(objset_t *os, uint64_t object, uint64_t offset,
-    uint64_t length, int read, void *tag, int *numbufsp, dmu_buf_t ***dbpp)
+    uint64_t length, int read, void *tag, int *numbufsp, dmu_buf_t ***dbpp, struct file *filp)
 {
 	dnode_t *dn;
 	int err;
 
+    if (filp != NULL && filp->f_path.dentry->d_name.name[0] == 'f')
+        printk(KERN_EMERG "[WRITE]dmu_write_uio_dbuf %s\n", filp->f_path.dentry->d_name.name);
 	err = dnode_hold(os, object, FTAG, &dn);
+    if (dn->filp == NULL)
+        dn->filp = filp;
 	if (err)
 		return (err);
 
@@ -900,10 +906,12 @@ dmu_read_by_dnode(dnode_t *dn, uint64_t offset, uint64_t size, void *buf,
 
 static void
 dmu_write_impl(dmu_buf_t **dbp, int numbufs, uint64_t offset, uint64_t size,
-    const void *buf, dmu_tx_t *tx)
+    const void *buf, dmu_tx_t *tx, struct file *filp)
 {
 	int i;
 
+    if (filp != NULL && filp->f_path.dentry->d_name.name[0] == 'f')
+        printk(KERN_EMERG "[WRITE]dmu_write_impl %s\n", filp->f_path.dentry->d_name.name);
 	for (i = 0; i < numbufs; i++) {
 		uint64_t tocpy;
 		int64_t bufoff;
@@ -917,14 +925,14 @@ dmu_write_impl(dmu_buf_t **dbp, int numbufs, uint64_t offset, uint64_t size,
 		ASSERT(i == 0 || i == numbufs-1 || tocpy == db->db_size);
 
 		if (tocpy == db->db_size)
-			dmu_buf_will_fill(db, tx);
+			dmu_buf_will_fill(db, tx, filp);
 		else
-			dmu_buf_will_dirty(db, tx);
+			dmu_buf_will_dirty(db, tx, filp);
 
 		(void) memcpy((char *)db->db_data + bufoff, buf, tocpy);
 
 		if (tocpy == db->db_size)
-			dmu_buf_fill_done(db, tx);
+			dmu_buf_fill_done(db, tx, filp);
 
 		offset += tocpy;
 		size -= tocpy;
@@ -934,7 +942,7 @@ dmu_write_impl(dmu_buf_t **dbp, int numbufs, uint64_t offset, uint64_t size,
 
 void
 dmu_write(objset_t *os, uint64_t object, uint64_t offset, uint64_t size,
-    const void *buf, dmu_tx_t *tx)
+    const void *buf, dmu_tx_t *tx, struct file *filp)
 {
 	dmu_buf_t **dbp;
 	int numbufs;
@@ -942,15 +950,17 @@ dmu_write(objset_t *os, uint64_t object, uint64_t offset, uint64_t size,
 	if (size == 0)
 		return;
 
+    if (filp != NULL && filp->f_path.dentry->d_name.name[0] == 'f')
+        printk(KERN_EMERG "[WRITE]dmu_write %s\n", filp->f_path.dentry->d_name.name);
 	VERIFY0(dmu_buf_hold_array(os, object, offset, size,
-	    FALSE, FTAG, &numbufs, &dbp));
-	dmu_write_impl(dbp, numbufs, offset, size, buf, tx);
+	    FALSE, FTAG, &numbufs, &dbp, filp));
+	dmu_write_impl(dbp, numbufs, offset, size, buf, tx, filp);
 	dmu_buf_rele_array(dbp, numbufs, FTAG);
 }
 
 void
 dmu_write_by_dnode(dnode_t *dn, uint64_t offset, uint64_t size,
-    const void *buf, dmu_tx_t *tx)
+    const void *buf, dmu_tx_t *tx, struct file *filp)
 {
 	dmu_buf_t **dbp;
 	int numbufs;
@@ -958,9 +968,11 @@ dmu_write_by_dnode(dnode_t *dn, uint64_t offset, uint64_t size,
 	if (size == 0)
 		return;
 
+    if (filp != NULL && filp->f_path.dentry->d_name.name[0] == 'f')
+        printk(KERN_EMERG "[WRITE]dmu_write_by_dnode %s\n", filp->f_path.dentry->d_name.name);
 	VERIFY0(dmu_buf_hold_array_by_dnode(dn, offset, size,
 	    FALSE, FTAG, &numbufs, &dbp, DMU_READ_PREFETCH));
-	dmu_write_impl(dbp, numbufs, offset, size, buf, tx);
+	dmu_write_impl(dbp, numbufs, offset, size, buf, tx, filp);
 	dmu_buf_rele_array(dbp, numbufs, FTAG);
 }
 
@@ -975,7 +987,7 @@ dmu_prealloc(objset_t *os, uint64_t object, uint64_t offset, uint64_t size,
 		return;
 
 	VERIFY(0 == dmu_buf_hold_array(os, object, offset, size,
-	    FALSE, FTAG, &numbufs, &dbp));
+	    FALSE, FTAG, &numbufs, &dbp, NULL));
 
 	for (i = 0; i < numbufs; i++) {
 		dmu_buf_t *db = dbp[i];
@@ -1265,13 +1277,19 @@ dmu_read_uio(objset_t *os, uint64_t object, uio_t *uio, uint64_t size)
 }
 
 static int
-dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx)
+dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx, struct file *filp)
 {
 	dmu_buf_t **dbp;
 	int numbufs;
 	int err = 0;
-	int i;
+	int i = 0;
 
+    if (dn->filp == NULL) {
+        dn->filp = filp;
+        i = 1;
+    }
+    if (filp != NULL && filp->f_path.dentry->d_name.name[0] == 'f' && i)
+        printk(KERN_EMERG "[WRITE]dmu_write_uio_dnode %s\n", filp->f_path.dentry->d_name.name);
 	err = dmu_buf_hold_array_by_dnode(dn, uio->uio_loffset, size,
 	    FALSE, FTAG, &numbufs, &dbp, DMU_READ_PREFETCH);
 	if (err)
@@ -1290,9 +1308,9 @@ dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx)
 		ASSERT(i == 0 || i == numbufs-1 || tocpy == db->db_size);
 
 		if (tocpy == db->db_size)
-			dmu_buf_will_fill(db, tx);
+			dmu_buf_will_fill(db, tx, filp);
 		else
-			dmu_buf_will_dirty(db, tx);
+			dmu_buf_will_dirty(db, tx, filp);
 
 		/*
 		 * XXX uiomove could block forever (eg.nfs-backed
@@ -1304,7 +1322,7 @@ dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx)
 		    UIO_WRITE, uio);
 
 		if (tocpy == db->db_size)
-			dmu_buf_fill_done(db, tx);
+			dmu_buf_fill_done(db, tx, filp);
 
 		if (err)
 			break;
@@ -1327,7 +1345,7 @@ dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx)
  */
 int
 dmu_write_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size,
-    dmu_tx_t *tx)
+    dmu_tx_t *tx, struct file *filp)
 {
 	dmu_buf_impl_t *db = (dmu_buf_impl_t *)zdb;
 	dnode_t *dn;
@@ -1336,9 +1354,13 @@ dmu_write_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size,
 	if (size == 0)
 		return (0);
 
+    if (filp != NULL && filp->f_path.dentry->d_name.name[0] == 'f')
+        printk(KERN_EMERG "[WRITE]dmu_write_uio_dbuf %s\n", filp->f_path.dentry->d_name.name);
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
-	err = dmu_write_uio_dnode(dn, uio, size, tx);
+//    if (dn->filp == NULL && filp != NULL)
+//        dn->filp = filp;
+	err = dmu_write_uio_dnode(dn, uio, size, tx, filp);
 	DB_DNODE_EXIT(db);
 
 	return (err);
@@ -1363,7 +1385,7 @@ dmu_write_uio(objset_t *os, uint64_t object, uio_t *uio, uint64_t size,
 	if (err)
 		return (err);
 
-	err = dmu_write_uio_dnode(dn, uio, size, tx);
+	err = dmu_write_uio_dnode(dn, uio, size, tx, NULL);
 
 	dnode_rele(dn, FTAG);
 
@@ -1399,7 +1421,7 @@ dmu_return_arcbuf(arc_buf_t *buf)
  */
 void
 dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
-    dmu_tx_t *tx)
+    dmu_tx_t *tx, struct file *filp)
 {
 	dmu_buf_impl_t *dbuf = (dmu_buf_impl_t *)handle;
 	dnode_t *dn;
@@ -1407,9 +1429,13 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
 	uint32_t blksz = (uint32_t)arc_buf_lsize(buf);
 	uint64_t blkid;
 
+    if (filp != NULL && filp->f_path.dentry->d_name.name[0] == 'f')
+        printk(KERN_EMERG "[WRITE]dmu_assign_arcbuf %s\n", filp->f_path.dentry->d_name.name);
 	DB_DNODE_ENTER(dbuf);
 	dn = DB_DNODE(dbuf);
 	rw_enter(&dn->dn_struct_rwlock, RW_READER);
+    if (dn->filp == NULL && filp != NULL)
+        dn->filp = filp;
 	blkid = dbuf_whichblock(dn, 0, offset);
 	VERIFY((db = dbuf_hold(dn, blkid, FTAG)) != NULL);
 	rw_exit(&dn->dn_struct_rwlock);
@@ -1420,7 +1446,7 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
 	 * same size as the dbuf, and the dbuf is not metadata.
 	 */
 	if (offset == db->db.db_offset && blksz == db->db.db_size) {
-		dbuf_assign_arcbuf(db, buf, tx);
+		dbuf_assign_arcbuf(db, buf, tx, filp);
 		dbuf_rele(db, FTAG);
 	} else {
 		objset_t *os;
@@ -1437,7 +1463,7 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
 		DB_DNODE_EXIT(dbuf);
 
 		dbuf_rele(db, FTAG);
-		dmu_write(os, object, offset, blksz, buf->b_data, tx);
+		dmu_write(os, object, offset, blksz, buf->b_data, tx, filp);
 		dmu_return_arcbuf(buf);
 		XUIOSTAT_BUMP(xuiostat_wbuf_copied);
 	}
@@ -1462,7 +1488,6 @@ dmu_sync_ready(zio_t *zio, arc_buf_t *buf, void *varg)
 		if (BP_IS_HOLE(bp)) {
 			/*
 			 * A block of zeros may compress to a hole, but the
-			 * block size still needs to be known for replay.
 			 */
 			BP_SET_LSIZE(bp, db->db_size);
 		} else if (!BP_IS_EMBEDDED(bp)) {
@@ -1635,6 +1660,8 @@ dmu_sync(zio_t *pio, uint64_t txg, dmu_sync_cb_t *done, zgd_t *zgd)
 
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
+    if (pio->filp == NULL)
+        pio->filp = dn->filp;
 	dmu_write_policy(os, dn, db->db_level, WP_DMU_SYNC,
 	    ZIO_COMPRESS_INHERIT, &zp);
 	DB_DNODE_EXIT(db);

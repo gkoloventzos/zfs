@@ -54,7 +54,7 @@ extern ssize_t zpl_read_common(struct inode *ip, const char *buf,
     cred_t *cr);
 extern ssize_t zpl_write_common(struct inode *ip, const char *buf,
     size_t len, loff_t *ppos, uio_seg_t segment, int flags,
-    cred_t *cr);
+    cred_t *cr, struct file *filp);
 #if defined(HAVE_FILE_FALLOCATE) || defined(HAVE_INODE_FALLOCATE)
 extern long zpl_fallocate_common(struct inode *ip, int mode,
     loff_t offset, loff_t len);

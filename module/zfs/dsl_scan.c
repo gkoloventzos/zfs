@@ -1141,7 +1141,7 @@ dsl_scan_visitds(dsl_scan_t *scn, uint64_t dsobj, dmu_tx_t *tx)
 	/*
 	 * Iterate over the bps in this ds.
 	 */
-	dmu_buf_will_dirty(ds->ds_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 	dsl_scan_visit_rootbp(scn, ds, &dsl_dataset_phys(ds)->ds_bp, tx);
 
 	dsname = kmem_alloc(ZFS_MAX_DATASET_NAME_LEN, KM_SLEEP);

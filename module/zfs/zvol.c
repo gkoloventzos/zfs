@@ -525,7 +525,7 @@ zvol_replay_write(zvol_state_t *zv, lr_write_t *lr, boolean_t byteswap)
 	if (error) {
 		dmu_tx_abort(tx);
 	} else {
-		dmu_write(os, ZVOL_OBJ, off, len, data, tx);
+		dmu_write(os, ZVOL_OBJ, off, len, data, tx, NULL);
 		dmu_tx_commit(tx);
 	}
 
@@ -663,7 +663,7 @@ zvol_write(zvol_state_t *zv, uio_t *uio, boolean_t sync)
 			dmu_tx_abort(tx);
 			break;
 		}
-		error = dmu_write_uio_dbuf(zv->zv_dbuf, uio, bytes, tx);
+		error = dmu_write_uio_dbuf(zv->zv_dbuf, uio, bytes, tx, NULL);
 		if (error == 0)
 			zvol_log_write(zv, tx, off, bytes, sync);
 		dmu_tx_commit(tx);

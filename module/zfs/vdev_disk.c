@@ -500,8 +500,9 @@ vdev_submit_bio_impl(struct bio *bio)
 }
 
 static inline void
-vdev_submit_bio(struct bio *bio)
+vdev_submit_bio(struct bio *bio, int print)
 {
+    dio_request_t *dio = NULL;
 #ifdef HAVE_CURRENT_BIO_TAIL
 	struct bio **bio_tail = current->bio_tail;
 	current->bio_tail = NULL;
@@ -510,6 +511,17 @@ vdev_submit_bio(struct bio *bio)
 #else
 	struct bio_list *bio_list = current->bio_list;
 	current->bio_list = NULL;
+    dio = bio->bi_private;
+    if (print)
+        if (dio != NULL && dio->dr_zio != NULL) {
+            printk(KERN_EMERG "[BIO]rot variable %d\n", dio->dr_zio->rot);
+            if (dio->dr_zio->filp != NULL) {
+                if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev)))
+                    printk(KERN_EMERG "[BIO]name %s NON ROT\n", dio->dr_zio->filp->f_path.dentry->d_name.name);
+                else
+                    printk(KERN_EMERG "[BIO]name %s ROT\n", dio->dr_zio->filp->f_path.dentry->d_name.name);
+            }
+    }
 	vdev_submit_bio_impl(bio);
 	current->bio_list = bio_list;
 #endif
@@ -517,7 +529,7 @@ vdev_submit_bio(struct bio *bio)
 
 static int
 __vdev_disk_physio(struct block_device *bdev, zio_t *zio,
-    size_t io_size, uint64_t io_offset, int rw, int flags)
+    size_t io_size, uint64_t io_offset, int rw, int flags, int print)
 {
 	dio_request_t *dr;
 	uint64_t abd_offset;
@@ -607,7 +619,7 @@ retry:
 	/* Submit all bio's associated with this dio */
 	for (i = 0; i < dr->dr_bio_count; i++)
 		if (dr->dr_bio[i])
-			vdev_submit_bio(dr->dr_bio[i]);
+			    vdev_submit_bio(dr->dr_bio[i], print);
 
 #if defined(HAVE_BLK_QUEUE_HAVE_BLK_PLUG)
 	if (dr->dr_bio_count > 1)
@@ -656,7 +668,7 @@ vdev_disk_io_flush(struct block_device *bdev, zio_t *zio)
 	bio->bi_private = zio;
 	bio->bi_bdev = bdev;
 	bio_set_flush(bio);
-	vdev_submit_bio(bio);
+	vdev_submit_bio(bio,0);
 	invalidate_bdev(bdev);
 
 	return (0);
@@ -667,8 +679,9 @@ vdev_disk_io_start(zio_t *zio)
 {
 	vdev_t *v = zio->io_vd;
 	vdev_disk_t *vd = v->vdev_tsd;
-	int rw, flags, error;
+	int rw, flags, error, print;
 
+    print = 0;
 	switch (zio->io_type) {
 	case ZIO_TYPE_IOCTL:
 
@@ -714,6 +727,7 @@ vdev_disk_io_start(zio_t *zio)
 #else
 		flags = 0;
 #endif
+        print = 1;
 		break;
 
 	case ZIO_TYPE_READ:
@@ -725,6 +739,7 @@ vdev_disk_io_start(zio_t *zio)
 #else
 		flags = 0;
 #endif
+        print = 0;
 		break;
 
 	default:
@@ -735,7 +750,7 @@ vdev_disk_io_start(zio_t *zio)
 
 	zio->io_target_timestamp = zio_handle_io_delay(zio);
 	error = __vdev_disk_physio(vd->vd_bdev, zio,
-	    zio->io_size, zio->io_offset, rw, flags);
+	    zio->io_size, zio->io_offset, rw, flags, print);
 	if (error) {
 		zio->io_error = error;
 		zio_interrupt(zio);

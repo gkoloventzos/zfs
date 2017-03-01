@@ -129,7 +129,7 @@ dsl_dataset_block_born(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx)
 		return;
 	}
 
-	dmu_buf_will_dirty(ds->ds_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 	mutex_enter(&ds->ds_lock);
 	delta = parent_delta(ds, used);
 	dsl_dataset_phys(ds)->ds_referenced_bytes += used;
@@ -176,7 +176,7 @@ dsl_dataset_block_kill(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx,
 	ASSERT3P(tx->tx_pool, ==, ds->ds_dir->dd_pool);
 
 	ASSERT(!ds->ds_is_snapshot);
-	dmu_buf_will_dirty(ds->ds_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 
 	if (bp->blk_birth > dsl_dataset_phys(ds)->ds_prev_snap_txg) {
 		int64_t delta;
@@ -215,7 +215,7 @@ dsl_dataset_block_kill(dsl_dataset_t *ds, const blkptr_t *bp, dmu_tx_t *tx,
 		if (dsl_dataset_phys(ds->ds_prev)->ds_next_snap_obj ==
 		    ds->ds_object && bp->blk_birth >
 		    dsl_dataset_phys(ds->ds_prev)->ds_prev_snap_txg) {
-			dmu_buf_will_dirty(ds->ds_prev->ds_dbuf, tx);
+			dmu_buf_will_dirty(ds->ds_prev->ds_dbuf, tx, NULL);
 			mutex_enter(&ds->ds_prev->ds_lock);
 			dsl_dataset_phys(ds->ds_prev)->ds_unique_bytes += used;
 			mutex_exit(&ds->ds_prev->ds_lock);
@@ -808,7 +808,7 @@ dsl_dataset_create_sync_dd(dsl_dir_t *dd, dsl_dataset_t *origin,
 	dsobj = dmu_object_alloc(mos, DMU_OT_DSL_DATASET, 0,
 	    DMU_OT_DSL_DATASET, sizeof (dsl_dataset_phys_t), tx);
 	VERIFY0(dmu_bonus_hold(mos, dsobj, FTAG, &dbuf));
-	dmu_buf_will_dirty(dbuf, tx);
+	dmu_buf_will_dirty(dbuf, tx, NULL);
 	dsphys = dbuf->db_data;
 	bzero(dsphys, sizeof (dsl_dataset_phys_t));
 	dsphys->ds_dir_obj = dd->dd_object;
@@ -851,7 +851,7 @@ dsl_dataset_create_sync_dd(dsl_dir_t *dd, dsl_dataset_t *origin,
 				dsl_dataset_activate_feature(dsobj, f, tx);
 		}
 
-		dmu_buf_will_dirty(origin->ds_dbuf, tx);
+		dmu_buf_will_dirty(origin->ds_dbuf, tx, NULL);
 		dsl_dataset_phys(origin)->ds_num_children++;
 
 		VERIFY0(dsl_dataset_hold_obj(dp,
@@ -872,11 +872,11 @@ dsl_dataset_create_sync_dd(dsl_dir_t *dd, dsl_dataset_t *origin,
 			    dsobj, tx));
 		}
 
-		dmu_buf_will_dirty(dd->dd_dbuf, tx);
+		dmu_buf_will_dirty(dd->dd_dbuf, tx, NULL);
 		dsl_dir_phys(dd)->dd_origin_obj = origin->ds_object;
 		if (spa_version(dp->dp_spa) >= SPA_VERSION_DIR_CLONES) {
 			if (dsl_dir_phys(origin->ds_dir)->dd_clones == 0) {
-				dmu_buf_will_dirty(origin->ds_dir->dd_dbuf, tx);
+				dmu_buf_will_dirty(origin->ds_dir->dd_dbuf, tx, NULL);
 				dsl_dir_phys(origin->ds_dir)->dd_clones =
 				    zap_create(mos,
 				    DMU_OT_DSL_CLONES, DMU_OT_NONE, 0, tx);
@@ -892,7 +892,7 @@ dsl_dataset_create_sync_dd(dsl_dir_t *dd, dsl_dataset_t *origin,
 
 	dmu_buf_rele(dbuf, FTAG);
 
-	dmu_buf_will_dirty(dd->dd_dbuf, tx);
+	dmu_buf_will_dirty(dd->dd_dbuf, tx, NULL);
 	dsl_dir_phys(dd)->dd_head_dataset_obj = dsobj;
 
 	return (dsobj);
@@ -1340,7 +1340,7 @@ dsl_dataset_snapshot_sync_impl(dsl_dataset_t *ds, const char *snapname,
 	dsobj = dmu_object_alloc(mos, DMU_OT_DSL_DATASET, 0,
 	    DMU_OT_DSL_DATASET, sizeof (dsl_dataset_phys_t), tx);
 	VERIFY0(dmu_bonus_hold(mos, dsobj, FTAG, &dbuf));
-	dmu_buf_will_dirty(dbuf, tx);
+	dmu_buf_will_dirty(dbuf, tx, NULL);
 	dsphys = dbuf->db_data;
 	bzero(dsphys, sizeof (dsl_dataset_phys_t));
 	dsphys->ds_dir_obj = ds->ds_dir->dd_object;
@@ -1377,7 +1377,7 @@ dsl_dataset_snapshot_sync_impl(dsl_dataset_t *ds, const char *snapname,
 		    dsl_dataset_phys(ds->ds_prev)->ds_num_children > 1);
 		if (dsl_dataset_phys(ds->ds_prev)->ds_next_snap_obj ==
 		    ds->ds_object) {
-			dmu_buf_will_dirty(ds->ds_prev->ds_dbuf, tx);
+			dmu_buf_will_dirty(ds->ds_prev->ds_dbuf, tx, NULL);
 			ASSERT3U(dsl_dataset_phys(ds)->ds_prev_snap_txg, ==,
 			    dsl_dataset_phys(ds->ds_prev)->ds_creation_txg);
 			dsl_dataset_phys(ds->ds_prev)->ds_next_snap_obj = dsobj;
@@ -1403,7 +1403,7 @@ dsl_dataset_snapshot_sync_impl(dsl_dataset_t *ds, const char *snapname,
 		    delta, 0, 0, tx);
 	}
 
-	dmu_buf_will_dirty(ds->ds_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 	dsl_dataset_phys(ds)->ds_deadlist_obj =
 	    dsl_deadlist_clone(&ds->ds_deadlist, UINT64_MAX,
 	    dsl_dataset_phys(ds)->ds_prev_snap_obj, tx);
@@ -1644,7 +1644,7 @@ dsl_dataset_sync(dsl_dataset_t *ds, zio_t *zio, dmu_tx_t *tx)
 	 * in case we had to change ds_fsid_guid when we opened it,
 	 * sync it out now.
 	 */
-	dmu_buf_will_dirty(ds->ds_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 	dsl_dataset_phys(ds)->ds_fsid_guid = ds->ds_fsid_guid;
 
 	if (ds->ds_resume_bytes[tx->tx_txg & TXG_MASK] != 0) {
@@ -2527,7 +2527,7 @@ dsl_dataset_promote_sync(void *arg, dmu_tx_t *tx)
 	    NULL, FTAG, &odd));
 
 	/* change origin's next snap */
-	dmu_buf_will_dirty(origin_ds->ds_dbuf, tx);
+	dmu_buf_will_dirty(origin_ds->ds_dbuf, tx, NULL);
 	oldnext_obj = dsl_dataset_phys(origin_ds)->ds_next_snap_obj;
 	snap = list_tail(&ddpa->clone_snaps);
 	ASSERT3U(dsl_dataset_phys(snap->ds)->ds_prev_snap_obj, ==,
@@ -2544,11 +2544,11 @@ dsl_dataset_promote_sync(void *arg, dmu_tx_t *tx)
 	}
 
 	/* change origin */
-	dmu_buf_will_dirty(dd->dd_dbuf, tx);
+	dmu_buf_will_dirty(dd->dd_dbuf, tx, NULL);
 	ASSERT3U(dsl_dir_phys(dd)->dd_origin_obj, ==, origin_ds->ds_object);
 	dsl_dir_phys(dd)->dd_origin_obj = dsl_dir_phys(odd)->dd_origin_obj;
 	dd->dd_origin_txg = origin_head->ds_dir->dd_origin_txg;
-	dmu_buf_will_dirty(odd->dd_dbuf, tx);
+	dmu_buf_will_dirty(odd->dd_dbuf, tx, NULL);
 	dsl_dir_phys(odd)->dd_origin_obj = origin_ds->ds_object;
 	origin_head->ds_dir->dd_origin_txg =
 	    dsl_dataset_phys(origin_ds)->ds_creation_txg;
@@ -2599,7 +2599,7 @@ dsl_dataset_promote_sync(void *arg, dmu_tx_t *tx)
 		    DD_FIELD_SNAPSHOT_COUNT, tx);
 
 		/* change containing dsl_dir */
-		dmu_buf_will_dirty(ds->ds_dbuf, tx);
+		dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 		ASSERT3U(dsl_dataset_phys(ds)->ds_dir_obj, ==, odd->dd_object);
 		dsl_dataset_phys(ds)->ds_dir_obj = dd->dd_object;
 		ASSERT3P(ds->ds_dir, ==, odd);
@@ -2971,8 +2971,8 @@ dsl_dataset_clone_swap_sync_impl(dsl_dataset_t *clone,
 		}
 	}
 
-	dmu_buf_will_dirty(clone->ds_dbuf, tx);
-	dmu_buf_will_dirty(origin_head->ds_dbuf, tx);
+	dmu_buf_will_dirty(clone->ds_dbuf, tx, NULL);
+	dmu_buf_will_dirty(origin_head->ds_dbuf, tx, NULL);
 
 	if (clone->ds_objset != NULL) {
 		dmu_objset_evict(clone->ds_objset);
@@ -2997,7 +2997,7 @@ dsl_dataset_clone_swap_sync_impl(dsl_dataset_t *clone,
 		dsl_dataset_t *origin = clone->ds_prev;
 		uint64_t comp, uncomp;
 
-		dmu_buf_will_dirty(origin->ds_dbuf, tx);
+		dmu_buf_will_dirty(origin->ds_dbuf, tx, NULL);
 		dsl_deadlist_space_range(&clone->ds_deadlist,
 		    dsl_dataset_phys(origin)->ds_prev_snap_txg, UINT64_MAX,
 		    &dsl_dataset_phys(origin)->ds_unique_bytes, &comp, &uncomp);
@@ -3238,7 +3238,7 @@ dsl_dataset_set_refquota_sync(void *arg, dmu_tx_t *tx)
 	    zfs_prop_to_name(ZFS_PROP_REFQUOTA), &newval));
 
 	if (ds->ds_quota != newval) {
-		dmu_buf_will_dirty(ds->ds_dbuf, tx);
+		dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 		ds->ds_quota = newval;
 	}
 	dsl_dataset_rele(ds, FTAG);
@@ -3332,7 +3332,7 @@ dsl_dataset_set_refreservation_sync_impl(dsl_dataset_t *ds,
 	VERIFY0(dsl_prop_get_int_ds(ds,
 	    zfs_prop_to_name(ZFS_PROP_REFRESERVATION), &newval));
 
-	dmu_buf_will_dirty(ds->ds_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 	mutex_enter(&ds->ds_dir->dd_lock);
 	mutex_enter(&ds->ds_lock);
 	ASSERT(DS_UNIQUE_IS_ACCURATE(ds));

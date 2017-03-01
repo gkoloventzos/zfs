@@ -262,7 +262,7 @@ dsl_destroy_snapshot_sync_impl(dsl_dataset_t *ds, boolean_t defer, dmu_tx_t *tx)
 	    (ds->ds_userrefs > 0 ||
 	    dsl_dataset_phys(ds)->ds_num_children > 1)) {
 		ASSERT(spa_version(dp->dp_spa) >= SPA_VERSION_USERREFS);
-		dmu_buf_will_dirty(ds->ds_dbuf, tx);
+		dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 		dsl_dataset_phys(ds)->ds_flags |= DS_FLAG_DEFER_DESTROY;
 		spa_history_log_internal_ds(ds, "defer_destroy", tx, "");
 		return;
@@ -290,7 +290,7 @@ dsl_destroy_snapshot_sync_impl(dsl_dataset_t *ds, boolean_t defer, dmu_tx_t *tx)
 		after_branch_point =
 		    (dsl_dataset_phys(ds_prev)->ds_next_snap_obj != obj);
 
-		dmu_buf_will_dirty(ds_prev->ds_dbuf, tx);
+		dmu_buf_will_dirty(ds_prev->ds_dbuf, tx, NULL);
 		if (after_branch_point &&
 		    dsl_dataset_phys(ds_prev)->ds_next_clones_obj != 0) {
 			dsl_dataset_remove_from_next_clones(ds_prev, obj, tx);
@@ -314,7 +314,7 @@ dsl_destroy_snapshot_sync_impl(dsl_dataset_t *ds, boolean_t defer, dmu_tx_t *tx)
 
 	old_unique = dsl_dataset_phys(ds_next)->ds_unique_bytes;
 
-	dmu_buf_will_dirty(ds_next->ds_dbuf, tx);
+	dmu_buf_will_dirty(ds_next->ds_dbuf, tx, NULL);
 	dsl_dataset_phys(ds_next)->ds_prev_snap_obj =
 	    dsl_dataset_phys(ds)->ds_prev_snap_obj;
 	dsl_dataset_phys(ds_next)->ds_prev_snap_txg =
@@ -355,7 +355,7 @@ dsl_destroy_snapshot_sync_impl(dsl_dataset_t *ds, boolean_t defer, dmu_tx_t *tx)
 	}
 	dsl_deadlist_close(&ds->ds_deadlist);
 	dsl_deadlist_free(mos, dsl_dataset_phys(ds)->ds_deadlist_obj, tx);
-	dmu_buf_will_dirty(ds->ds_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 	dsl_dataset_phys(ds)->ds_deadlist_obj = 0;
 
 	/* Collapse range in clone heads */
@@ -765,7 +765,7 @@ dsl_destroy_head_sync_impl(dsl_dataset_t *ds, dmu_tx_t *tx)
 		    obj);
 		ASSERT0(dsl_dataset_phys(ds)->ds_next_snap_obj);
 
-		dmu_buf_will_dirty(ds->ds_prev->ds_dbuf, tx);
+		dmu_buf_will_dirty(ds->ds_prev->ds_dbuf, tx, NULL);
 		if (dsl_dataset_phys(ds->ds_prev)->ds_next_clones_obj != 0) {
 			dsl_dataset_remove_from_next_clones(ds->ds_prev,
 			    obj, tx);
@@ -782,7 +782,7 @@ dsl_destroy_head_sync_impl(dsl_dataset_t *ds, dmu_tx_t *tx)
 	 */
 	dsl_deadlist_close(&ds->ds_deadlist);
 	dsl_deadlist_free(mos, dsl_dataset_phys(ds)->ds_deadlist_obj, tx);
-	dmu_buf_will_dirty(ds->ds_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 	dsl_dataset_phys(ds)->ds_deadlist_obj = 0;
 
 	VERIFY0(dmu_objset_from_ds(ds, &os));
@@ -850,7 +850,7 @@ dsl_destroy_head_sync_impl(dsl_dataset_t *ds, dmu_tx_t *tx)
 	}
 
 	/* Erase the link in the dir */
-	dmu_buf_will_dirty(ds->ds_dir->dd_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dir->dd_dbuf, tx, NULL);
 	dsl_dir_phys(ds->ds_dir)->dd_head_dataset_obj = 0;
 	ddobj = ds->ds_dir->dd_object;
 	ASSERT(dsl_dataset_phys(ds)->ds_snapnames_zapobj != 0);
@@ -904,7 +904,7 @@ dsl_destroy_head_begin_sync(void *arg, dmu_tx_t *tx)
 	VERIFY0(dsl_dataset_hold(dp, ddha->ddha_name, FTAG, &ds));
 
 	/* Mark it as inconsistent on-disk, in case we crash */
-	dmu_buf_will_dirty(ds->ds_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 	dsl_dataset_phys(ds)->ds_flags |= DS_FLAG_INCONSISTENT;
 
 	spa_history_log_internal_ds(ds, "destroy begin", tx, "");

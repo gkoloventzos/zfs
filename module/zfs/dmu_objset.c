@@ -1713,7 +1713,7 @@ dmu_objset_space_upgrade(objset_t *os)
 			dmu_tx_abort(tx);
 			continue;
 		}
-		dmu_buf_will_dirty(db, tx);
+		dmu_buf_will_dirty(db, tx, NULL);
 		dmu_buf_rele(db, FTAG);
 		dmu_tx_commit(tx);
 	}

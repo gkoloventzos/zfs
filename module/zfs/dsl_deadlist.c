@@ -220,7 +220,7 @@ dsl_deadlist_insert(dsl_deadlist_t *dl, const blkptr_t *bp, dmu_tx_t *tx)
 
 	dsl_deadlist_load_tree(dl);
 
-	dmu_buf_will_dirty(dl->dl_dbuf, tx);
+	dmu_buf_will_dirty(dl->dl_dbuf, tx, NULL);
 	mutex_enter(&dl->dl_lock);
 	dl->dl_phys->dl_used +=
 	    bp_get_dsize_sync(dmu_objset_spa(dl->dl_os), bp);
@@ -434,7 +434,7 @@ dsl_deadlist_insert_bpobj(dsl_deadlist_t *dl, uint64_t obj, uint64_t birth,
 
 	dsl_deadlist_load_tree(dl);
 
-	dmu_buf_will_dirty(dl->dl_dbuf, tx);
+	dmu_buf_will_dirty(dl->dl_dbuf, tx, NULL);
 	mutex_enter(&dl->dl_lock);
 	dl->dl_phys->dl_used += used;
 	dl->dl_phys->dl_comp += comp;
@@ -490,7 +490,7 @@ dsl_deadlist_merge(dsl_deadlist_t *dl, uint64_t obj, dmu_tx_t *tx)
 
 	VERIFY3U(0, ==, dmu_bonus_hold(dl->dl_os, obj, FTAG, &bonus));
 	dlp = bonus->db_data;
-	dmu_buf_will_dirty(bonus, tx);
+	dmu_buf_will_dirty(bonus, tx, NULL);
 	bzero(dlp, sizeof (*dlp));
 	dmu_buf_rele(bonus, FTAG);
 }
@@ -507,7 +507,7 @@ dsl_deadlist_move_bpobj(dsl_deadlist_t *dl, bpobj_t *bpo, uint64_t mintxg,
 	avl_index_t where;
 
 	ASSERT(!dl->dl_oldfmt);
-	dmu_buf_will_dirty(dl->dl_dbuf, tx);
+	dmu_buf_will_dirty(dl->dl_dbuf, tx, NULL);
 	dsl_deadlist_load_tree(dl);
 
 	dle_tofind.dle_mintxg = mintxg;

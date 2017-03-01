@@ -664,7 +664,7 @@ dsl_prop_set_sync_impl(dsl_dataset_t *ds, const char *propname,
 	if (ds->ds_is_snapshot) {
 		ASSERT(version >= SPA_VERSION_SNAP_PROPS);
 		if (dsl_dataset_phys(ds)->ds_props_obj == 0) {
-			dmu_buf_will_dirty(ds->ds_dbuf, tx);
+			dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 			dsl_dataset_phys(ds)->ds_props_obj =
 			    zap_create(mos,
 			    DMU_OT_DSL_PROPS, DMU_OT_NONE, 0, tx);
