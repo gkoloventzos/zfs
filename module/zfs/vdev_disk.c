@@ -510,6 +510,10 @@ vdev_submit_bio(struct bio *bio)
 #else
 	struct bio_list *bio_list = current->bio_list;
 	current->bio_list = NULL;
+    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev)))
+        printk(KERN_EMERG "[PRINT]NON ROT\n");
+    else
+        printk(KERN_EMERG "[PRINT]ROT\n");
 	vdev_submit_bio_impl(bio);
 	current->bio_list = bio_list;
 #endif
