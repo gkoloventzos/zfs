@@ -422,11 +422,10 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     if (name == NULL)
         printk(KERN_EMERG "[ERROR]name is NULL %s\n", file_dentry(filp)->d_name.name);
     else {
-        if (strstr(filename, "log") != NULL) {
-            name = NULL;
-        }
-        else if (strstr(filename, "sample_ssd") != NULL) {
-            rot = 0;
+        if (strstr(filename, "log") != NULL || strstr(filename, "sample_ssd") != NULL) {
+            dn->rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+            dn->filp = name;
+            //dn->filp = filp;
         }
     }
     //printk(KERN_EMERG "[ERROR]Write name %s\n", filp2name(filp));
