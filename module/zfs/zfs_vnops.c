@@ -578,7 +578,7 @@ EXPORT_SYMBOL(zfs_read);
 
 /* ARGSUSED */
 int
-zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
+zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr, struct file *filp)
 {
 	znode_t		*zp = ITOZ(ip);
 	rlim64_t	limit = uio->uio_limit;
@@ -601,6 +601,7 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	sa_bulk_attr_t	bulk[4];
 	uint64_t	mtime[2], ctime[2];
 	uint32_t	uid;
+    dnode_t     *dn;
 #ifdef HAVE_UIO_ZEROCOPY
 	int		i_iov = 0;
 	const iovec_t	*iovp = uio->uio_iov;
@@ -710,7 +711,8 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	write_eof = (woff + n > zp->z_size);
 
 	end_size = MAX(zp->z_size, woff + n);
-
+    if (filp->f_path.dentry->d_name.name[0] == 'f')
+        printk(KERN_EMERG "[WRITE]Ready for zfs_write %s\n", filp->f_path.dentry->d_name.name);
 	/*
 	 * Write the file in reasonable size chunks.  Each chunk is written
 	 * in a separate transaction; this keeps the intent log records small
@@ -721,8 +723,11 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 		woff = uio->uio_loffset;
 		if (zfs_owner_overquota(zsb, zp, B_FALSE) ||
 		    zfs_owner_overquota(zsb, zp, B_TRUE)) {
-			if (abuf != NULL)
+			if (abuf != NULL) {
+                if (filp != NULL && filp->f_path.dentry->d_name.name[0] == 'f')
+                    printk(KERN_EMERG "[WRITE]dmu_return_arcbuf %s\n", filp->f_path.dentry->d_name.name);
 				dmu_return_arcbuf(abuf);
+            }
 			error = SET_ERROR(EDQUOT);
 			break;
 		}
@@ -752,6 +757,15 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 			 */
 			size_t cbytes;
 
+            if (filp != NULL && filp->f_path.dentry->d_name.name[0] == 'f')
+                printk(KERN_EMERG "[WRITE]zfs_write full block %s\n", filp->f_path.dentry->d_name.name);
+            DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+            dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+            if (dn == NULL)
+                printk(KERN_EMERG "[ERROR]1Tiganisame!!!!!!!!!!!!!!!!! %s\n", filp->f_path.dentry->d_name.name);
+            if (dn->filp == NULL)
+                dn->filp = filp;
+            DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 			abuf = dmu_request_arcbuf(sa_get_db(zp->z_sa_hdl),
 			    max_blksz);
 			ASSERT(abuf != NULL);
@@ -813,7 +827,7 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 		if (abuf == NULL) {
 			tx_bytes = uio->uio_resid;
 			error = dmu_write_uio_dbuf(sa_get_db(zp->z_sa_hdl),
-			    uio, nbytes, tx);
+			    uio, nbytes, tx, filp);
 			tx_bytes -= uio->uio_resid;
 		} else {
 			tx_bytes = nbytes;
@@ -828,13 +842,13 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 			    aiov->iov_base != abuf->b_data)) {
 				ASSERT(xuio);
 				dmu_write(zsb->z_os, zp->z_id, woff,
-				    aiov->iov_len, aiov->iov_base, tx);
+				    aiov->iov_len, aiov->iov_base, tx, filp);
 				dmu_return_arcbuf(abuf);
 				xuio_stat_wbuf_copied();
 			} else {
 				ASSERT(xuio || tx_bytes == max_blksz);
 				dmu_assign_arcbuf(sa_get_db(zp->z_sa_hdl),
-				    woff, abuf, tx);
+				    woff, abuf, tx, filp);
 			}
 			ASSERT(tx_bytes <= uio->uio_resid);
 			uioskip(uio, tx_bytes);
@@ -4250,7 +4264,7 @@ zfs_putpage(struct inode *ip, struct page *pp, struct writeback_control *wbc)
 
 	va = kmap(pp);
 	ASSERT3U(pglen, <=, PAGE_SIZE);
-	dmu_write(zsb->z_os, zp->z_id, pgoff, pglen, va, tx);
+	dmu_write(zsb->z_os, zp->z_id, pgoff, pglen, va, tx, NULL);
 	kunmap(pp);
 
 	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_MTIME(zsb), NULL, &mtime, 16);

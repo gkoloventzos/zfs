@@ -170,7 +170,7 @@ space_map_histogram_add(space_map_t *sm, range_tree_t *rt, dmu_tx_t *tx)
 	if (sm->sm_dbuf->db_size != sizeof (space_map_phys_t))
 		return;
 
-	dmu_buf_will_dirty(sm->sm_dbuf, tx);
+	dmu_buf_will_dirty(sm->sm_dbuf, tx, NULL);
 
 	ASSERT(space_map_histogram_verify(sm, rt));
 	/*
@@ -250,7 +250,7 @@ space_map_write(space_map_t *sm, range_tree_t *rt, maptype_t maptype,
 	ASSERT(MUTEX_HELD(rt->rt_lock));
 	ASSERT(dsl_pool_sync_context(dmu_objset_pool(os)));
 	VERIFY3U(space_map_object(sm), !=, 0);
-	dmu_buf_will_dirty(sm->sm_dbuf, tx);
+	dmu_buf_will_dirty(sm->sm_dbuf, tx, NULL);
 
 	/*
 	 * This field is no longer necessary since the in-core space map
@@ -300,7 +300,7 @@ space_map_write(space_map_t *sm, range_tree_t *rt, maptype_t maptype,
 				mutex_exit(rt->rt_lock);
 				dmu_write(os, space_map_object(sm),
 				    sm->sm_phys->smp_objsize, sm->sm_blksz,
-				    entry_map, tx);
+				    entry_map, tx, NULL);
 				mutex_enter(rt->rt_lock);
 				sm->sm_phys->smp_objsize += sm->sm_blksz;
 				entry = entry_map;
@@ -320,7 +320,7 @@ space_map_write(space_map_t *sm, range_tree_t *rt, maptype_t maptype,
 		size = (entry - entry_map) * sizeof (uint64_t);
 		mutex_exit(rt->rt_lock);
 		dmu_write(os, space_map_object(sm), sm->sm_phys->smp_objsize,
-		    size, entry_map, tx);
+		    size, entry_map, tx, NULL);
 		mutex_enter(rt->rt_lock);
 		sm->sm_phys->smp_objsize += size;
 	}
@@ -446,7 +446,7 @@ space_map_truncate(space_map_t *sm, dmu_tx_t *tx)
 		    sizeof (sm->sm_phys->smp_histogram));
 	}
 
-	dmu_buf_will_dirty(sm->sm_dbuf, tx);
+	dmu_buf_will_dirty(sm->sm_dbuf, tx, NULL);
 	sm->sm_phys->smp_objsize = 0;
 	sm->sm_phys->smp_alloc = 0;
 }

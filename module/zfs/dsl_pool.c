@@ -726,15 +726,15 @@ upgrade_clones_cb(dsl_pool_t *dp, dsl_dataset_t *hds, void *arg)
 			return (0);
 		}
 
-		dmu_buf_will_dirty(ds->ds_dbuf, tx);
+		dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 		dsl_dataset_phys(ds)->ds_prev_snap_obj = prev->ds_object;
 		dsl_dataset_phys(ds)->ds_prev_snap_txg =
 		    dsl_dataset_phys(prev)->ds_creation_txg;
 
-		dmu_buf_will_dirty(ds->ds_dir->dd_dbuf, tx);
+		dmu_buf_will_dirty(ds->ds_dir->dd_dbuf, tx, NULL);
 		dsl_dir_phys(ds->ds_dir)->dd_origin_obj = prev->ds_object;
 
-		dmu_buf_will_dirty(prev->ds_dbuf, tx);
+		dmu_buf_will_dirty(prev->ds_dbuf, tx, NULL);
 		dsl_dataset_phys(prev)->ds_num_children++;
 
 		if (dsl_dataset_phys(ds)->ds_next_snap_obj == 0) {
@@ -749,7 +749,7 @@ upgrade_clones_cb(dsl_pool_t *dp, dsl_dataset_t *hds, void *arg)
 	ASSERT3U(dsl_dataset_phys(ds)->ds_prev_snap_obj, ==, prev->ds_object);
 
 	if (dsl_dataset_phys(prev)->ds_next_clones_obj == 0) {
-		dmu_buf_will_dirty(prev->ds_dbuf, tx);
+		dmu_buf_will_dirty(prev->ds_dbuf, tx, NULL);
 		dsl_dataset_phys(prev)->ds_next_clones_obj =
 		    zap_create(dp->dp_meta_objset,
 		    DMU_OT_NEXT_CLONES, DMU_OT_NONE, 0, tx);
@@ -787,7 +787,7 @@ upgrade_dir_clones_cb(dsl_pool_t *dp, dsl_dataset_t *ds, void *arg)
 		    dsl_dir_phys(ds->ds_dir)->dd_origin_obj, FTAG, &origin));
 
 		if (dsl_dir_phys(origin->ds_dir)->dd_clones == 0) {
-			dmu_buf_will_dirty(origin->ds_dir->dd_dbuf, tx);
+			dmu_buf_will_dirty(origin->ds_dir->dd_dbuf, tx, NULL);
 			dsl_dir_phys(origin->ds_dir)->dd_clones =
 			    zap_create(mos, DMU_OT_DSL_CLONES, DMU_OT_NONE,
 			    0, tx);

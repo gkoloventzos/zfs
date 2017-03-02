@@ -636,6 +636,10 @@ vdev_queue_aggregate(vdev_queue_t *vq, zio_t *zio)
 	    flags | ZIO_FLAG_DONT_CACHE | ZIO_FLAG_DONT_QUEUE,
 	    vdev_queue_agg_io_done, NULL);
 	aio->io_timestamp = first->io_timestamp;
+    if (aio->filp == NULL){
+        aio->filp = zio->filp;
+        aio->rot = zio->rot;
+    }
 
 	nio = first;
 	do {

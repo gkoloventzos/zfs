@@ -581,7 +581,7 @@ dsl_dir_init_fs_ss_count(dsl_dir_t *dd, dmu_tx_t *tx)
 	kmem_free(za, sizeof (zap_attribute_t));
 
 	/* we're in a sync task, update counts */
-	dmu_buf_will_dirty(dd->dd_dbuf, tx);
+	dmu_buf_will_dirty(dd->dd_dbuf, tx, NULL);
 	VERIFY0(zap_add(os, dd->dd_object, DD_FIELD_FILESYSTEM_COUNT,
 	    sizeof (my_fs_cnt), 1, &my_fs_cnt, tx));
 	VERIFY0(zap_add(os, dd->dd_object, DD_FIELD_SNAPSHOT_COUNT,
@@ -901,7 +901,7 @@ dsl_dir_create_sync(dsl_pool_t *dp, dsl_dir_t *pds, const char *name,
 		    DMU_POOL_ROOT_DATASET, sizeof (uint64_t), 1, &ddobj, tx));
 	}
 	VERIFY(0 == dmu_bonus_hold(mos, ddobj, FTAG, &dbuf));
-	dmu_buf_will_dirty(dbuf, tx);
+	dmu_buf_will_dirty(dbuf, tx, NULL);
 	ddphys = dbuf->db_data;
 
 	ddphys->dd_creation_time = gethrestime_sec();
@@ -1378,7 +1378,7 @@ dsl_dir_diduse_space(dsl_dir_t *dd, dd_used_t type,
 	ASSERT(dmu_tx_is_syncing(tx));
 	ASSERT(type < DD_USED_NUM);
 
-	dmu_buf_will_dirty(dd->dd_dbuf, tx);
+	dmu_buf_will_dirty(dd->dd_dbuf, tx, NULL);
 
 	if (needlock)
 		mutex_enter(&dd->dd_lock);
@@ -1431,7 +1431,7 @@ dsl_dir_transfer_space(dsl_dir_t *dd, int64_t delta,
 	    !(dsl_dir_phys(dd)->dd_flags & DD_FLAG_USED_BREAKDOWN))
 		return;
 
-	dmu_buf_will_dirty(dd->dd_dbuf, tx);
+	dmu_buf_will_dirty(dd->dd_dbuf, tx, NULL);
 	mutex_enter(&dd->dd_lock);
 	ASSERT(delta > 0 ?
 	    dsl_dir_phys(dd)->dd_used_breakdown[oldtype] >= delta :
@@ -1514,7 +1514,7 @@ dsl_dir_set_quota_sync(void *arg, dmu_tx_t *tx)
 		    zfs_prop_to_name(ZFS_PROP_QUOTA), (longlong_t)newval);
 	}
 
-	dmu_buf_will_dirty(ds->ds_dir->dd_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dir->dd_dbuf, tx, NULL);
 	mutex_enter(&ds->ds_dir->dd_lock);
 	dsl_dir_phys(ds->ds_dir)->dd_quota = newval;
 	mutex_exit(&ds->ds_dir->dd_lock);
@@ -1597,7 +1597,7 @@ dsl_dir_set_reservation_sync_impl(dsl_dir_t *dd, uint64_t value, dmu_tx_t *tx)
 	uint64_t used;
 	int64_t delta;
 
-	dmu_buf_will_dirty(dd->dd_dbuf, tx);
+	dmu_buf_will_dirty(dd->dd_dbuf, tx, NULL);
 
 	mutex_enter(&dd->dd_lock);
 	used = dsl_dir_phys(dd)->dd_used_bytes;
@@ -1896,7 +1896,7 @@ dsl_dir_rename_sync(void *arg, dmu_tx_t *tx)
 		}
 	}
 
-	dmu_buf_will_dirty(dd->dd_dbuf, tx);
+	dmu_buf_will_dirty(dd->dd_dbuf, tx, NULL);
 
 	/* remove from old parent zapobj */
 	error = zap_remove(mos,

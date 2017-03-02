@@ -6080,12 +6080,12 @@ spa_sync_nvlist(spa_t *spa, uint64_t obj, nvlist_t *nv, dmu_tx_t *tx)
 	    KM_SLEEP) == 0);
 	bzero(packed + nvsize, bufsize - nvsize);
 
-	dmu_write(spa->spa_meta_objset, obj, 0, bufsize, packed, tx);
+	dmu_write(spa->spa_meta_objset, obj, 0, bufsize, packed, tx, NULL);
 
 	vmem_free(packed, bufsize);
 
 	VERIFY(0 == dmu_bonus_hold(spa->spa_meta_objset, obj, FTAG, &db));
-	dmu_buf_will_dirty(db, tx);
+	dmu_buf_will_dirty(db, tx, NULL);
 	*(uint64_t *)db->db_data = nvsize;
 	dmu_buf_rele(db, FTAG);
 }

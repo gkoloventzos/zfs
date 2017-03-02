@@ -47,6 +47,9 @@
 #include <sys/trace_dbuf.h>
 #include <sys/callb.h>
 #include <sys/abd.h>
+#include <sys/hetfs.h>
+#include <sys/zfs_znode.h>
+
 
 struct dbuf_hold_impl_data {
 	/* Function arguments */
@@ -1509,7 +1512,7 @@ dbuf_new_size(dmu_buf_impl_t *db, int size, dmu_tx_t *tx)
 	 * XXX we should be doing a dbuf_read, checking the return
 	 * value and returning that up to our callers
 	 */
-	dmu_buf_will_dirty(&db->db, tx);
+	dmu_buf_will_dirty(&db->db, tx, NULL);
 
 	/* create the data buffer for the new block */
 	buf = arc_alloc_buf(dn->dn_objset->os_spa, db, type, size);
@@ -1576,7 +1579,7 @@ dbuf_redirty(dbuf_dirty_record_t *dr)
 }
 
 dbuf_dirty_record_t *
-dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
+dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx, struct file *filp)
 {
 	dnode_t *dn;
 	objset_t *os;
@@ -1591,6 +1594,13 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
+    if (filp != NULL && filp->f_path.dentry->d_name.name[0] == 'f')
+        printk(KERN_EMERG "[FILL]dbuf_dirty %s\n", filp->f_path.dentry->d_name.name);
+    if (filp != NULL) {
+        if (dn->filp == NULL)
+            dn->filp = filp;
+        printk(KERN_EMERG "[FILL]Filling filp %s\n", dn->filp->f_path.dentry->d_name.name);
+    }
 	/*
 	 * Shouldn't dirty a regular buffer in syncing context.  Private
 	 * objects may be dirtied in syncing context, but only if they
@@ -1642,6 +1652,12 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 	drp = &db->db_last_dirty;
 	ASSERT(*drp == NULL || (*drp)->dr_txg <= tx->tx_txg ||
 	    db->db.db_object == DMU_META_DNODE_OBJECT);
+    if ((*drp)->dr_zio != NULL) { 
+        if ((*drp)->dr_zio->filp == NULL) {
+        printk(KERN_EMERG "[FILL]dbuf_dirty drp %s\n", filp->f_path.dentry->d_name.name);
+        (*drp)->dr_zio->filp = filp;
+        }
+    }
 	while ((dr = *drp) != NULL && dr->dr_txg > tx->tx_txg)
 		drp = &dr->dr_next;
 	if (dr && dr->dr_txg == tx->tx_txg) {
@@ -1699,6 +1715,7 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 	 */
 	dr = kmem_zalloc(sizeof (dbuf_dirty_record_t), KM_SLEEP);
 	list_link_init(&dr->dr_dirty_node);
+    dr->filp = filp;
 	if (db->db_level == 0) {
 		void *data_old = db->db_buf;
 
@@ -1820,7 +1837,8 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 		if (drop_struct_lock)
 			rw_exit(&dn->dn_struct_rwlock);
 		ASSERT3U(db->db_level+1, ==, parent->db_level);
-		di = dbuf_dirty(parent, tx);
+		di = dbuf_dirty(parent, tx, filp);
+        di->filp = filp;
 		if (parent_held)
 			dbuf_rele(parent, FTAG);
 
@@ -1948,7 +1966,7 @@ dbuf_undirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 }
 
 void
-dmu_buf_will_dirty(dmu_buf_t *db_fake, dmu_tx_t *tx)
+dmu_buf_will_dirty(dmu_buf_t *db_fake, dmu_tx_t *tx, struct file *filp)
 {
 	dmu_buf_impl_t *db = (dmu_buf_impl_t *)db_fake;
 	int rf = DB_RF_MUST_SUCCEED | DB_RF_NOPREFETCH;
@@ -1964,6 +1982,8 @@ dmu_buf_will_dirty(dmu_buf_t *db_fake, dmu_tx_t *tx)
 	 * cached).
 	 */
 	mutex_enter(&db->db_mtx);
+    if (filp != NULL && filp->f_path.dentry->d_name.name[0] == 'f')
+        printk(KERN_EMERG "[FILL]dmu_buf_will_dirty %s\n", filp->f_path.dentry->d_name.name);
 
 	for (dr = db->db_last_dirty;
 	    dr != NULL && dr->dr_txg >= tx->tx_txg; dr = dr->dr_next) {
@@ -1972,6 +1992,10 @@ dmu_buf_will_dirty(dmu_buf_t *db_fake, dmu_tx_t *tx)
 		 * because there are some calls to dbuf_dirty() that don't
 		 * go through dmu_buf_will_dirty().
 		 */
+        if (dr->dr_zio != NULL && dr->dr_zio->filp == NULL) {
+            dr->dr_zio->filp = filp;
+            printk(KERN_EMERG "[FILL]fill dmu_buf_will_dirty %s\n", filp->f_path.dentry->d_name.name);
+        }
 		if (dr->dr_txg == tx->tx_txg && db->db_state == DB_CACHED) {
 			/* This dbuf is already dirty and cached. */
 			dbuf_redirty(dr);
@@ -1986,7 +2010,7 @@ dmu_buf_will_dirty(dmu_buf_t *db_fake, dmu_tx_t *tx)
 		rf |= DB_RF_HAVESTRUCT;
 	DB_DNODE_EXIT(db);
 	(void) dbuf_read(db, NULL, rf);
-	(void) dbuf_dirty(db, tx);
+	(void) dbuf_dirty(db, tx, filp);
 }
 
 void
@@ -1996,14 +2020,16 @@ dmu_buf_will_not_fill(dmu_buf_t *db_fake, dmu_tx_t *tx)
 
 	db->db_state = DB_NOFILL;
 
-	dmu_buf_will_fill(db_fake, tx);
+	dmu_buf_will_fill(db_fake, tx, NULL);
 }
 
 void
-dmu_buf_will_fill(dmu_buf_t *db_fake, dmu_tx_t *tx)
+dmu_buf_will_fill(dmu_buf_t *db_fake, dmu_tx_t *tx, struct file *filp)
 {
 	dmu_buf_impl_t *db = (dmu_buf_impl_t *)db_fake;
 
+    if (filp != NULL && filp->f_path.dentry->d_name.name[0] == 'f')
+        printk(KERN_EMERG "[FILL]dmu_buf_will_fill %s\n", filp->f_path.dentry->d_name.name);
 	ASSERT(db->db_blkid != DMU_BONUS_BLKID);
 	ASSERT(tx->tx_txg != 0);
 	ASSERT(db->db_level == 0);
@@ -2013,7 +2039,7 @@ dmu_buf_will_fill(dmu_buf_t *db_fake, dmu_tx_t *tx)
 	    dmu_tx_private_ok(tx));
 
 	dbuf_noread(db);
-	(void) dbuf_dirty(db, tx);
+	(void) dbuf_dirty(db, tx, filp);
 }
 
 #pragma weak dmu_buf_fill_done = dbuf_fill_done
@@ -2080,7 +2106,7 @@ dmu_buf_write_embedded(dmu_buf_t *dbuf, void *data,
  * by anybody except our caller. Otherwise copy arcbuf's contents to dbuf.
  */
 void
-dbuf_assign_arcbuf(dmu_buf_impl_t *db, arc_buf_t *buf, dmu_tx_t *tx)
+dbuf_assign_arcbuf(dmu_buf_impl_t *db, arc_buf_t *buf, dmu_tx_t *tx, struct file *filp)
 {
 	ASSERT(!refcount_is_zero(&db->db_holds));
 	ASSERT(db->db_blkid != DMU_BONUS_BLKID);
@@ -2103,7 +2129,7 @@ dbuf_assign_arcbuf(dmu_buf_impl_t *db, arc_buf_t *buf, dmu_tx_t *tx)
 	if (db->db_state == DB_CACHED &&
 	    refcount_count(&db->db_holds) - 1 > db->db_dirtycnt) {
 		mutex_exit(&db->db_mtx);
-		(void) dbuf_dirty(db, tx);
+		(void) dbuf_dirty(db, tx, filp);
 		bcopy(buf->b_data, db->db.db_data, db->db.db_size);
 		arc_buf_destroy(buf, db);
 		xuio_stat_wbuf_copied();
@@ -2134,8 +2160,8 @@ dbuf_assign_arcbuf(dmu_buf_impl_t *db, arc_buf_t *buf, dmu_tx_t *tx)
 	dbuf_set_data(db, buf);
 	db->db_state = DB_FILL;
 	mutex_exit(&db->db_mtx);
-	(void) dbuf_dirty(db, tx);
-	dmu_buf_fill_done(&db->db, tx);
+	(void) dbuf_dirty(db, tx, filp);
+	dmu_buf_fill_done(&db->db, tx, filp);
 }
 
 void
@@ -3439,6 +3465,7 @@ dbuf_write_ready(zio_t *zio, arc_buf_t *buf, void *vdb)
 	int64_t delta;
 	uint64_t fill = 0;
 	int i;
+    int rot = -1;
 
 	ASSERT3P(db->db_blkptr, !=, NULL);
 	ASSERT3P(&db->db_data_pending->dr_bp_copy, ==, bp);
@@ -3448,6 +3475,20 @@ dbuf_write_ready(zio_t *zio, arc_buf_t *buf, void *vdb)
 	delta = bp_get_dsize_sync(spa, bp) - bp_get_dsize_sync(spa, bp_orig);
 	dnode_diduse_space(dn, delta - zio->io_prev_space_delta);
 	zio->io_prev_space_delta = delta;
+    if (dn->filp == NULL)
+        printk(KERN_EMERG "[SKATA]jdfaksfnfa\n");
+    else{
+        if (zio->filp == NULL) {
+            zio->filp = dn->filp;
+            if (dn->rot != -2)
+                zio->rot = dn->rot;
+            else {
+                rot = wholename(dn->filp);
+                dn->rot = rot;
+                zio->rot = rot;
+            }
+        }
+    }
 
 	if (bp->blk_birth != 0) {
 		ASSERT((db->db_blkid != DMU_SPILL_BLKID &&
@@ -3536,6 +3577,10 @@ dbuf_write_children_ready(zio_t *zio, arc_buf_t *buf, void *vdb)
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
 	epbs = dn->dn_phys->dn_indblkshift - SPA_BLKPTRSHIFT;
+    if (zio->filp == NULL) {
+        zio->filp = dn->filp;
+        zio->rot = dn->rot;
+    }
 
 	/* Determine if all our children are holes */
 	for (i = 0, bp = db->db.db_data; i < 1ULL << epbs; i++, bp++) {
@@ -3725,8 +3770,9 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	uint64_t txg = tx->tx_txg;
 	zbookmark_phys_t zb;
 	zio_prop_t zp;
-	zio_t *zio;
+	zio_t *zio, *cio, *cio_next;
 	int wp_flag = 0;
+    zio_link_t *zl = NULL;
 
 	ASSERT(dmu_tx_is_syncing(tx));
 
@@ -3849,6 +3895,19 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 		    dbuf_write_done, db, ZIO_PRIORITY_ASYNC_WRITE,
 		    ZIO_FLAG_MUSTSUCCEED, &zb);
 	}
+
+    if (dr->dr_zio->filp == NULL) {
+        printk(KERN_EMERG "[FILL]dbuf_write fill %s\n", dr->filp->f_path.dentry->d_name.name);
+        dr->dr_zio->filp = dr->filp;
+    }
+    for (cio = zio_walk_children(dr->dr_zio, &zl); cio != NULL; cio = cio_next) {
+        cio_next = zio_walk_children(dr->dr_zio, &zl);
+        if (cio->filp == NULL) {
+            cio->filp = dr->filp;
+            printk(KERN_EMERG "[FILL]cio dbuf_write fill %s\n", \
+                        cio->filp->f_path.dentry->d_name.name);
+        }
+    }
 }
 
 #if defined(_KERNEL) && defined(HAVE_SPL)

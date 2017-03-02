@@ -504,7 +504,7 @@ zap_lockdir_impl(dmu_buf_t *db, void *tag, dmu_tx_t *tx,
 	zap->zap_objset = os;
 
 	if (lt == RW_WRITER)
-		dmu_buf_will_dirty(db, tx);
+		dmu_buf_will_dirty(db, tx, NULL);
 
 	ASSERT3P(zap->zap_dbuf, ==, db);
 
@@ -641,7 +641,7 @@ mzap_create_impl(objset_t *os, uint64_t obj, int normflags, zap_flags_t flags,
 	}
 #endif
 
-	dmu_buf_will_dirty(db, tx);
+	dmu_buf_will_dirty(db, tx, NULL);
 	zp = db->db_data;
 	zp->mz_block_type = ZBT_MICRO;
 	zp->mz_salt = ((uintptr_t)db ^ (uintptr_t)tx ^ (obj << 1)) | 1ULL;

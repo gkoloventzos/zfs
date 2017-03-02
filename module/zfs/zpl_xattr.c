@@ -490,7 +490,7 @@ zpl_xattr_set_dir(struct inode *ip, const char *name, const void *value,
 	if (error)
 		goto out;
 
-	wrote = zpl_write_common(xip, value, size, &pos, UIO_SYSSPACE, 0, cr);
+	wrote = zpl_write_common(xip, value, size, &pos, UIO_SYSSPACE, 0, cr, NULL);
 	if (wrote < 0)
 		error = wrote;
 

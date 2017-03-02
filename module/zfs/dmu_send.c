@@ -1606,7 +1606,7 @@ dmu_recv_begin_sync(void *arg, dmu_tx_t *tx)
 		}
 	}
 
-	dmu_buf_will_dirty(newds->ds_dbuf, tx);
+	dmu_buf_will_dirty(newds->ds_dbuf, tx, NULL);
 	dsl_dataset_phys(newds)->ds_flags |= DS_FLAG_INCONSISTENT;
 
 	/*
@@ -1749,14 +1749,14 @@ dmu_recv_resume_begin_sync(void *arg, dmu_tx_t *tx)
 
 	/* clear the inconsistent flag so that we can own it */
 	ASSERT(DS_IS_INCONSISTENT(ds));
-	dmu_buf_will_dirty(ds->ds_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 	dsl_dataset_phys(ds)->ds_flags &= ~DS_FLAG_INCONSISTENT;
 	dsobj = ds->ds_object;
 	dsl_dataset_rele(ds, FTAG);
 
 	VERIFY0(dsl_dataset_own_obj(dp, dsobj, dmu_recv_tag, &ds));
 
-	dmu_buf_will_dirty(ds->ds_dbuf, tx);
+	dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 	dsl_dataset_phys(ds)->ds_flags |= DS_FLAG_INCONSISTENT;
 
 	ASSERT(!BP_IS_HOLE(dsl_dataset_get_blkptr(ds)));
@@ -2173,7 +2173,7 @@ receive_object(struct receive_writer_arg *rwa, struct drr_object *drro,
 		dmu_buf_t *db;
 
 		VERIFY0(dmu_bonus_hold(rwa->os, drro->drr_object, FTAG, &db));
-		dmu_buf_will_dirty(db, tx);
+		dmu_buf_will_dirty(db, tx, NULL);
 
 		ASSERT3U(db->db_size, >=, drro->drr_bonuslen);
 		bcopy(data, db->db_data, drro->drr_bonuslen);
@@ -2270,7 +2270,7 @@ receive_write(struct receive_writer_arg *rwa, struct drr_write *drrw,
 	/* use the bonus buf to look up the dnode in dmu_assign_arcbuf */
 	if (dmu_bonus_hold(rwa->os, drrw->drr_object, FTAG, &bonus) != 0)
 		return (SET_ERROR(EINVAL));
-	dmu_assign_arcbuf(bonus, drrw->drr_offset, abuf, tx);
+	dmu_assign_arcbuf(bonus, drrw->drr_offset, abuf, tx, NULL);
 
 	/*
 	 * Note: If the receive fails, we want the resume stream to start
@@ -2338,7 +2338,7 @@ receive_write_byref(struct receive_writer_arg *rwa,
 		return (err);
 	}
 	dmu_write(rwa->os, drrwbr->drr_object,
-	    drrwbr->drr_offset, drrwbr->drr_length, dbp->db_data, tx);
+	    drrwbr->drr_offset, drrwbr->drr_length, dbp->db_data, tx, NULL);
 	dmu_buf_rele(dbp, FTAG);
 
 	/* See comment in restore_write. */
@@ -2418,7 +2418,7 @@ receive_spill(struct receive_writer_arg *rwa, struct drr_spill *drrs,
 		dmu_tx_abort(tx);
 		return (err);
 	}
-	dmu_buf_will_dirty(db_spill, tx);
+	dmu_buf_will_dirty(db_spill, tx, NULL);
 
 	if (db_spill->db_size < drrs->drr_length)
 		VERIFY(0 == dbuf_spill_set_blksz(db_spill,
@@ -3214,7 +3214,7 @@ dmu_recv_end_sync(void *arg, dmu_tx_t *tx)
 		    drc->drc_tosnap, tx);
 
 		/* set snapshot's creation time and guid */
-		dmu_buf_will_dirty(origin_head->ds_prev->ds_dbuf, tx);
+		dmu_buf_will_dirty(origin_head->ds_prev->ds_dbuf, tx, NULL);
 		dsl_dataset_phys(origin_head->ds_prev)->ds_creation_time =
 		    drc->drc_drrb->drr_creation_time;
 		dsl_dataset_phys(origin_head->ds_prev)->ds_guid =
@@ -3222,7 +3222,7 @@ dmu_recv_end_sync(void *arg, dmu_tx_t *tx)
 		dsl_dataset_phys(origin_head->ds_prev)->ds_flags &=
 		    ~DS_FLAG_INCONSISTENT;
 
-		dmu_buf_will_dirty(origin_head->ds_dbuf, tx);
+		dmu_buf_will_dirty(origin_head->ds_dbuf, tx, NULL);
 		dsl_dataset_phys(origin_head)->ds_flags &=
 		    ~DS_FLAG_INCONSISTENT;
 
@@ -3237,7 +3237,7 @@ dmu_recv_end_sync(void *arg, dmu_tx_t *tx)
 		dsl_dataset_snapshot_sync_impl(ds, drc->drc_tosnap, tx);
 
 		/* set snapshot's creation time and guid */
-		dmu_buf_will_dirty(ds->ds_prev->ds_dbuf, tx);
+		dmu_buf_will_dirty(ds->ds_prev->ds_dbuf, tx, NULL);
 		dsl_dataset_phys(ds->ds_prev)->ds_creation_time =
 		    drc->drc_drrb->drr_creation_time;
 		dsl_dataset_phys(ds->ds_prev)->ds_guid =
@@ -3245,7 +3245,7 @@ dmu_recv_end_sync(void *arg, dmu_tx_t *tx)
 		dsl_dataset_phys(ds->ds_prev)->ds_flags &=
 		    ~DS_FLAG_INCONSISTENT;
 
-		dmu_buf_will_dirty(ds->ds_dbuf, tx);
+		dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 		dsl_dataset_phys(ds)->ds_flags &= ~DS_FLAG_INCONSISTENT;
 		if (dsl_dataset_has_resume_receive_state(ds)) {
 			(void) zap_remove(dp->dp_meta_objset, ds->ds_object,

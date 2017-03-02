@@ -100,7 +100,7 @@ spa_history_create_obj(spa_t *spa, dmu_tx_t *tx)
 	ASSERT(dbp->db_size >= sizeof (spa_history_phys_t));
 
 	shpp = dbp->db_data;
-	dmu_buf_will_dirty(dbp, tx);
+	dmu_buf_will_dirty(dbp, tx, NULL);
 
 	/*
 	 * Figure out maximum size of history log.  We set it at
@@ -165,13 +165,13 @@ spa_history_write(spa_t *spa, void *buf, uint64_t len, spa_history_phys_t *shpp,
 	phys_eof = spa_history_log_to_phys(shpp->sh_eof, shpp);
 	firstwrite = MIN(len, shpp->sh_phys_max_off - phys_eof);
 	shpp->sh_eof += len;
-	dmu_write(mos, spa->spa_history, phys_eof, firstwrite, buf, tx);
+	dmu_write(mos, spa->spa_history, phys_eof, firstwrite, buf, tx, NULL);
 
 	len -= firstwrite;
 	if (len > 0) {
 		/* write out the rest at the beginning of physical file */
 		dmu_write(mos, spa->spa_history, shpp->sh_pool_create_len,
-		    len, (char *)buf + firstwrite, tx);
+		    len, (char *)buf + firstwrite, tx, NULL);
 	}
 
 	return (0);
@@ -224,7 +224,7 @@ spa_history_log_sync(void *arg, dmu_tx_t *tx)
 	VERIFY0(dmu_bonus_hold(mos, spa->spa_history, FTAG, &dbp));
 	shpp = dbp->db_data;
 
-	dmu_buf_will_dirty(dbp, tx);
+	dmu_buf_will_dirty(dbp, tx, NULL);
 
 #ifdef ZFS_DEBUG
 	{

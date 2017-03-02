@@ -113,7 +113,7 @@ fzap_upgrade(zap_t *zap, dmu_tx_t *tx, zap_flags_t flags)
 	 */
 	VERIFY(0 == dmu_buf_hold(zap->zap_objset, zap->zap_object,
 	    1<<FZAP_BLOCK_SHIFT(zap), FTAG, &db, DMU_READ_NO_PREFETCH));
-	dmu_buf_will_dirty(db, tx);
+	dmu_buf_will_dirty(db, tx, NULL);
 
 	l = kmem_zalloc(sizeof (zap_leaf_t), KM_SLEEP);
 	l->l_dbuf = db;
@@ -130,7 +130,7 @@ zap_tryupgradedir(zap_t *zap, dmu_tx_t *tx)
 	if (RW_WRITE_HELD(&zap->zap_rwlock))
 		return (1);
 	if (rw_tryupgrade(&zap->zap_rwlock)) {
-		dmu_buf_will_dirty(zap->zap_dbuf, tx);
+		dmu_buf_will_dirty(zap->zap_dbuf, tx, NULL);
 		return (1);
 	}
 	return (0);
@@ -180,14 +180,14 @@ zap_table_grow(zap_t *zap, zap_table_phys_t *tbl,
 	/* first half of entries in old[b] go to new[2*b+0] */
 	VERIFY(0 == dmu_buf_hold(zap->zap_objset, zap->zap_object,
 	    (newblk + 2*b+0) << bs, FTAG, &db_new, DMU_READ_NO_PREFETCH));
-	dmu_buf_will_dirty(db_new, tx);
+	dmu_buf_will_dirty(db_new, tx, NULL);
 	transfer_func(db_old->db_data, db_new->db_data, hepb);
 	dmu_buf_rele(db_new, FTAG);
 
 	/* second half of entries in old[b] go to new[2*b+1] */
 	VERIFY(0 == dmu_buf_hold(zap->zap_objset, zap->zap_object,
 	    (newblk + 2*b+1) << bs, FTAG, &db_new, DMU_READ_NO_PREFETCH));
-	dmu_buf_will_dirty(db_new, tx);
+	dmu_buf_will_dirty(db_new, tx, NULL);
 	transfer_func((uint64_t *)db_old->db_data + hepb,
 	    db_new->db_data, hepb);
 	dmu_buf_rele(db_new, FTAG);
@@ -237,7 +237,7 @@ zap_table_store(zap_t *zap, zap_table_phys_t *tbl, uint64_t idx, uint64_t val,
 	    (tbl->zt_blk + blk) << bs, FTAG, &db, DMU_READ_NO_PREFETCH);
 	if (err)
 		return (err);
-	dmu_buf_will_dirty(db, tx);
+	dmu_buf_will_dirty(db, tx, NULL);
 
 	if (tbl->zt_nextblk != 0) {
 		uint64_t idx2 = idx * 2;
@@ -252,7 +252,7 @@ zap_table_store(zap_t *zap, zap_table_phys_t *tbl, uint64_t idx, uint64_t val,
 			dmu_buf_rele(db, FTAG);
 			return (err);
 		}
-		dmu_buf_will_dirty(db2, tx);
+		dmu_buf_will_dirty(db2, tx, NULL);
 		((uint64_t *)db2->db_data)[off2] = val;
 		((uint64_t *)db2->db_data)[off2+1] = val;
 		dmu_buf_rele(db2, FTAG);
@@ -358,7 +358,7 @@ zap_grow_ptrtbl(zap_t *zap, dmu_tx_t *tx)
 		    DMU_READ_NO_PREFETCH);
 		if (err)
 			return (err);
-		dmu_buf_will_dirty(db_new, tx);
+		dmu_buf_will_dirty(db_new, tx, NULL);
 		zap_ptrtbl_transfer(&ZAP_EMBEDDED_PTRTBL_ENT(zap, 0),
 		    db_new->db_data, 1 << ZAP_EMBEDDED_PTRTBL_SHIFT(zap));
 		dmu_buf_rele(db_new, FTAG);
@@ -381,7 +381,7 @@ zap_grow_ptrtbl(zap_t *zap, dmu_tx_t *tx)
 static void
 zap_increment_num_entries(zap_t *zap, int delta, dmu_tx_t *tx)
 {
-	dmu_buf_will_dirty(zap->zap_dbuf, tx);
+	dmu_buf_will_dirty(zap->zap_dbuf, tx, NULL);
 	mutex_enter(&zap->zap_f.zap_num_entries_mtx);
 	ASSERT(delta > 0 || zap_f_phys(zap)->zap_num_entries >= -delta);
 	zap_f_phys(zap)->zap_num_entries += delta;
@@ -426,7 +426,7 @@ zap_create_leaf(zap_t *zap, dmu_tx_t *tx)
 	dmu_buf_init_user(&l->l_dbu, zap_leaf_pageout, &l->l_dbuf);
 	winner = dmu_buf_set_user(l->l_dbuf, &l->l_dbu);
 	ASSERT(winner == NULL);
-	dmu_buf_will_dirty(l->l_dbuf, tx);
+	dmu_buf_will_dirty(l->l_dbuf, tx, NULL);
 
 	zap_leaf_init(l, zap->zap_normflags != 0);
 
@@ -549,7 +549,7 @@ zap_get_leaf_byblk(zap_t *zap, uint64_t blkid, dmu_tx_t *tx, krw_t lt,
 	 * causing ASSERT below to fail.
 	 */
 	if (lt == RW_WRITER)
-		dmu_buf_will_dirty(db, tx);
+		dmu_buf_will_dirty(db, tx, NULL);
 	ASSERT3U(l->l_blkid, ==, blkid);
 	ASSERT3P(l->l_dbuf, ==, db);
 	ASSERT3U(zap_leaf_phys(l)->l_hdr.lh_block_type, ==, ZBT_LEAF);

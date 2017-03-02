@@ -334,7 +334,7 @@ sa_attr_op(sa_handle_t *hdl, sa_bulk_attr_t *bulk, int count,
 			    SA_GET_HDR(hdl, SA_BONUS),
 			    bulk[i].sa_attr, bulk[i], SA_BONUS, hdl);
 			if (tx && !(buftypes & SA_BONUS)) {
-				dmu_buf_will_dirty(hdl->sa_bonus, tx);
+				dmu_buf_will_dirty(hdl->sa_bonus, tx, NULL);
 				buftypes |= SA_BONUS;
 			}
 		}
@@ -347,7 +347,7 @@ sa_attr_op(sa_handle_t *hdl, sa_bulk_attr_t *bulk, int count,
 				    bulk[i].sa_attr, bulk[i], SA_SPILL, hdl);
 				if (tx && !(buftypes & SA_SPILL) &&
 				    bulk[i].sa_size == bulk[i].sa_length) {
-					dmu_buf_will_dirty(hdl->sa_spill, tx);
+					dmu_buf_will_dirty(hdl->sa_spill, tx, NULL);
 					buftypes |= SA_SPILL;
 				}
 			}
@@ -671,7 +671,7 @@ sa_build_layouts(sa_handle_t *hdl, sa_bulk_attr_t *attr_desc, int attr_count,
 	int bonuslen;
 	boolean_t spilling;
 
-	dmu_buf_will_dirty(hdl->sa_bonus, tx);
+	dmu_buf_will_dirty(hdl->sa_bonus, tx, NULL);
 	bonustype = SA_BONUSTYPE_FROM_DB(hdl->sa_bonus);
 	dmu_object_dnsize_from_db(hdl->sa_bonus, &dnodesize);
 	bonuslen = DN_BONUS_SIZE(dnodesize);
@@ -698,7 +698,7 @@ sa_build_layouts(sa_handle_t *hdl, sa_bulk_attr_t *attr_desc, int attr_count,
 			VERIFY(dmu_spill_hold_by_bonus(hdl->sa_bonus, NULL,
 			    &hdl->sa_spill) == 0);
 		}
-		dmu_buf_will_dirty(hdl->sa_spill, tx);
+		dmu_buf_will_dirty(hdl->sa_spill, tx, NULL);
 
 		spillhdrsize = sa_find_sizes(sa, &attr_desc[spill_idx],
 		    attr_count - spill_idx, hdl->sa_spill, SA_SPILL,

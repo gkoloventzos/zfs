@@ -166,7 +166,7 @@ dsl_deleg_set_sync(void *arg, dmu_tx_t *tx)
 
 	zapobj = dsl_dir_phys(dd)->dd_deleg_zapobj;
 	if (zapobj == 0) {
-		dmu_buf_will_dirty(dd->dd_dbuf, tx);
+		dmu_buf_will_dirty(dd->dd_dbuf, tx, NULL);
 		zapobj = dsl_dir_phys(dd)->dd_deleg_zapobj = zap_create(mos,
 		    DMU_OT_DSL_PERMS, DMU_OT_NONE, 0, tx);
 	}
@@ -693,7 +693,7 @@ copy_create_perms(dsl_dir_t *dd, uint64_t pzapobj,
 		return;
 
 	if (zapobj == 0) {
-		dmu_buf_will_dirty(dd->dd_dbuf, tx);
+		dmu_buf_will_dirty(dd->dd_dbuf, tx, NULL);
 		zapobj = dsl_dir_phys(dd)->dd_deleg_zapobj = zap_create(mos,
 		    DMU_OT_DSL_PERMS, DMU_OT_NONE, 0, tx);
 	}

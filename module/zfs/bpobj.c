@@ -212,7 +212,7 @@ bpobj_iterate_impl(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx,
 	mutex_enter(&bpo->bpo_lock);
 
 	if (free)
-		dmu_buf_will_dirty(bpo->bpo_dbuf, tx);
+		dmu_buf_will_dirty(bpo->bpo_dbuf, tx, NULL);
 
 	for (i = bpo->bpo_phys->bpo_num_blkptrs - 1; i >= 0; i--) {
 		blkptr_t *bparray;
@@ -395,7 +395,7 @@ bpobj_enqueue_subobj(bpobj_t *bpo, uint64_t subobj, dmu_tx_t *tx)
 		return;
 	}
 
-	dmu_buf_will_dirty(bpo->bpo_dbuf, tx);
+	dmu_buf_will_dirty(bpo->bpo_dbuf, tx, NULL);
 	if (bpo->bpo_phys->bpo_subobjs == 0) {
 		bpo->bpo_phys->bpo_subobjs = dmu_object_alloc(bpo->bpo_os,
 		    DMU_OT_BPOBJ_SUBOBJ, SPA_OLD_MAXBLOCKSIZE,
@@ -408,7 +408,7 @@ bpobj_enqueue_subobj(bpobj_t *bpo, uint64_t subobj, dmu_tx_t *tx)
 	mutex_enter(&bpo->bpo_lock);
 	dmu_write(bpo->bpo_os, bpo->bpo_phys->bpo_subobjs,
 	    bpo->bpo_phys->bpo_num_subobjs * sizeof (subobj),
-	    sizeof (subobj), &subobj, tx);
+	    sizeof (subobj), &subobj, tx, NULL);
 	bpo->bpo_phys->bpo_num_subobjs++;
 
 	/*
@@ -435,11 +435,11 @@ bpobj_enqueue_subobj(bpobj_t *bpo, uint64_t subobj, dmu_tx_t *tx)
 			    numsubsub * sizeof (subobj));
 			dmu_write(bpo->bpo_os, bpo->bpo_phys->bpo_subobjs,
 			    bpo->bpo_phys->bpo_num_subobjs * sizeof (subobj),
-			    numsubsub * sizeof (subobj), subdb->db_data, tx);
+			    numsubsub * sizeof (subobj), subdb->db_data, tx, NULL);
 			dmu_buf_rele(subdb, FTAG);
 			bpo->bpo_phys->bpo_num_subobjs += numsubsub;
 
-			dmu_buf_will_dirty(subbpo.bpo_dbuf, tx);
+			dmu_buf_will_dirty(subbpo.bpo_dbuf, tx, NULL);
 			subbpo.bpo_phys->bpo_subobjs = 0;
 			VERIFY3U(0, ==, dmu_object_free(bpo->bpo_os,
 			    subsubobjs, tx));
@@ -502,11 +502,11 @@ bpobj_enqueue(bpobj_t *bpo, const blkptr_t *bp, dmu_tx_t *tx)
 		    offset, bpo, &bpo->bpo_cached_dbuf, 0));
 	}
 
-	dmu_buf_will_dirty(bpo->bpo_cached_dbuf, tx);
+	dmu_buf_will_dirty(bpo->bpo_cached_dbuf, tx, NULL);
 	bparray = bpo->bpo_cached_dbuf->db_data;
 	bparray[blkoff] = stored_bp;
 
-	dmu_buf_will_dirty(bpo->bpo_dbuf, tx);
+	dmu_buf_will_dirty(bpo->bpo_dbuf, tx, NULL);
 	bpo->bpo_phys->bpo_num_blkptrs++;
 	bpo->bpo_phys->bpo_bytes +=
 	    bp_get_dsize_sync(dmu_objset_spa(bpo->bpo_os), bp);

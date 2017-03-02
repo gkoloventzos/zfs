@@ -1468,7 +1468,7 @@ dnode_setdirty(dnode_t *dn, dmu_tx_t *tx)
 	 */
 	VERIFY(dnode_add_ref(dn, (void *)(uintptr_t)tx->tx_txg));
 
-	(void) dbuf_dirty(dn->dn_dbuf, tx);
+	(void) dbuf_dirty(dn->dn_dbuf, tx, NULL);
 
 	dsl_dataset_dirty(os->os_dsl_dataset, tx);
 }
@@ -1632,7 +1632,7 @@ dnode_new_blkid(dnode_t *dn, uint64_t blkid, dmu_tx_t *tx, boolean_t have_read)
 		/* dirty the left indirects */
 		db = dbuf_hold_level(dn, old_nlevels, 0, FTAG);
 		ASSERT(db != NULL);
-		new = dbuf_dirty(db, tx);
+		new = dbuf_dirty(db, tx, NULL);
 		dbuf_rele(db, FTAG);
 
 		/* transfer the dirty records to the new indirect */
@@ -1664,7 +1664,7 @@ dnode_dirty_l1(dnode_t *dn, uint64_t l1blkid, dmu_tx_t *tx)
 {
 	dmu_buf_impl_t *db = dbuf_hold_level(dn, 1, l1blkid, FTAG);
 	if (db != NULL) {
-		dmu_buf_will_dirty(&db->db, tx);
+		dmu_buf_will_dirty(&db->db, tx, NULL);
 		dbuf_rele(db, FTAG);
 	}
 }
@@ -1732,7 +1732,7 @@ dnode_free_range(dnode_t *dn, uint64_t off, uint64_t len, dmu_tx_t *tx)
 			if (db->db_last_dirty ||
 			    (db->db_blkptr && !BP_IS_HOLE(db->db_blkptr))) {
 				rw_exit(&dn->dn_struct_rwlock);
-				dmu_buf_will_dirty(&db->db, tx);
+				dmu_buf_will_dirty(&db->db, tx, NULL);
 				rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
 				data = db->db.db_data;
 				bzero(data + blkoff, head);
@@ -1768,7 +1768,7 @@ dnode_free_range(dnode_t *dn, uint64_t off, uint64_t len, dmu_tx_t *tx)
 			if (db->db_last_dirty ||
 			    (db->db_blkptr && !BP_IS_HOLE(db->db_blkptr))) {
 				rw_exit(&dn->dn_struct_rwlock);
-				dmu_buf_will_dirty(&db->db, tx);
+				dmu_buf_will_dirty(&db->db, tx, NULL);
 				rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
 				bzero(db->db.db_data, tail);
 			}

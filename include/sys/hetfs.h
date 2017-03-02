@@ -22,4 +22,6 @@
 
 #define filp2name(filp) filp->f_path.dentry->d_name.name
 
+int wholename(struct file *);
+
 #endif

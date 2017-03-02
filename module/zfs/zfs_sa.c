@@ -109,7 +109,7 @@ zfs_sa_symlink(znode_t *zp, char *link, int len, dmu_tx_t *tx)
 		VERIFY0(dmu_buf_hold(ZTOZSB(zp)->z_os, zp->z_id, 0, FTAG, &dbp,
 		    DMU_READ_NO_PREFETCH));
 
-		dmu_buf_will_dirty(dbp, tx);
+		dmu_buf_will_dirty(dbp, tx, NULL);
 
 		ASSERT3U(len, <=, dbp->db_size);
 		bcopy(link, dbp->db_data, len);

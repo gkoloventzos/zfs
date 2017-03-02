@@ -423,7 +423,7 @@ dsl_bookmark_destroy_sync(void *arg, dmu_tx_t *tx)
 		VERIFY0(zap_count(mos, ds->ds_bookmarks,
 		    &zap_cnt));
 		if (zap_cnt == 0) {
-			dmu_buf_will_dirty(ds->ds_dbuf, tx);
+			dmu_buf_will_dirty(ds->ds_dbuf, tx, NULL);
 			VERIFY0(zap_destroy(mos, ds->ds_bookmarks, tx));
 			ds->ds_bookmarks = 0;
 			spa_feature_decr(dp->dp_spa, SPA_FEATURE_BOOKMARKS, tx);

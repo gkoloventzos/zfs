@@ -73,7 +73,7 @@ bptree_alloc(objset_t *os, dmu_tx_t *tx)
 	 * readability we make it explicit.
 	 */
 	VERIFY3U(0, ==, dmu_bonus_hold(os, obj, FTAG, &db));
-	dmu_buf_will_dirty(db, tx);
+	dmu_buf_will_dirty(db, tx, NULL);
 	bt = db->db_data;
 	bt->bt_begin = 0;
 	bt->bt_end = 0;
@@ -137,10 +137,10 @@ bptree_add(objset_t *os, uint64_t obj, blkptr_t *bp, uint64_t birth_txg,
 	bte = kmem_zalloc(sizeof (*bte), KM_SLEEP);
 	bte->be_birth_txg = birth_txg;
 	bte->be_bp = *bp;
-	dmu_write(os, obj, bt->bt_end * sizeof (*bte), sizeof (*bte), bte, tx);
+	dmu_write(os, obj, bt->bt_end * sizeof (*bte), sizeof (*bte), bte, tx, NULL);
 	kmem_free(bte, sizeof (*bte));
 
-	dmu_buf_will_dirty(db, tx);
+	dmu_buf_will_dirty(db, tx, NULL);
 	bt->bt_end++;
 	bt->bt_bytes += bytes;
 	bt->bt_comp += comp;
@@ -201,7 +201,7 @@ bptree_iterate(objset_t *os, uint64_t obj, boolean_t free, bptree_itor_t func,
 		return (err);
 
 	if (free)
-		dmu_buf_will_dirty(db, tx);
+		dmu_buf_will_dirty(db, tx, NULL);
 
 	ba.ba_phys = db->db_data;
 	ba.ba_free = free;
@@ -245,7 +245,7 @@ bptree_iterate(objset_t *os, uint64_t obj, boolean_t free, bptree_itor_t func,
 				    ZB_DESTROYED_OBJSET);
 				ASSERT0(bte.be_zb.zb_level);
 				dmu_write(os, obj, i * sizeof (bte),
-				    sizeof (bte), &bte, tx);
+				    sizeof (bte), &bte, tx, NULL);
 				if (err == EIO || err == ECKSUM ||
 				    err == ENXIO) {
 					/*
@@ -267,7 +267,7 @@ bptree_iterate(objset_t *os, uint64_t obj, boolean_t free, bptree_itor_t func,
 				 */
 				bte.be_birth_txg = UINT64_MAX;
 				dmu_write(os, obj, i * sizeof (bte),
-				    sizeof (bte), &bte, tx);
+				    sizeof (bte), &bte, tx, NULL);
 			}
 
 			if (!ioerr) {

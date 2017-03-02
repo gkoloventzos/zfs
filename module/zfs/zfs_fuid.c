@@ -271,11 +271,11 @@ zfs_fuid_sync(zfs_sb_t *zsb, dmu_tx_t *tx)
 	    NV_ENCODE_XDR, KM_SLEEP) == 0);
 	nvlist_free(nvp);
 	zsb->z_fuid_size = nvsize;
-	dmu_write(zsb->z_os, zsb->z_fuid_obj, 0, zsb->z_fuid_size, packed, tx);
+	dmu_write(zsb->z_os, zsb->z_fuid_obj, 0, zsb->z_fuid_size, packed, tx, NULL);
 	kmem_free(packed, zsb->z_fuid_size);
 	VERIFY(0 == dmu_bonus_hold(zsb->z_os, zsb->z_fuid_obj,
 	    FTAG, &db));
-	dmu_buf_will_dirty(db, tx);
+	dmu_buf_will_dirty(db, tx, NULL);
 	*(uint64_t *)db->db_data = zsb->z_fuid_size;
 	dmu_buf_rele(db, FTAG);
 
