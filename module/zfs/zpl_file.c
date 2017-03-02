@@ -433,7 +433,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         dn->filp = filp;
     if (dn->rot == -2) {
         //printk(KERN_EMERG "[ERROR]dn->rot == -2 %s\n", filp2name(filp));
-        for (stop = 0; stop <= 392; stop++) {
+        for (stop = 0; stop <= 283; stop++) {
             if (strstr(filename, boot_files[stop]) != NULL) {
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
                 break;
