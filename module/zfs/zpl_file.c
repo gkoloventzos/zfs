@@ -417,7 +417,9 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     }
     fullname(file_dentry(filp), filename, &stop);
     name = file_dentry(filp)->d_name.name;
-/*    if (name == NULL)
+    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    if (name == NULL)
         printk(KERN_EMERG "[ERROR]name is NULL %s\n", file_dentry(filp)->d_name.name);
     else {
         if (strstr(filename, "log") != NULL) {
@@ -426,11 +428,6 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         else if (strstr(filename, "sample_ssd") != NULL) {
             rot = 0;
         }
-    }*/
-    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-    if (strstr(filename, "kern.log") != NULL && strstr(filename, "syslog") != NULL) {
-        rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
     }
     //printk(KERN_EMERG "[ERROR]Write name %s\n", filp2name(filp));
     if (dn->filp == NULL)
