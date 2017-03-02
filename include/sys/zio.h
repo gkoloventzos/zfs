@@ -454,7 +454,8 @@ struct zio {
 	taskq_ent_t	io_tqent;
 
     int rot;
-    struct file *filp;
+    const char *filp;
+    //struct file *filp;
 };
 
 extern int zio_timestamp_compare(const void *, const void *);

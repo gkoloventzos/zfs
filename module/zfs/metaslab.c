@@ -3829,10 +3829,12 @@ int get_metaslab_class(metaslab_class_t *mc, int rot)
     int i;
 
     for(i = 0; i < METASLAB_CLASS_ROTORS; i++) {
-        if (mc->mc_rotvec_categories[i] & rot) {
-            return i;
+        printk(KERN_EMERG "[GET_META]mc->mc_rotvec_categories[i] %d i %d rot %d\n", mc->mc_rotvec_categories[i], i, rot);
+        if (mc->mc_rotvec_categories[i] == rot) {
+            return (i);
         }
     }
+    printk(KERN_EMERG "[GET_META]WTF!!!!! i %d\n", i);
 
     return (-1);
 }
@@ -3876,8 +3878,13 @@ has_vdev:
 		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
 
     if (zio != NULL) {
+        if (zio->filp != NULL)
+            printk(KERN_EMERG "[SSD_FILE]file %s\n", zio->filp);
+            //printk(KERN_EMERG "[SSD_FILE]file %s\n", zio->filp->f_path.dentry->d_name.name);
         if (zio->rot > -1) {
+            printk(KERN_EMERG "[SSD_FILE]before ROT %d\n", zio->rot);
             rot = get_metaslab_class(mc, zio->rot);
+            printk(KERN_EMERG "[SSD_FILE]after ROT %d\n", rot);
         }
     }
 
