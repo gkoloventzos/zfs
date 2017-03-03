@@ -500,8 +500,13 @@ vdev_submit_bio_impl(struct bio *bio)
 }
 
 static inline void
-vdev_submit_bio(struct bio *bio)
+vdev_submit_bio(struct bio *bio, int rw)
 {
+/*    dio_request_t *dr = NULL;
+    zio_t *zio = NULL;
+    const char *name = NULL;
+    char *meta = NULL;
+    blkptr_t * bp = NULL;*/
 #ifdef HAVE_CURRENT_BIO_TAIL
 	struct bio **bio_tail = current->bio_tail;
 	current->bio_tail = NULL;
@@ -510,10 +515,34 @@ vdev_submit_bio(struct bio *bio)
 #else
 	struct bio_list *bio_list = current->bio_list;
 	current->bio_list = NULL;
-    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev)))
-        printk(KERN_EMERG "[PRINT]NON ROT\n");
-    else
-        printk(KERN_EMERG "[PRINT]ROT\n");
+/*    if (rw == -1) {
+        zio = (zio_t *)bio->bi_private;
+        if (zio != NULL && zio->filp != NULL)
+            name = zio->filp;
+    }
+    else {
+        dr = (dio_request_t *)bio->bi_private;
+        if (dr->dr_zio != NULL && dr->dr_zio->filp != NULL) {
+            name = dr->dr_zio->filp;
+            bp = dr->dr_zio->io_bp;
+            if (bp != NULL && (DMU_OT_IS_METADATA(BP_GET_TYPE(bp)) || BP_GET_LEVEL(bp) > 0))
+                meta = "metadata";
+            else
+                meta = "data";
+        }
+    }
+    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
+        if (rw == READ)
+            printk(KERN_EMERG "[PRINT]READ is %s of %s NON ROT\n", meta, name);
+        else
+            printk(KERN_EMERG "[PRINT]WRITE is %s of %s NON ROT\n", meta, name);
+    }
+    else {
+        if (rw == READ)
+            printk(KERN_EMERG "[PRINT]READ is %s of %s ROT\n", meta, name);
+        else
+            printk(KERN_EMERG "[PRINT]WRITE is %s of %s ROT\n", meta, name);
+    }*/
 	vdev_submit_bio_impl(bio);
 	current->bio_list = bio_list;
 #endif
@@ -611,7 +640,7 @@ retry:
 	/* Submit all bio's associated with this dio */
 	for (i = 0; i < dr->dr_bio_count; i++)
 		if (dr->dr_bio[i])
-			vdev_submit_bio(dr->dr_bio[i]);
+			vdev_submit_bio(dr->dr_bio[i], rw);
 
 #if defined(HAVE_BLK_QUEUE_HAVE_BLK_PLUG)
 	if (dr->dr_bio_count > 1)
@@ -660,7 +689,7 @@ vdev_disk_io_flush(struct block_device *bdev, zio_t *zio)
 	bio->bi_private = zio;
 	bio->bi_bdev = bdev;
 	bio_set_flush(bio);
-	vdev_submit_bio(bio);
+	vdev_submit_bio(bio, -1);
 	invalidate_bdev(bdev);
 
 	return (0);
