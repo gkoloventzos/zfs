@@ -1,5 +1,5 @@
-char *boot_files[193] =
-{ 
+char *boot_files[196] =
+{
 "/lib/udev/",
 "/etc/apparmor.d/tunables",
 "/bin/sed",
@@ -193,4 +193,7 @@ char *boot_files[193] =
 "/usr/share/initramfs-tools/scripts",
 "/etc/polkit-1/nullbackend.conf.d/50-nullbackend.conf",
 "/etc/ssh/",
+"/boot/initrd.img-4.4.0-21-generic",
+"/boot/vmlinuz-4.4.0-21-generic",
+"/boot/grub/i386-pc/zfs.mod",
 };
