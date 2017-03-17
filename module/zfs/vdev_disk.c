@@ -34,6 +34,7 @@
 #include <sys/fs/zfs.h>
 #include <sys/zio.h>
 #include <sys/sunldi.h>
+#include <sys/het.h>
 
 char *zfs_vdev_scheduler = VDEV_SCHEDULER;
 static void *zfs_vdev_holder = VDEV_HOLDER;
@@ -638,9 +639,18 @@ retry:
 #endif
 
 	/* Submit all bio's associated with this dio */
-	for (i = 0; i < dr->dr_bio_count; i++)
-		if (dr->dr_bio[i])
-			vdev_submit_bio(dr->dr_bio[i], rw);
+	for (i = 0; i < dr->dr_bio_count; i++) {
+		if (dr->dr_bio[i]) {
+ 			vdev_submit_bio(dr->dr_bio[i], rw);
+            if (rw == UIO_WRITE) {
+                if (blk_queue_nonrot(bdev_get_queue(dr->dr_bio[i]->bi_bdev))) {
+                    size_ssd_writes += BIO_BI_SIZE(dr->dr_bio[i]);
+                    ++no_ssd_writes;
+                    printk(KERN_EMERG "[SSD]size_ssd_writes %lld no_ssd_writes %lld\n", size_ssd_writes, no_ssd_writes);
+                }
+            }
+        }
+    }
 
 #if defined(HAVE_BLK_QUEUE_HAVE_BLK_PLUG)
 	if (dr->dr_bio_count > 1)
