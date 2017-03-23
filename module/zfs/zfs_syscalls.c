@@ -1,0 +1,265 @@
+#include <linux/kernel.h>
+#include <linux/unistd.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#include <linux/rbtree.h>
+#include <linux/list.h>
+#include <linux/types.h>
+#include <linux/rwsem.h>
+#include <linux/slab.h>
+#include <sys/zfs_syscalls.h>
+#include <sys/hetfs.h>
+
+extern struct rb_root *hetfs_tree;
+
+#define for_each_syscall(_iter, _tests, _tmp) \
+	for (_tmp = 0, _iter = _tests; \
+	     _tmp < ARRAY_SIZE(_tests); \
+	     _tmp++, _iter++)
+
+void print_tree(int flag) {
+    struct rb_node *node;
+    struct data *entry;
+    struct analyze_request *posh, *nh;
+    int all_nodes, all_requests, requests;
+
+    all_nodes = all_requests = requests = 0;
+
+    down_read(&tree_sem);
+    if (RB_EMPTY_ROOT(hetfs_tree)) {
+        printk(KERN_EMERG "[ERROR] __exact empty root\n");
+    }
+    for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
+        ++all_nodes;
+        entry = rb_entry(node, struct data, node);
+        printk(KERN_EMERG "[HETFS] file: %s\n", entry->dentry->d_name.name);
+        if (flag) {
+            if (!list_empty(entry->read_reqs) && flag)
+                printk(KERN_EMERG "[HETFS] READ req:\n");
+            list_for_each_entry_safe(posh, nh, entry->read_reqs, list) {
+                all_requests += posh->times;
+                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
+                            posh->start_offset, posh->end_offset, posh->times);
+            }
+            if (!list_empty(entry->write_reqs))
+                printk(KERN_EMERG "[HETFS] WRITE req:\n");
+            list_for_each_entry_safe(posh, nh, entry->write_reqs, list) {
+                all_requests += posh->times;
+                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
+                            posh->start_offset, posh->end_offset, posh->times);
+            }
+        }
+    }
+    if (flag)
+        printk(KERN_EMERG "[HETFS]Tree Nodes:%d, requests:%d\n", all_nodes, all_requests);
+    else
+        printk(KERN_EMERG "[HETFS]Tree Nodes:%d\n", all_nodes);
+
+    up_read(&tree_sem);
+}
+
+static void print_nodes(void)
+{
+    print_tree(false);
+}
+
+static void print_all(void)
+{
+    print_tree(true);
+}
+
+struct list_head *zip_list(struct list_head *general)
+{
+    struct list_head *pos, *n, *pos1, *new;
+    struct analyze_request *areq, *areq1;
+    int found;
+
+    new = kzalloc(sizeof(struct list_head), GFP_KERNEL);
+    if (new == NULL)
+        return NULL;
+    INIT_LIST_HEAD(new);
+
+    list_for_each_safe(pos, n, general) {
+        found = 0;
+        areq = list_entry(pos, struct analyze_request, list);
+        list_for_each(pos1, new){
+            areq1 = list_entry(pos1, struct analyze_request, list);
+            if (areq->start_offset == areq1->start_offset &&
+                areq->end_offset == areq1->end_offset) {
+                areq1->times += areq->times;
+                found = 1;
+                break;
+            }
+        }
+        if (!found)
+            list_move_tail(pos,new);
+    }
+    list_for_each_safe(pos, n, general) {
+        areq = list_entry(pos, struct analyze_request, list);
+        list_del(pos);
+        kzfree(areq);
+    }
+    kzfree(general);
+    return new;
+}
+
+void analyze(struct data* InsNode)
+{
+    struct list_head *pos, *n;
+    struct analyze_request *areq;
+    loff_t part, half;
+    int mid, all = 0;
+    half = InsNode->size >> 1;
+    if (!list_empty(InsNode->read_reqs)) {
+        InsNode->to_rot = 0;
+        InsNode->read_reqs = zip_list(InsNode->read_reqs);
+        printk(KERN_EMERG "[HETFS]File %s\n", InsNode->file);
+        list_for_each_safe(pos, n, InsNode->read_reqs) {
+            areq = list_entry(pos, struct analyze_request, list);
+            part = areq->end_offset - areq->start_offset;
+            InsNode->read_all_file += areq->times;
+            if (part == InsNode->size) {
+                all += areq->times;
+            }
+            else if (part >= half) {
+                printk(KERN_EMERG "[HETFS] This part is a big read start %lld end %lld accessed %d times\n",
+                        areq->start_offset, areq->end_offset, areq->times);
+            }
+        }
+        mid = InsNode->read_all_file >> 1;
+        if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid))) {
+            InsNode->to_rot |= METASLAB_ROTOR_VDEV_TYPE_HDD;
+            printk(KERN_EMERG "[HETFS] It was read sequentially\n");
+        }
+        else {
+            InsNode->to_rot |= METASLAB_ROTOR_VDEV_TYPE_SSD;
+        }
+    }
+    if (!list_empty(InsNode->write_reqs)) {
+        InsNode->write_reqs = zip_list(InsNode->write_reqs);
+        all = 0;
+        list_for_each_safe(pos, n, InsNode->write_reqs) {
+            areq = list_entry(pos, struct analyze_request, list);
+            part = areq->end_offset - areq->start_offset;
+            InsNode->write_all_file += areq->times;
+            if (part == InsNode->size)
+                all++;
+            else if (part >= half) {
+                printk(KERN_EMERG "[HETFS] This part is a big write start %lld end %lld accessed %d times\n",
+                        areq->start_offset, areq->end_offset, areq->times);
+            }
+        }
+        mid = InsNode->write_all_file >> 1;
+        if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid)))
+            printk(KERN_EMERG "[HETFS] It was write sequentially\n");
+    }
+}
+
+static void analyze_tree(void)
+{
+
+    struct rb_node *node;
+    struct data *entry;
+    printk(KERN_EMERG "[HETFS]Start of analyze\n");
+    down_read(&tree_sem);
+    /*We actually write to nodes in the tree but no insert or delete*/
+    for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
+        entry = rb_entry(node, struct data, node);
+        analyze(entry);
+    }
+    up_read(&tree_sem);
+    printk(KERN_EMERG "[HETFS] End of analyze\n");
+
+}
+
+struct zfs_syscalls available_syscalls[] = {
+	{ "print_nodes",	print_nodes	},
+	{ "print_all",		print_all	},
+	{ "analyze_tree",	analyze_tree	},
+};
+
+static void run_syscall(struct zfs_syscalls *syscall)
+{
+    syscall->test_fn();
+}
+
+static int zfs_syscalls_run(unsigned long op)
+{
+    struct zfs_syscalls *syscall;
+
+    if (op > ARRAY_SIZE(available_syscalls))
+        return -EINVAL;
+
+    syscall = &available_syscalls[op];
+    run_syscall(syscall);
+
+    return 0;
+}
+
+static int syscall_proc_show(struct seq_file *m, void *v)
+{
+	int i;
+	struct zfs_syscalls *syscall;
+
+	seq_printf(m, "Usage: echo <syscall_idx> > /proc/zfs_syscalls\n\n");
+	seq_printf(m, "Test Idx    Syscall Name\n");
+	seq_printf(m, "---------------------\n");
+	for_each_syscall(syscall, available_syscalls, i) {
+		seq_printf(m, "     %3d    %s\n", i, syscall->name);
+	}
+
+	return 0;
+};
+
+static ssize_t __zfs_syscall_write(struct file *file, const char __user *buffer,
+                            size_t count, loff_t *pos)
+{
+    int ret;
+    unsigned long val;
+
+    ret = kstrtoul_from_user(buffer, count, 10, &val);
+    if (ret)
+        return ret;
+
+    ret = zfs_syscalls_run(val);
+    if (ret)
+        return ret;
+
+    *pos += count;
+
+    return ret ? ret : count;
+}
+
+static ssize_t zfs_syscall_write(struct file *file, const char __user *buffer,
+                            size_t count, loff_t *pos)
+{
+    return __zfs_syscall_write(file, buffer, count, pos);
+}
+
+static int zfs_syscall_proc_open(struct inode *inode, struct file *file)
+{
+    return single_open(file, syscall_proc_show, NULL);
+}
+
+static const struct file_operations zfs_syscalls_proc_fops = {
+    .owner = THIS_MODULE,
+    .open = zfs_syscall_proc_open,
+    .read = seq_read,
+    .write = zfs_syscall_write,
+};
+
+static int __init zfs_syscalls_init(void)
+{
+
+	proc_create("zfs_syscalls", 0, NULL, &zfs_syscalls_proc_fops);
+	pr_info("&zfs_syscalls_proc_fops successfully initialized\n");
+	return 0;
+}
+
+void zfs_syscalls_initialize(void)
+{
+    zfs_syscalls_init();
+}
+
+//__initcall(zfs_syscalls_init);
+//module_init(zfs_syscalls_init);

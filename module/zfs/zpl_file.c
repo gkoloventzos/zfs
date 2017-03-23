@@ -994,7 +994,7 @@ const struct file_operations zpl_dir_file_operations = {
 #endif
 };
 
-void analyze(struct data* InsNode)
+void data_analyze(struct data* InsNode)
 {
     struct list_head *pos, *n;
     struct analyze_request *areq;

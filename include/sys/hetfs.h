@@ -69,7 +69,6 @@ struct kdata {
 
 struct data *rb_search(struct rb_root *, char *);
 int rb_insert(struct rb_root *, struct data *);
-int print_tree(int, int);
 int add_request(void *);
 #endif
 #endif

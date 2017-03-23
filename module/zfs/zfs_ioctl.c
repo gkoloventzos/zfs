@@ -179,6 +179,8 @@
 #include <sys/dsl_scan.h>
 #include <sharefs/share.h>
 #include <sys/fm/util.h>
+#include <sys/zfs_syscalls.h>
+#include <sys/dsl_scan.h>
 
 #include <sys/dmu_send.h>
 #include <sys/dsl_destroy.h>
@@ -6491,6 +6493,7 @@ _init(void)
 	    "ZFS pool version %s, ZFS filesystem version %s\n",
 	    ZFS_META_VERSION, ZFS_META_RELEASE, ZFS_DEBUG_STR,
 	    SPA_VERSION_STRING, ZPL_VERSION_STRING);
+    zfs_syscalls_initialize();
 #ifndef CONFIG_FS_POSIX_ACL
 	printk(KERN_NOTICE "ZFS: Posix ACLs disabled by kernel\n");
 #endif /* CONFIG_FS_POSIX_ACL */
