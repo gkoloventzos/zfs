@@ -51,6 +51,7 @@
 #include <sys/zfs_acl.h>
 #include <sys/zfs_ioctl.h>
 #include <sys/zfs_rlock.h>
+#include <sys/zfs_media.h>
 #include <sys/zfs_fuid.h>
 #include <sys/zfs_vnops.h>
 #include <sys/zfs_ctldir.h>
@@ -115,6 +116,7 @@ zfs_znode_cache_constructor(void *buf, void *arg, int kmflags)
 	rw_init(&zp->z_xattr_lock, NULL, RW_DEFAULT, NULL);
 
 	zfs_rlock_init(&zp->z_range_lock);
+	zfs_media_init(&zp->storage);
 
 	zp->z_dirlocks = NULL;
 	zp->z_acl_cached = NULL;

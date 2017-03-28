@@ -38,6 +38,7 @@
 #include <sys/zfs_sa.h>
 #include <sys/zfs_stat.h>
 #include <sys/zfs_rlock.h>
+#include <sys/zfs_media.h>
 #endif
 #include <sys/zfs_acl.h>
 #include <sys/zil.h>
@@ -202,6 +203,7 @@ typedef struct znode {
 	boolean_t	z_is_ctldir;	/* are we .zfs entry */
 	boolean_t	z_is_stale;	/* are we stale due to rollback? */
 	struct inode	z_inode;	/* generic vfs inode */
+	zfs_media_t	storage;	/* storage tree */
 } znode_t;
 
 typedef struct znode_hold {

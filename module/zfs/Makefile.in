@@ -95,6 +95,7 @@ $(MODULE)-objs += zfs_log.o
 $(MODULE)-objs += zfs_onexit.o
 $(MODULE)-objs += zfs_replay.o
 $(MODULE)-objs += zfs_rlock.o
+$(MODULE)-objs += zfs_media.o
 $(MODULE)-objs += zfs_sa.o
 $(MODULE)-objs += zfs_vfsops.o
 $(MODULE)-objs += zfs_vnops.o
