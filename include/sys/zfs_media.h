@@ -39,6 +39,8 @@ extern "C" {
 #include <sys/zfs_context.h>
 #endif
 
+extern int media_tree;
+
 typedef enum {
 	NVRAM,
 	SSD,
@@ -67,6 +69,14 @@ typedef struct media {
 //	uint8_t m_read_wanted;	/* reader wants to lock this range */
 	list_node_t media_node;	/* used for deferred release */
 } media_t;
+
+
+typedef struct medium {
+    loff_t m_start;
+    loff_t m_end;
+    int m_type;
+    list_node_t media_node;
+} medium_t;
 
 /*
  * Lock a range (offset, length) as either shared (RL_READER)

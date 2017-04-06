@@ -444,6 +444,7 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	znode_t		*zp = ITOZ(ip);
 	zfs_sb_t	*zsb = ITOZSB(ip);
 	ssize_t		n, nbytes;
+    dnode_t     *dn;
 	int		error = 0;
 	rl_t		*rl;
 #ifdef HAVE_UIO_ZEROCOPY
@@ -486,6 +487,12 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	rl = zfs_range_lock(&zp->z_range_lock, uio->uio_loffset, uio->uio_resid,
 	    RL_READER);
 
+    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    if (dn->rot > 0) {
+        if (media_tree)
+            printk(KERN_EMERG "adding something %d %lld %ld\n", dn->rot, uio->uio_loffset, uio->uio_resid);
+        zfs_media_range(&zp->storage, uio->uio_loffset, uio->uio_resid, dn->rot);
+    }
 	/*
 	 * If we are reading past end-of-file we can skip
 	 * to the end; but we might still need to set atime.
@@ -585,6 +592,7 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	ssize_t		start_resid = uio->uio_resid;
 	ssize_t		tx_bytes;
 	uint64_t	end_size;
+    dnode_t     *dn;
 	dmu_tx_t	*tx;
 	zfs_sb_t	*zsb = ZTOZSB(zp);
 	zilog_t		*zilog;
@@ -668,6 +676,11 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	else
 #endif
 		uio_prefaultpages(MIN(n, max_blksz), uio);
+
+    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    if (dn->rot > 0) {
+        zfs_media_range(&zp->storage, woff, n, dn->rot);
+    }
 
 	/*
 	 * If in append mode, set the io offset pointer to eof.

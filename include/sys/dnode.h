@@ -291,6 +291,7 @@ struct dnode {
 
     int rot;
     const char *filp;
+    list_t media;
     //struct file *filp;
 };
 

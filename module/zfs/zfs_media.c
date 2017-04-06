@@ -94,7 +94,11 @@
  */
 
 #include <sys/zfs_media.h>
+#include <sys/dnode.h>
+#include <sys/hetfs.h>
+#include <sys/het.h>
 
+int media_tree = 0;
 /*
  * If this is an original (non-proxy) lock then replace it by
  * a proxy and return the proxy.
@@ -251,18 +255,35 @@ static void
 zfs_media_range_reader(zfs_media_t *zmedia, media_t *new)
 {
 	avl_tree_t *tree = &zmedia->zm_avl;
-	media_t *prev/*, *next*/;
+	media_t *prev, *next;
 	avl_index_t where;
-//	uint64_t off = new->m_off;
-//	uint64_t len = new->m_len;
+	uint64_t off = new->m_off;
+	uint64_t len = new->m_len;
 
 	/*
 	 * Look for any writer locks in the range.
 	 */
-	prev = avl_find(tree, new, &where);
+	prev = avl_find_media(tree, new, &where);
+    if (prev)
+        return NULL;
 	if (prev == NULL)
 		prev = (media_t *)avl_nearest(tree, where, AVL_BEFORE);
 
+    if (prev && (off < prev->m_off + prev->m_len)) {
+        if (off + len < prev->m_off + prev->m_len)
+            goto got_lock;
+    }
+
+    if (prev)
+        next = AVL_NEXT(tree, prev);
+    else
+        next = (media_t *)avl_nearest(tree, where, AVL_AFTER);
+    for (; next; next = AVL_NEXT(tree, next)) {
+        if ((off + len <= next->m_off) || (off + len <= next->m_off + next->m_len))
+            goto got_lock;
+    }
+
+got_lock:
 	/*
 	 * Add the read lock, which may involve splitting existing
 	 * locks and bumping ref counts (m_cnt).
@@ -279,9 +300,9 @@ zfs_media_range_reader(zfs_media_t *zmedia, media_t *new)
 media_t *
 zfs_media_range(zfs_media_t *zmedia, uint64_t off, uint64_t len, media_type_t type)
 {
-	media_t *new;
+	media_t *new, *node;
 
-	ASSERT(type == NVRAM || type == SSD || type == HDD);
+	ASSERT(type == NVRAM || type == METASLAB_ROTOR_VDEV_TYPE_SSD || type == METASLAB_ROTOR_VDEV_TYPE_HDD);
 
 	new = kmem_alloc(sizeof (media_t), KM_SLEEP);
 	new->m_zmedia = zmedia;
@@ -301,6 +322,11 @@ zfs_media_range(zfs_media_t *zmedia, uint64_t off, uint64_t len, media_type_t ty
 	else
 		zfs_media_range_reader(zmedia, new);
 	mutex_exit(&zmedia->zm_mutex);
+    if (media_tree) {
+        for (node = avl_first(&zmedia->zm_avl); node != NULL; node = AVL_NEXT(&zmedia->zm_avl, node)) {
+            printk(KERN_EMERG "start off:%lld end off %lld\n", node->m_off, node->m_off + node->m_len);
+        }
+    }
 	return (new);
 }
 
@@ -321,3 +347,92 @@ zfs_media_range_compare(const void *arg1, const void *arg2)
 EXPORT_SYMBOL(zfs_media_range);
 EXPORT_SYMBOL(zfs_media_range_compare);
 #endif
+
+
+/*My list of media functions*/
+medium_t *
+zfs_media_add(dnode_t *dn, loff_t *ppos, size_t len, int rot)
+{
+
+    medium_t *new, *loop, *next;
+    loff_t end = *ppos + len;
+    if (list_is_empty(&dn->media)) {
+        new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+        if (new == NULL)
+            return NULL;
+        new->m_start = *ppos;
+        new->m_end = *ppos + len;
+        new->m_type = rot;
+        list_insert_head(&dn->media, new);
+        return new;
+    }
+
+    new = NULL;
+    for (loop = list_head(&dn->media); loop != NULL; loop = list_next(&dn->media, loop)) {
+        if (*ppos > loop->m_end)
+            continue;
+        if (*ppos == loop->m_end) {
+            next = list_next(&dn->media, loop);
+again:
+            if (next->m_type == rot) {
+                if (end <= next->m_end) {
+                    loop->m_end = next->m_end;
+                    list_remove(&dn->media, next);
+                    return loop;
+                }
+                new = list_next(&dn->media, next);
+                list_remove(&dn->media, next);
+                next = new;
+                goto again;
+            }
+            else { /* not same type */
+                if (end <= next->m_start) {
+                    loop->m_end = end;
+                    continue;
+                }
+                if (end <= next->m_end) {
+                    loop->m_end = end;
+                    next->m_start = end;
+                    return loop;
+                }
+                new = list_next(&dn->media, next);
+                list_remove(&dn->media, next);
+                next = new;
+                goto again;
+            }
+        } /* *ppos == loop->m_end */
+        /* Here we are in *ppos < loop->m_end so we have to deal how the
+         * end is related to loop->m_end */
+        if (end <= loop->m_end) {
+            if (loop->m_type == rot)
+                continue;
+            /* Different medium split list*/
+            new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+            if (new == NULL)
+                return NULL;
+            new->m_start = *ppos;
+            new->m_end = *ppos + len;
+            new->m_type = rot;
+            list_insert_after(&dn->media, loop, new);
+            if (end == loop->m_end) {
+                loop->m_end = *ppos;
+                return new;
+            }
+            next = new;
+            new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+            if (new == NULL)
+                return NULL;
+            new->m_start = *ppos + len;
+            new->m_end = loop->m_end;
+            new->m_type = rot;
+            loop->m_end = *ppos;
+            list_insert_after(&dn->media, next, new);
+            return next;
+        }
+        /* end > loop->m_end*/
+        next = list_next(&dn->media, loop);
+        goto again;
+    } /*for loop*/
+
+    return new;
+}

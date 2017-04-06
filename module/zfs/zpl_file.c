@@ -472,6 +472,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         }
         dn->rot = rot;
     }
+//    zfs_media_add(dn, offset, len, dn->rot);
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
@@ -1180,6 +1181,7 @@ int add_request(void *data)
         InsNode->write_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
         if (InsNode->write_reqs == NULL) {
             printk(KERN_EMERG "[ERROR]InsNode write null after malloc\n");
+            kzfree(InsNode->read_reqs);
             kzfree(output);
             kzfree(kdata);
             kzfree(name);
@@ -1192,7 +1194,6 @@ int add_request(void *data)
         InsNode->size = i_size_read(d_inode(InsNode->dentry));
         if (!rb_insert(hetfs_tree, InsNode)) {
             printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
-            //printk(KERN_EMERG "[HETFS] file: %s with ", InsNode->file);
         }
 /*        if (type == UIO_WRITE) {
             if (strstr(name, "log") == NULL)
