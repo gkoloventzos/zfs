@@ -1,5 +1,5 @@
-#ifndef HETFS_H
-#define HETFS_H
+#ifndef _SYS_HETFS_H
+#define _SYS_HETFS_H
 
 #ifdef _KERNEL
 #include <linux/rbtree.h>
