@@ -38,6 +38,7 @@
 #include <sys/dmu_zfetch.h>
 #include <sys/range_tree.h>
 #include <sys/trace_dnode.h>
+#include <sys/zfs_media.h>
 
 static kmem_cache_t *dnode_cache;
 /*
@@ -433,6 +434,8 @@ dnode_create(objset_t *os, dnode_phys_t *dnp, dmu_buf_impl_t *db,
 
     dn->rot = -2;
     dn->filp = NULL;
+	list_create(&dn->media, sizeof (medium_t),
+	    offsetof(medium_t, media_node));
 
 	dmu_zfetch_init(&dn->dn_zfetch, dn);
 

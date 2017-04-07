@@ -375,7 +375,11 @@ zfs_media_add(dnode_t *dn, loff_t *ppos, size_t len, int rot)
             next = list_next(&dn->media, loop);
 again:
             if (next->m_type == rot) {
-                if (end <= next->m_end) {
+                if (end < next->m_start) {
+                    loop->m_end = end;
+                    return loop;
+                }
+                if (end <= next->m_end || end == next->m_start) {
                     loop->m_end = next->m_end;
                     list_remove(&dn->media, next);
                     return loop;
@@ -390,7 +394,9 @@ again:
                     loop->m_end = end;
                     continue;
                 }
-                if (end <= next->m_end) {
+                if (end < next->m_end) { 
+                    /* if == it will also be == with next->m_start got to next 
+                     * as same rot so we must see as we may have to incorporate it*/
                     loop->m_end = end;
                     next->m_start = end;
                     return loop;
@@ -403,6 +409,7 @@ again:
         } /* *ppos == loop->m_end */
         /* Here we are in *ppos < loop->m_end so we have to deal how the
          * end is related to loop->m_end */
+end:
         if (end <= loop->m_end) {
             if (loop->m_type == rot)
                 continue;
@@ -411,7 +418,7 @@ again:
             if (new == NULL)
                 return NULL;
             new->m_start = *ppos;
-            new->m_end = *ppos + len;
+            new->m_end = end;
             new->m_type = rot;
             list_insert_after(&dn->media, loop, new);
             if (end == loop->m_end) {
@@ -431,7 +438,16 @@ again:
         }
         /* end > loop->m_end*/
         next = list_next(&dn->media, loop);
-        goto again;
+        if (end < next->m_start) {
+            if (loop->m_type == rot) {
+                loop->m_end = end;
+                return loop;
+            }
+        }
+        if (end == next->m_start)
+            goto again;
+
+        goto end;
     } /*for loop*/
 
     return new;
