@@ -11,11 +11,16 @@
 #include <sys/hetfs.h>
 
 extern struct rb_root *hetfs_tree;
+extern int media_tree;
 
 #define for_each_syscall(_iter, _tests, _tmp) \
 	for (_tmp = 0, _iter = _tests; \
 	     _tmp < ARRAY_SIZE(_tests); \
 	     _tmp++, _iter++)
+
+void print_media_tree(int flag) {
+    media_tree = flag;
+}
 
 void print_tree(int flag) {
     struct rb_node *node;
@@ -66,6 +71,16 @@ static void print_nodes(void)
 static void print_all(void)
 {
     print_tree(true);
+}
+
+static void print_medium(void)
+{
+    print_media_tree(true);
+}
+
+static void stop_print_medium(void)
+{
+    print_media_tree(false);
 }
 
 struct list_head *zip_list(struct list_head *general)
@@ -176,6 +191,8 @@ struct zfs_syscalls available_syscalls[] = {
 	{ "print_nodes",	print_nodes	},
 	{ "print_all",		print_all	},
 	{ "analyze_tree",	analyze_tree	},
+	{ "print_medium",	print_medium	},
+	{ "stop_print_medium",		stop_print_medium	},
 };
 
 static void run_syscall(struct zfs_syscalls *syscall)
