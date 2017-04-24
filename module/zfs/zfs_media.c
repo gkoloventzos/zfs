@@ -354,7 +354,7 @@ medium_t *
 zfs_media_add(dnode_t *dn, loff_t *ppos, size_t len, int rot)
 {
 
-    medium_t *new, *loop, *next;
+    medium_t *new, *loop, *next, *del;
     loff_t end = *ppos + len;
     if (list_is_empty(&dn->media)) {
         new = kzalloc(sizeof(medium_t), GFP_KERNEL);
@@ -372,83 +372,107 @@ zfs_media_add(dnode_t *dn, loff_t *ppos, size_t len, int rot)
         if (*ppos > loop->m_end)
             continue;
         if (*ppos == loop->m_end) {
-            next = list_next(&dn->media, loop);
-again:
-            if (next->m_type == rot) {
-                if (end < next->m_start) {
-                    loop->m_end = end;
+            if (loop->m_type == rot) {
+                loop->m_end = end;
+                next = list_next(&dn->media, loop);
+next:
+                if (next->m_start < end)
+                    return loop;
+                if (next->m_start == end) {
+                    if (next->m_type == rot) {
+                        loop->m_end = next->m_end;
+                        list_remove(&dn->media, next);
+                    }
                     return loop;
                 }
-                if (end <= next->m_end || end == next->m_start) {
+                /* next->m_start > end */
+                if (next->m_end > end) {
+                    del = next;
+                    next = list_next(&dn->media, del);
+                    list_remove(&dn->media, del);
+                    goto next;
+                }
+                if (next->m_end == end) {
+                    list_remove(&dn->media, next);
+                    return loop;
+                }
+                /* next->m_end > end */
+                if (next->m_type == rot) {
                     loop->m_end = next->m_end;
                     list_remove(&dn->media, next);
                     return loop;
                 }
-                new = list_next(&dn->media, next);
-                list_remove(&dn->media, next);
-                next = new;
-                goto again;
+                /* Different media */
+                next->m_start == end;
+                return loop;
+            } /* Different media*/
+            loop = next;
+            loop->m_end = end;
+            goto next;
+        } /* *ppos == loop->m_end */
+
+        /* *ppos < loop->m_end*/
+        if (loop->m_type != rot) {
+            if (end < loop->m_end) {
+                new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+                if (new == NULL)
+                    return NULL;
+                new->m_start = *ppos;
+                new->m_end = end;
+                new->m_type = rot;
+                list_insert_after(&dn->media, loop, new);
+                del = kzalloc(sizeof(medium_t), GFP_KERNEL);
+                if (new == NULL)
+                    return NULL;
+                del->m_start = end;
+                del->m_end = loop->m_end;
+                del->m_type = rot;
+                list_insert_after(&dn->media, new, del);
+                loop->m_end = *ppos;
+                return del;
             }
-            else { /* not same type */
-                if (end <= next->m_start) {
-                    loop->m_end = end;
-                    continue;
-                }
-                if (end < next->m_end) { 
-                    /* if == it will also be == with next->m_start got to next 
-                     * as same rot so we must see as we may have to incorporate it*/
-                    loop->m_end = end;
-                    next->m_start = end;
+            if (end == loop->m_end) {
+                next = list_next(&dn->media, loop);
+                if (next->m_type == rot) {
+                    next->m_start = *ppos;
+                    loop->m_end = *ppos;
                     return loop;
                 }
-                new = list_next(&dn->media, next);
-                list_remove(&dn->media, next);
-                next = new;
-                goto again;
-            }
-        } /* *ppos == loop->m_end */
-        /* Here we are in *ppos < loop->m_end so we have to deal how the
-         * end is related to loop->m_end */
-end:
-        if (end <= loop->m_end) {
-            if (loop->m_type == rot)
-                continue;
-            /* Different medium split list*/
-            new = kzalloc(sizeof(medium_t), GFP_KERNEL);
-            if (new == NULL)
-                return NULL;
-            new->m_start = *ppos;
-            new->m_end = end;
-            new->m_type = rot;
-            list_insert_after(&dn->media, loop, new);
-            if (end == loop->m_end) {
+                new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+                if (new == NULL)
+                    return NULL;
+                new->m_start = *ppos;
+                new->m_end = end;
+                new->m_type = rot;
+                list_before_after(&dn->media, next, new);
                 loop->m_end = *ppos;
                 return new;
             }
-            next = new;
-            new = kzalloc(sizeof(medium_t), GFP_KERNEL);
-            if (new == NULL)
-                return NULL;
-            new->m_start = *ppos + len;
-            new->m_end = loop->m_end;
-            new->m_type = rot;
-            loop->m_end = *ppos;
-            list_insert_after(&dn->media, next, new);
-            return next;
-        }
-        /* end > loop->m_end*/
-        next = list_next(&dn->media, loop);
-        if (end < next->m_start) {
-            if (loop->m_type == rot) {
-                loop->m_end = end;
-                return loop;
+            next = list_next(&dn->media, loop);
+            if (end > next->m_end) {
+                find_in(dn, next, end, new);
+
             }
         }
-        if (end == next->m_start)
-            goto again;
-
-        goto end;
     } /*for loop*/
 
-    return new;
+    return NULL;
+}
+
+int
+find_in(dnode_t *dn, medium *start, loff_t end, medium_t *where) {
+
+    medium_t *intermediate;
+    where = NULL;
+    for (loop = start; loop != NULL;) {
+        if (end => loop->m_start || end <= loop->m_end) {
+            where = loop;
+            return 1;
+        }
+        intermediate = loop;
+        loop = list_next(&dn->media, intermediate);
+        list_remove(&dn->media, intermediate);
+        kfree(intermediate);
+    }
+    return 0;
 }
