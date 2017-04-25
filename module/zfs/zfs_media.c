@@ -263,9 +263,9 @@ zfs_media_range_reader(zfs_media_t *zmedia, media_t *new)
 	/*
 	 * Look for any writer locks in the range.
 	 */
-	prev = avl_find_media(tree, new, &where);
+	prev = avl_find(tree, new, &where);
     if (prev)
-        return NULL;
+        return ;
 	if (prev == NULL)
 		prev = (media_t *)avl_nearest(tree, where, AVL_BEFORE);
 
@@ -349,11 +349,40 @@ EXPORT_SYMBOL(zfs_media_range_compare);
 #endif
 
 
-/*My list of media functions*/
+int
+find_in(dnode_t *dn, medium_t *start, loff_t end, medium_t *where) {
+
+    medium_t *intermediate, *loop;
+    where = NULL;
+    for (loop = start; loop != NULL;) {
+        if (end > loop->m_start || end < loop->m_end) {
+            where = loop;
+            return 1;
+        }
+        if (end == loop->m_start ) {
+            where = loop;
+            return 0;
+        }
+        if (end == loop->m_end ) {
+            where = loop;
+            list_remove(&dn->media, loop);
+            kfree(loop);
+            return 2;
+        }
+        intermediate = loop;
+        loop = list_next(&dn->media, intermediate);
+        list_remove(&dn->media, intermediate);
+        kfree(intermediate);
+    }
+    return 0;
+}
+
+/* Interval list of medium of part of file*/
 medium_t *
 zfs_media_add(dnode_t *dn, loff_t *ppos, size_t len, int rot)
 {
 
+    int ret;
     medium_t *new, *loop, *next, *del;
     loff_t end = *ppos + len;
     if (list_is_empty(&dn->media)) {
@@ -372,10 +401,9 @@ zfs_media_add(dnode_t *dn, loff_t *ppos, size_t len, int rot)
         if (*ppos > loop->m_end)
             continue;
         if (*ppos == loop->m_end) {
+            next = list_next(&dn->media, loop);
             if (loop->m_type == rot) {
                 loop->m_end = end;
-                next = list_next(&dn->media, loop);
-next:
                 if (next->m_start < end)
                     return loop;
                 if (next->m_start == end) {
@@ -386,29 +414,21 @@ next:
                     return loop;
                 }
                 /* next->m_start > end */
-                if (next->m_end > end) {
-                    del = next;
-                    next = list_next(&dn->media, del);
-                    list_remove(&dn->media, del);
-                    goto next;
+                ret = find_in(dn, next, end, new);
+                if (ret < 2) {
+                    if (new->m_type == rot) {
+                        loop->m_end = new->m_end;
+                        list_remove(&dn->media, new);
+                        return loop;
+                    }
+                    if (ret == 1) {
+                        loop->m_end = end;
+                        new->m_start = end;
+                        return loop;
+                    }
                 }
-                if (next->m_end == end) {
-                    list_remove(&dn->media, next);
-                    return loop;
-                }
-                /* next->m_end > end */
-                if (next->m_type == rot) {
-                    loop->m_end = next->m_end;
-                    list_remove(&dn->media, next);
-                    return loop;
-                }
-                /* Different media */
-                next->m_start == end;
-                return loop;
-            } /* Different media*/
-            loop = next;
-            loop->m_end = end;
-            goto next;
+            } /* Different media */
+            continue; /* If different media go to next node maybe is same or not*/
         } /* *ppos == loop->m_end */
 
         /* *ppos < loop->m_end*/
@@ -444,35 +464,29 @@ next:
                 new->m_start = *ppos;
                 new->m_end = end;
                 new->m_type = rot;
-                list_before_after(&dn->media, next, new);
+                list_insert_before(&dn->media, next, new);
                 loop->m_end = *ppos;
                 return new;
             }
+            /* end > loop->m_end */
             next = list_next(&dn->media, loop);
-            if (end > next->m_end) {
-                find_in(dn, next, end, new);
-
+            ret = find_in(dn, next, end, new);
+            if (ret < 2) {
+                if (new->m_type == rot) {
+                    loop->m_end = new->m_end;
+                    list_remove(&dn->media, new);
+                    return loop;
+                }
+                if (ret == 1) {
+                    loop->m_end = end;
+                    new->m_start = end;
+                    return loop;
+                }
             }
+            loop->m_end = end;
+            return loop;
         }
     } /*for loop*/
 
     return NULL;
-}
-
-int
-find_in(dnode_t *dn, medium *start, loff_t end, medium_t *where) {
-
-    medium_t *intermediate;
-    where = NULL;
-    for (loop = start; loop != NULL;) {
-        if (end => loop->m_start || end <= loop->m_end) {
-            where = loop;
-            return 1;
-        }
-        intermediate = loop;
-        loop = list_next(&dn->media, intermediate);
-        list_remove(&dn->media, intermediate);
-        kfree(intermediate);
-    }
-    return 0;
 }
