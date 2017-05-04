@@ -32,6 +32,7 @@ extern "C" {
 
 #include <sys/list.h>
 #include <sys/avl.h>
+#include <sys/dnode.h>
 
 #ifdef _KERNEL
 #include <sys/condvar.h>
@@ -101,6 +102,7 @@ media_t *zfs_media_range(zfs_media_t *zmedia, uint64_t off, uint64_t len,
  * Locks are ordered on the start offset of the range.
  */
 int zfs_media_range_compare(const void *arg1, const void *arg2);
+medium_t * zfs_media_add(dnode_t *dn, loff_t ppos, size_t len, int rot);
 
 static inline void
 zfs_media_init(zfs_media_t *zmedia)

@@ -348,145 +348,171 @@ EXPORT_SYMBOL(zfs_media_range);
 EXPORT_SYMBOL(zfs_media_range_compare);
 #endif
 
+medium_t *
+find_in(dnode_t *dn, medium_t *start, loff_t pos, int *ret) {
 
-int
-find_in(dnode_t *dn, medium_t *start, loff_t end, medium_t *where) {
-
-    medium_t *intermediate, *loop;
+    medium_t *loop, *where;
     where = NULL;
-    for (loop = start; loop != NULL;) {
-        if (end > loop->m_start || end < loop->m_end) {
-            where = loop;
-            return 1;
+    for (loop = start; loop != NULL; loop = list_next(&dn->media, loop)) {
+    //    printf("where %p\n", loop);
+        where = loop;
+    //    printf("where %p\n", where);
+        if (pos > loop->m_end)
+            continue;
+        if (pos < loop->m_start) {
+            *ret = 0;
+            return where;
         }
-        if (end == loop->m_start ) {
-            where = loop;
-            return 0;
+        if (pos == loop->m_end) {
+            *ret = 1;
+            return where;
         }
-        if (end == loop->m_end ) {
-            where = loop;
-            list_remove(&dn->media, loop);
-            kfree(loop);
-            return 2;
+        if (pos == loop->m_start) {
+            *ret = 2;
+            return where;
         }
-        intermediate = loop;
-        loop = list_next(&dn->media, intermediate);
-        list_remove(&dn->media, intermediate);
-        kfree(intermediate);
+        *ret = 3;
+        return where;
     }
-    return 0;
+    return NULL;
 }
 
-/* Interval list of medium of part of file*/
+/* Interval list of medium of part of file */
+/* Debug of this will be done as we do experiments */
 medium_t *
-zfs_media_add(dnode_t *dn, loff_t *ppos, size_t len, int rot)
+zfs_media_add(dnode_t *dn, loff_t ppos, size_t len, int rot)
 {
 
-    int ret;
+    int start, stop;
     medium_t *new, *loop, *next, *del;
-    loff_t end = *ppos + len;
+    loff_t end = ppos + len;
+    loop = new = del = NULL;
+    start = stop = -1;
+
     if (list_is_empty(&dn->media)) {
         new = kzalloc(sizeof(medium_t), GFP_KERNEL);
         if (new == NULL)
             return NULL;
-        new->m_start = *ppos;
-        new->m_end = *ppos + len;
+        new->m_start = ppos;
+        new->m_end = end;
         new->m_type = rot;
         list_insert_head(&dn->media, new);
         return new;
     }
 
-    new = NULL;
-    for (loop = list_head(&dn->media); loop != NULL; loop = list_next(&dn->media, loop)) {
-        if (*ppos > loop->m_end)
-            continue;
-        if (*ppos == loop->m_end) {
-            next = list_next(&dn->media, loop);
-            if (loop->m_type == rot) {
-                loop->m_end = end;
-                if (next->m_start < end)
-                    return loop;
-                if (next->m_start == end) {
-                    if (next->m_type == rot) {
-                        loop->m_end = next->m_end;
-                        list_remove(&dn->media, next);
-                    }
-                    return loop;
-                }
-                /* next->m_start > end */
-                ret = find_in(dn, next, end, new);
-                if (ret < 2) {
-                    if (new->m_type == rot) {
-                        loop->m_end = new->m_end;
-                        list_remove(&dn->media, new);
-                        return loop;
-                    }
-                    if (ret == 1) {
-                        loop->m_end = end;
-                        new->m_start = end;
-                        return loop;
-                    }
-                }
-            } /* Different media */
-            continue; /* If different media go to next node maybe is same or not*/
-        } /* *ppos == loop->m_end */
+    loop = find_in(dn, list_head(&dn->media), ppos, &start);
+    del = find_in(dn, loop, end, &stop);
 
-        /* *ppos < loop->m_end*/
-        if (loop->m_type != rot) {
-            if (end < loop->m_end) {
-                new = kzalloc(sizeof(medium_t), GFP_KERNEL);
-                if (new == NULL)
-                    return NULL;
-                new->m_start = *ppos;
-                new->m_end = end;
-                new->m_type = rot;
+    new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+    if (new == NULL)
+        return NULL;
+    new->m_start = ppos;
+    new->m_end = end;
+    new->m_type = rot;
+
+    if (loop == del && loop != NULL) {
+        if (start != 0 && stop != 0) {
+            if (loop->m_type != rot) {
                 list_insert_after(&dn->media, loop, new);
                 del = kzalloc(sizeof(medium_t), GFP_KERNEL);
-                if (new == NULL)
+                if (del == NULL)
                     return NULL;
                 del->m_start = end;
                 del->m_end = loop->m_end;
-                del->m_type = rot;
+                del->m_type = loop->m_type;
+                loop->m_end = ppos;
                 list_insert_after(&dn->media, new, del);
-                loop->m_end = *ppos;
-                return del;
-            }
-            if (end == loop->m_end) {
-                next = list_next(&dn->media, loop);
-                if (next->m_type == rot) {
-                    next->m_start = *ppos;
-                    loop->m_end = *ppos;
-                    return loop;
-                }
-                new = kzalloc(sizeof(medium_t), GFP_KERNEL);
-                if (new == NULL)
-                    return NULL;
-                new->m_start = *ppos;
-                new->m_end = end;
-                new->m_type = rot;
-                list_insert_before(&dn->media, next, new);
-                loop->m_end = *ppos;
                 return new;
             }
-            /* end > loop->m_end */
-            next = list_next(&dn->media, loop);
-            ret = find_in(dn, next, end, new);
-            if (ret < 2) {
-                if (new->m_type == rot) {
-                    loop->m_end = new->m_end;
-                    list_remove(&dn->media, new);
-                    return loop;
-                }
-                if (ret == 1) {
-                    loop->m_end = end;
-                    new->m_start = end;
-                    return loop;
-                }
+            else {
+                kzfree(new);
+                return loop;
             }
-            loop->m_end = end;
-            return loop;
         }
-    } /*for loop*/
+    }
 
-    return NULL;
+    if (loop == NULL) {
+        list_insert_tail(&dn->media, new);
+        return new;
+    }
+
+
+    switch(start) {
+        case 0:
+            list_insert_before(&dn->media, loop, new);
+            next = loop;
+            break;
+        case 1:
+            if (loop->m_type == rot) {
+                new->m_start = loop->m_start;
+                list_insert_before(&dn->media, loop, new);
+                next = loop;
+            }
+            else {
+                list_insert_after(&dn->media, loop, new);
+                next = list_next(&dn->media, new);
+            }
+            break;
+        case 2:
+            list_insert_before(&dn->media, loop, new);
+            next = loop;
+            break;
+        case 3:
+            if (loop->m_type == rot) {
+                loop->m_end = end;
+                kzfree(new);
+                new = loop;
+                next = list_next(&dn->media, new);
+            }
+            else {
+                loop->m_end = new->m_start;
+                list_insert_after(&dn->media, loop, new);
+                next = list_next(&dn->media, new);
+            }
+            break;
+        default:
+            return NULL;
+    }
+    while (next != del) {
+        loop = list_next(&dn->media, next);
+        list_remove(&dn->media, next);
+        kzfree(next);
+        next = loop;
+    }
+    switch (stop) {
+        case 0:
+            break;
+        case 1:
+            loop = list_next(&dn->media, del);
+            if (end < loop->m_start) {
+                return new;
+            }
+            /*only == */
+            if (loop->m_type == rot) {
+                new->m_end = loop->m_end;
+                list_remove(&dn->media, loop);
+            }
+            break;
+        case 2:
+            if (del->m_type == rot) {
+                new->m_end = del->m_end;
+                list_remove(&dn->media, del);
+                kzfree(del);
+            }
+            break;
+        case 3:
+            if (del->m_type == rot) {
+                new->m_end = del->m_end;
+                list_remove(&dn->media, del);
+                kzfree(del);
+            }
+            else {
+                del->m_start = end;
+            }
+            break;
+        default:
+            break;
+    }
+
+    return new;
 }

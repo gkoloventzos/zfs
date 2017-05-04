@@ -32,6 +32,7 @@
 #include <sys/zfs_vnops.h>
 #include <sys/zfs_znode.h>
 #include <sys/zpl.h>
+#include <sys/zfs_media.h>
 #include <sys/boot_files.h>
 #include <sys/hetfs.h>
 #include <sys/dnode.h>
@@ -472,7 +473,6 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         }
         dn->rot = rot;
     }
-//    zfs_media_add(dn, offset, len, dn->rot);
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
@@ -1248,6 +1248,12 @@ int add_request(void *data)
     a_r->end_offset = offset + len;
     a_r->times = 1;
     list_add_tail(&a_r->list, general);
+    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    if (dn == NULL)
+        printk(KERN_EMERG "[ERROR] dnode NULL\n");
+    zfs_media_add(dn, offset, len, dn->rot);
+    DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     up_write(sem);
 
     kzfree(kdata);

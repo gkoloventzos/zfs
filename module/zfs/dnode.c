@@ -140,6 +140,8 @@ dnode_cons(void *arg, void *unused, int kmflag)
 	dn->dn_newuid = 0;
 	dn->dn_newgid = 0;
 	dn->dn_id_flags = 0;
+	list_create(&dn->media, sizeof (medium_t),
+	    offsetof(medium_t, media_node));
 
 	dn->dn_dbufs_count = 0;
 	dn->dn_unlisted_l0_blkid = 0;
@@ -844,6 +846,8 @@ dnode_move_impl(dnode_t *odn, dnode_t *ndn)
 	odn->dn_newuid = 0;
 	odn->dn_newgid = 0;
 	odn->dn_id_flags = 0;
+	list_create(&odn->media, sizeof (medium_t),
+	    offsetof(medium_t, media_node));
 
 	/*
 	 * Mark the dnode.
