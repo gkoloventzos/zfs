@@ -1087,6 +1087,7 @@ int add_request(void *data)
     struct crypto_hash *tfm;
     struct hash_desc desc;
     unsigned char *output;
+    dnode_t *dn;
     struct data *InsNode;//, *OutNode;
     struct analyze_request *a_r;
 	char *name;
