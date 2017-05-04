@@ -60,7 +60,7 @@ struct data {
 };
 
 struct kdata {
-    struct dentry *dentry;
+    struct file *filp;
     loff_t offset;
     long length;
     int type;

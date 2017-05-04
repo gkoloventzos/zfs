@@ -318,7 +318,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     if (read > 0) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
-            kdata->dentry = file_dentry(filp);
+            kdata->filp = filp;
             kdata->type = UIO_READ;
             kdata->offset = *ppos;
             kdata->length = read;
@@ -482,7 +482,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     if (wrote > 0) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
-            kdata->dentry = file_dentry(filp);
+            kdata->filp = filp;
             kdata->type = UIO_WRITE;
             kdata->offset = *ppos;
             kdata->length = wrote;
@@ -1094,11 +1094,13 @@ int add_request(void *data)
     struct list_head *general, *pos, *n;
     struct rw_semaphore *sem;
     struct kdata *kdata = (struct kdata *)data;
-    struct dentry *dentry = kdata->dentry;
+    struct dentry *dentry = file_dentry(kdata->filp);
+    struct file *filp = kdata->filp;
     int type = kdata->type;
     long long offset = kdata->offset;
     long len = kdata->length;
     unsigned long long int time = kdata->time;
+    znode_t     *zp = ITOZ(filp->f_mapping->host);
     InsNode = NULL;
 
     if (d_really_is_negative(dentry))
