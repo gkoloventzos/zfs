@@ -309,6 +309,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     struct task_struct *thread1;
     struct timespec arrival_time;
     struct kdata *kdata = NULL;
+    znode_t     *zp = ITOZ(filp->f_mapping->host);
 
     ktime_get_ts(&arrival_time);
 	crhold(cr);
@@ -320,6 +321,8 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->filp = filp;
+            kdata->dentry = file_dentry(filp);
+            kdata->dnode = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
             kdata->type = UIO_READ;
             kdata->offset = *ppos;
             kdata->length = read;
@@ -483,6 +486,8 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->filp = filp;
+            kdata->dentry = file_dentry(filp);
+            kdata->dnode = dn;
             kdata->type = UIO_WRITE;
             kdata->offset = *ppos;
             kdata->length = wrote;
@@ -1087,16 +1092,16 @@ int add_request(void *data)
     struct crypto_hash *tfm;
     struct hash_desc desc;
     unsigned char *output;
-    dnode_t *dn;
-    struct data *InsNode;//, *OutNode;
+    struct data *InsNode;
     struct analyze_request *a_r;
 	char *name;
 	int stop = 0;
     struct list_head *general, *pos, *n;
     struct rw_semaphore *sem;
     struct kdata *kdata = (struct kdata *)data;
-    struct dentry *dentry = file_dentry(kdata->filp);
     struct file *filp = kdata->filp;
+    dnode_t *dn = (dnode_t *)kdata->dnode;
+    struct dentry *dentry = kdata->dentry;
     int type = kdata->type;
     long long offset = kdata->offset;
     long len = kdata->length;
@@ -1104,6 +1109,10 @@ int add_request(void *data)
     znode_t     *zp = ITOZ(filp->f_mapping->host);
     InsNode = NULL;
 
+    if (dentry == NULL || filp == NULL || zp == NULL || dn == NULL) {
+        printk(KERN_EMERG "[ERROR] either dentry %p, filp %p, zp %p or dnode %p is NULL\n", dentry, filp, zp, dn);
+        return 1;
+    }
     if (d_really_is_negative(dentry))
         return 1;
 

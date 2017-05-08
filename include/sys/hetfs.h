@@ -2,6 +2,7 @@
 #define _SYS_HETFS_H
 
 #ifdef _KERNEL
+//#include <sys/dnode.h>
 #include <linux/rbtree.h>
 #include <linux/list.h>
 #include <linux/types.h>
@@ -61,6 +62,8 @@ struct data {
 
 struct kdata {
     struct file *filp;
+    struct dentry *dentry;
+    void *dnode;
     loff_t offset;
     long length;
     int type;
