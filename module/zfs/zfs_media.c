@@ -484,13 +484,19 @@ zfs_media_add(dnode_t *dn, loff_t ppos, size_t len, int rot)
             break;
         case 1:
             loop = list_next(&dn->media, del);
+            if (loop == NULL) {
+                list_remove(&dn->media, del);
+                kzfree(del);
+                break;
+            }
             if (end < loop->m_start) {
-                return new;
+                break;
             }
             /*only == */
             if (loop->m_type == rot) {
                 new->m_end = loop->m_end;
                 list_remove(&dn->media, loop);
+                kzfree(loop);
             }
             break;
         case 2:
