@@ -1106,11 +1106,10 @@ int add_request(void *data)
     long long offset = kdata->offset;
     long len = kdata->length;
     unsigned long long int time = kdata->time;
-    znode_t     *zp = ITOZ(filp->f_mapping->host);
     InsNode = NULL;
 
-    if (dentry == NULL || filp == NULL || zp == NULL || dn == NULL) {
-        printk(KERN_EMERG "[ERROR] either dentry %p, filp %p, zp %p or dnode %p is NULL\n", dentry, filp, zp, dn);
+    if (dentry == NULL || filp == NULL || dn == NULL) {
+        printk(KERN_EMERG "[ERROR] either dentry %p, filp %p or dnode %p is NULL\n", dentry, filp, dn);
         return 1;
     }
     if (d_really_is_negative(dentry))
@@ -1257,12 +1256,9 @@ int add_request(void *data)
     a_r->end_offset = offset + len;
     a_r->times = 1;
     list_add_tail(&a_r->list, general);
-    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     if (dn == NULL)
         printk(KERN_EMERG "[ERROR] dnode NULL\n");
     zfs_media_add(dn, offset, len, dn->rot);
-    DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     up_write(sem);
 
     kzfree(kdata);
