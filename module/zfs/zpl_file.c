@@ -309,6 +309,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     struct task_struct *thread1;
     struct timespec arrival_time;
     struct kdata *kdata = NULL;
+    loff_t start_ppos = *ppos;
     znode_t     *zp = ITOZ(filp->f_mapping->host);
 
     ktime_get_ts(&arrival_time);
@@ -324,7 +325,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
             kdata->dentry = file_dentry(filp);
             kdata->dnode = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
             kdata->type = UIO_READ;
-            kdata->offset = *ppos;
+            kdata->offset = start_ppos;
             kdata->length = read;
             kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"readreq");
