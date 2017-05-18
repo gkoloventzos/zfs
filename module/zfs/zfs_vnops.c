@@ -488,10 +488,10 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	    RL_READER);
 
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-    if (dn->rot > 0) {
+    if (dn->dn_rot > 0) {
         if (media_tree)
-            printk(KERN_EMERG "adding something %d %lld %ld\n", dn->rot, uio->uio_loffset, uio->uio_resid);
-        zfs_media_range(&zp->storage, uio->uio_loffset, uio->uio_resid, dn->rot);
+            printk(KERN_EMERG "adding something %d %lld %ld\n", dn->dn_rot, uio->uio_loffset, uio->uio_resid);
+        zfs_media_range(&zp->storage, uio->uio_loffset, uio->uio_resid, dn->dn_rot);
     }
 	/*
 	 * If we are reading past end-of-file we can skip
@@ -678,8 +678,8 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 		uio_prefaultpages(MIN(n, max_blksz), uio);
 
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-    if (dn->rot > 0) {
-        zfs_media_range(&zp->storage, woff, n, dn->rot);
+    if (dn->dn_rot > 0) {
+        zfs_media_range(&zp->storage, woff, n, dn->dn_rot);
     }
 
 	/*

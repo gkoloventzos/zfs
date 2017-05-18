@@ -434,7 +434,12 @@ dnode_create(objset_t *os, dnode_phys_t *dnp, dmu_buf_impl_t *db,
 	dn->dn_have_spill = ((dnp->dn_flags & DNODE_FLAG_SPILL_BLKPTR) != 0);
 	dn->dn_id_flags = 0;
 
-    dn->rot = -2;
+    if (db == NULL) {
+        dn->dn_rot = -2;
+        dnp->dn_rot = -2;
+    }
+    else
+        dn->dn_rot = dnp->dn_rot;
     dn->filp = NULL;
 	list_create(&dn->media, sizeof (medium_t),
 	    offsetof(medium_t, media_node));
@@ -592,6 +597,7 @@ dnode_allocate(dnode_t *dn, dmu_object_type_t ot, int blocksize, int ibs,
 	dnode_setdblksz(dn, blocksize);
 	dn->dn_indblkshift = ibs;
 	dn->dn_nlevels = 1;
+	dn->dn_rot = -2;
 	dn->dn_num_slots = dn_slots;
 	if (bonustype == DMU_OT_SA) /* Maximize bonus space for SA */
 		dn->dn_nblkptr = 1;

@@ -597,6 +597,7 @@ dnode_sync(dnode_t *dn, dmu_tx_t *tx)
 		dnp->dn_bonuslen = dn->dn_bonuslen;
 	}
 
+    dnp->dn_rot = dn->dn_rot;
 	dnp->dn_extra_slots = dn->dn_num_slots - 1;
 
 	ASSERT(dnp->dn_nlevels > 1 ||
