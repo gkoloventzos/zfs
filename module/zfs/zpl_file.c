@@ -45,6 +45,9 @@
 
 struct rb_root *hetfs_tree = NULL;
 EXPORT_SYMBOL(hetfs_tree);
+int only_one = 0;
+int bla = 1;
+char *only_name = NULL;
 
 void fullname(struct dentry *dentry, char *name, int *stop)
 {
@@ -307,17 +310,31 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 
     struct task_struct *thread1;
     struct timespec arrival_time;
+    dnode_t *dn;
     struct kdata *kdata = NULL;
     loff_t start_ppos = *ppos;
     znode_t     *zp = ITOZ(filp->f_mapping->host);
 
     ktime_get_ts(&arrival_time);
 	crhold(cr);
+/*    if (only_one && strstr(file_dentry(filp)->d_name.name, only_name) != NULL)
+        printk(KERN_EMERG "[ONLY] start: %lld end: %lld len:%ld time: %ld\n", *ppos, *ppos+len, len, arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec);
+        */
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr);
 	crfree(cr);
 
+    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    if (dn->filp == NULL) {
+        dn->filp = file_dentry(filp)->d_name.name;
+    }
+    DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+
     if (read > 0) {
+/*        if (only_one && strstr(file_dentry(filp)->d_name.name, only_name) != NULL)
+            printk(KERN_EMERG "[ONLY in READ] start: %lld end: %lld read:%ld len:%ld time: %ld\n", start_ppos, start_ppos+read, read, len, arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec);
+            */
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->dentry = file_dentry(filp);
@@ -1083,6 +1100,29 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
     return 0;
 }
 
+void print_lists(struct data *entry) {
+
+    struct analyze_request *posh, *nh;
+    int all_nodes, all_requests, requests;
+
+    all_nodes = all_requests = requests = 0;
+
+    if (!list_empty(entry->read_reqs))
+        printk(KERN_EMERG "[HETFS] READ req:\n");
+    list_for_each_entry_safe(posh, nh, entry->read_reqs, list) {
+        all_requests += posh->times;
+        printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start-time:%lld - end-time:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset, posh->start_time, posh->end_time, posh->times);
+    }
+    if (!list_empty(entry->write_reqs))
+        printk(KERN_EMERG "[HETFS] WRITE req:\n");
+    list_for_each_entry_safe(posh, nh, entry->write_reqs, list) {
+        all_requests += posh->times;
+        printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset, posh->times);
+    }
+}
+
 int add_request(void *data)
 {
     struct scatterlist sg;
@@ -1103,8 +1143,18 @@ int add_request(void *data)
     unsigned long long int time = kdata->time;
     InsNode = NULL;
 
-    if (d_really_is_negative(dentry))
+/*    if (only_one && strstr(dentry->d_name.name, only_name) != NULL)
+        printk(KERN_EMERG "[ONLY in READ] start: %lld end: %lld len:%ld time: %lld\n", offset, offset+len, len, time);
+        */
+    if (dentry == NULL || filp == NULL || dn == NULL) {
+        printk(KERN_EMERG "[ERROR] either dentry %p, filp %p or dnode %p is NULL\n", dentry, filp, dn);
         return 1;
+    }
+
+    if (d_really_is_negative(dentry)) {
+        printk(KERN_EMERG "[ERROR] dentry is negative offset %lld len %ld name %s\n", offset, len, dn->filp);
+        return 1;
+    }
 
 	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
     if (name == NULL) {
@@ -1119,6 +1169,7 @@ int add_request(void *data)
         kzfree(kdata);
         return 1;
     }
+
     if (hetfs_tree == NULL) {
 	    hetfs_tree = kzalloc(sizeof(struct rb_root),GFP_KERNEL);
         if (hetfs_tree == NULL) {
@@ -1208,7 +1259,6 @@ int add_request(void *data)
     up_write(&tree_sem);
 
     kzfree(output);
-    kzfree(name);
     if (type == 0) {
         general = InsNode->read_reqs;
         sem = &(InsNode->read_sem);
@@ -1219,6 +1269,15 @@ int add_request(void *data)
     }
 
     down_write(sem);
+    if (dn == NULL)
+        printk(KERN_EMERG "[ERROR] dnode NULL\n");
+    if (dn->filp != NULL && strstr(dn->filp, "log") == NULL) {
+        //printk(KERN_EMERG "[zfs_media]name : %s\n", dn->filp);
+        zfs_media_add(dn, offset, len, dn->dn_rot);
+    }
+    if (only_name != NULL && bla)
+        printk(KERN_EMERG "[ONLY]Name : %s\n", only_name); bla=0;
+
     if (!list_empty_careful(general)) {
         list_for_each_prev_safe(pos, n, general) {
             a_r = list_entry(pos, struct analyze_request, list);
@@ -1229,7 +1288,12 @@ int add_request(void *data)
                 a_r->end_offset += len;
                 a_r->end_time = time;
                 kzfree(kdata);
+                if (only_one && strstr(name, only_name) != NULL) {
+                    print_lists(InsNode);
+                    print_media_list(dn);
+                }
                 up_write(sem);
+                kzfree(name);
                 return 0;
             }
         }
@@ -1239,6 +1303,7 @@ int add_request(void *data)
     if (a_r == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot allocate request\n");
         up_write(sem);
+        kzfree(name);
         kzfree(kdata);
         return 1;
     }
@@ -1248,8 +1313,13 @@ int add_request(void *data)
     a_r->end_offset = offset + len;
     a_r->times = 1;
     list_add_tail(&a_r->list, general);
+    if (only_one && strstr(name, only_name) != NULL) {
+        print_lists(InsNode);
+        print_media_list(dn);
+    }
     up_write(sem);
 
+    kzfree(name);
     kzfree(kdata);
     return 0;
 }
