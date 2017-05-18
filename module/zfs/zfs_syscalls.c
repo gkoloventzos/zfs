@@ -9,9 +9,17 @@
 #include <linux/slab.h>
 #include <sys/zfs_syscalls.h>
 #include <sys/hetfs.h>
+#include <asm/uaccess.h>
 
 extern struct rb_root *hetfs_tree;
 extern int media_tree;
+extern int only_one;
+extern int bla;
+extern int media_list;
+extern char *only_name;
+char *number;
+char *procfs_buffer = NULL;
+const char delimiters[] = " \n";
 
 #define for_each_syscall(_iter, _tests, _tmp) \
 	for (_tmp = 0, _iter = _tests; \
@@ -19,7 +27,12 @@ extern int media_tree;
 	     _tmp++, _iter++)
 
 void print_media_tree(int flag) {
-    media_tree = flag;
+//    media_tree = flag;
+    media_list = flag;
+}
+
+void print_only_one(int flag) {
+    only_one = flag;
 }
 
 void print_tree(int flag) {
@@ -76,6 +89,19 @@ static void print_all(void)
 static void print_medium(void)
 {
     print_media_tree(true);
+}
+
+static void print_list(void)
+{
+    printk(KERN_EMERG "[HETFS]Searching for %s\n", only_name);
+    bla=1;
+    print_only_one(1);
+}
+
+static void stop_print_list(void) {
+    kfree(procfs_buffer);
+    only_name = NULL;
+    print_only_one(0);
 }
 
 static void stop_print_medium(void)
@@ -193,6 +219,8 @@ struct zfs_syscalls available_syscalls[] = {
 	{ "analyze_tree",	analyze_tree	},
 	{ "print_medium",	print_medium	},
 	{ "stop_print_medium",		stop_print_medium	},
+	{ "print_list",	    print_list	},
+	{ "stop_print_list",		stop_print_list	},
 };
 
 static void run_syscall(struct zfs_syscalls *syscall)
@@ -233,11 +261,22 @@ static ssize_t __zfs_syscall_write(struct file *file, const char __user *buffer,
 {
     int ret;
     unsigned long val;
+    procfs_buffer = kzalloc(strlen(buffer)+2, GFP_KERNEL);
+    procfs_buffer[strlen(buffer)+1] = ' ';
 
-    ret = kstrtoul_from_user(buffer, count, 10, &val);
+    if ( copy_from_user(procfs_buffer, buffer, 2048) ) {
+            return -EFAULT;
+    }
+
+/*    ret = kstrtoul_from_user(buffer, count, 10, &val);
+    if (ret)
+        return ret;*/
+    number = strsep(&procfs_buffer, delimiters);
+    ret = kstrtoul(number, 10, &val);
     if (ret)
         return ret;
-
+    only_name = strsep(&procfs_buffer, delimiters);
+    strsep(&procfs_buffer, delimiters);
     ret = zfs_syscalls_run(val);
     if (ret)
         return ret;

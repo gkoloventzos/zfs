@@ -104,6 +104,7 @@ media_t *zfs_media_range(zfs_media_t *zmedia, uint64_t off, uint64_t len,
 int zfs_media_range_compare(const void *arg1, const void *arg2);
 medium_t * zfs_media_add(dnode_t *dn, loff_t ppos, size_t len, int rot);
 
+void print_media_list(dnode_t *);
 static inline void
 zfs_media_init(zfs_media_t *zmedia)
 {

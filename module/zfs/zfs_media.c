@@ -99,6 +99,7 @@
 #include <sys/het.h>
 
 int media_tree = 0;
+int media_list = 0;
 /*
  * If this is an original (non-proxy) lock then replace it by
  * a proxy and return the proxy.
@@ -348,15 +349,23 @@ EXPORT_SYMBOL(zfs_media_range);
 EXPORT_SYMBOL(zfs_media_range_compare);
 #endif
 
+void print_media_list(dnode_t *dn)
+{
+    medium_t *loop;
+    printk(KERN_EMERG "Name: %s\n", dn->filp);
+    for (loop = list_head(&dn->media); loop != NULL; loop = list_next(&dn->media, loop)) {
+        printk(KERN_EMERG "st: %lld en: %lld ty: %d ->", loop->m_start, loop->m_end, loop->m_type);
+    }
+    printk(KERN_EMERG "NULL\n");
+}
+
 medium_t *
 find_in(dnode_t *dn, medium_t *start, loff_t pos, int *ret) {
 
     medium_t *loop, *where;
     where = NULL;
     for (loop = start; loop != NULL; loop = list_next(&dn->media, loop)) {
-    //    printf("where %p\n", loop);
         where = loop;
-    //    printf("where %p\n", where);
         if (pos > loop->m_end)
             continue;
         if (pos < loop->m_start) {
@@ -436,6 +445,9 @@ zfs_media_add(dnode_t *dn, loff_t ppos, size_t len, int rot)
         return new;
     }
 
+/*    if (media_list) {
+        print_media_list(dn);
+    }*/
 
     switch(start) {
         case 0:
