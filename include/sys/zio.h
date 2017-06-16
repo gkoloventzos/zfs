@@ -453,9 +453,11 @@ struct zio {
 	/* Taskq dispatching state */
 	taskq_ent_t	io_tqent;
 
-    int rot;
-    const char *filp;
-    //struct file *filp;
+    uint8_t io_read_rot;
+    uint8_t io_write_rot;
+    //const char *filp;
+    struct file *filp;
+    dnode_t *io_dn;
 };
 
 extern int zio_timestamp_compare(const void *, const void *);

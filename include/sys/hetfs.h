@@ -2,11 +2,11 @@
 #define _SYS_HETFS_H
 
 #ifdef _KERNEL
-//#include <sys/dnode.h>
 #include <linux/rbtree.h>
 #include <linux/list.h>
 #include <linux/types.h>
 #include <linux/rwsem.h>
+#include <sys/dnode.h>
 #endif
 
 #define MAX_DIFF 200000000
@@ -57,6 +57,7 @@ struct data {
     struct rw_semaphore read_sem;
     struct rw_semaphore write_sem;
     struct dentry *dentry;
+    dnode_t *dnode;
     struct rb_node node;
 };
 

@@ -328,7 +328,8 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     if (dn->filp == NULL) {
-        dn->filp = file_dentry(filp)->d_name.name;
+//        dn->filp = file_dentry(filp)->d_name.name;
+        dn->filp = filp;
     }
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
@@ -474,17 +475,17 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     if (name == NULL)
         printk(KERN_EMERG "[ERROR]name is NULL %s\n", file_dentry(filp)->d_name.name);
     if (dn->filp == NULL) {
-        dn->filp = name;
-        //dn->filp = filp;
+//        dn->filp = name;
+        dn->filp = filp;
     }
-    if (dn->dn_rot == -2) {
+    if (dn->dn_write_rot == -2) {
         for (stop = 0; stop <= 195; stop++) {
             if (strstr(filename, boot_files[stop]) != NULL) {
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
                 break;
             }
         }
-        dn->dn_rot = rot;
+        dn->dn_write_rot = rot;
     }
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
@@ -1150,7 +1151,7 @@ int add_request(void *data)
     }
 
     if (d_really_is_negative(dentry)) {
-        printk(KERN_EMERG "[ERROR] dentry is negative offset %lld len %ld name %s\n", offset, len, dn->filp);
+        printk(KERN_EMERG "[ERROR] dentry is negative offset %lld len %ld name %s\n", offset, len, filp2name(dn->filp));
         return 1;
     }
 
@@ -1206,10 +1207,6 @@ int add_request(void *data)
             kzfree(name);
             return 1;
         }
-        InsNode->read_all_file = 0;
-        InsNode->write_all_file = 0;
-        InsNode->deleted = 0;
-        InsNode->to_rot = -1;
         //InsNode->file = kzalloc(strlen(name) + 1, GFP_KERNEL);
         InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
         if (InsNode->hash == NULL) {
@@ -1220,7 +1217,6 @@ int add_request(void *data)
         }
         //memcpy(InsNode->file, name, strlen(name) + 1);
         memcpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
-        InsNode->dentry = dentry;
         InsNode->read_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
         if (InsNode->read_reqs == NULL) {
             printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
@@ -1243,6 +1239,12 @@ int add_request(void *data)
         init_rwsem(&(InsNode->read_sem));
         init_rwsem(&(InsNode->write_sem));
         InsNode->size = i_size_read(d_inode(InsNode->dentry));
+        InsNode->read_all_file = 0;
+        InsNode->write_all_file = 0;
+        InsNode->deleted = 0;
+        InsNode->to_rot = -1;
+        InsNode->dentry = dentry;
+        InsNode->dnode = dn;
         if (!rb_insert(hetfs_tree, InsNode)) {
             printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
         }

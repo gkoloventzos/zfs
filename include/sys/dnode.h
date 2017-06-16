@@ -153,8 +153,7 @@ typedef struct dnode_phys {
 	uint64_t dn_maxblkid;		/* largest allocated block ID */
 	uint64_t dn_used;		/* bytes (or sectors) of disk space */
 
-	uint64_t dn_rot;
-	uint64_t dn_pad3[3];
+	uint64_t dn_pad3[4];
 
 	/*
 	 * The tail region is 448 bytes for a 512 byte dnode, and
@@ -290,10 +289,11 @@ struct dnode {
 	/* holds prefetch structure */
 	struct zfetch	dn_zfetch;
 
-    uint64_t dn_rot;
-    const char *filp;
+    int8_t dn_write_rot;
+    int8_t dn_read_rot;
+    //const char *filp;
     list_t media;
-    //struct file *filp;
+    struct file *filp;
 };
 
 /*

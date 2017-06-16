@@ -292,6 +292,7 @@ dmu_tx_count_write(dmu_tx_hold_t *txh, uint64_t off, uint64_t len)
 			zio_t *zio = zio_root(dn->dn_objset->os_spa,
 			    NULL, NULL, ZIO_FLAG_CANFAIL);
 
+            zio->io_dn = dn;
 			/* first level-0 block */
 			start = off >> dn->dn_datablkshift;
 			if (P2PHASE(off, dn->dn_datablksz) ||
@@ -758,6 +759,7 @@ dmu_tx_hold_free_impl(dmu_tx_hold_t *txh, uint64_t off, uint64_t len)
 
 		zio = zio_root(tx->tx_pool->dp_spa,
 		    NULL, NULL, ZIO_FLAG_CANFAIL);
+        zio->io_dn = dn;
 		for (i = start; i <= end; i++) {
 			uint64_t ibyte = i << shift;
 			err = dnode_next_offset(dn, 0, &ibyte, 2, 1, 0);

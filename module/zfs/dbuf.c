@@ -1211,6 +1211,8 @@ dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags)
 		    db->db_blkptr != NULL && !BP_IS_HOLE(db->db_blkptr))
 			zio = zio_root(spa, NULL, NULL, ZIO_FLAG_CANFAIL);
 
+        if (zio->io_dn == NULL)
+            zio->io_dn = dn;
 		err = dbuf_read_impl(db, zio, flags);
 
 		/* dbuf_read_impl has dropped db_mtx for us */
@@ -1258,6 +1260,8 @@ dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags)
 	}
 
 	ASSERT(err || havepzio || db->db_state == DB_CACHED);
+/*    if (zio->io_read_rot > -1)
+        dn->dn_read_rot = zio->io_read_rot;*/
 	return (err);
 }
 
@@ -2615,6 +2619,7 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 	pio = zio_root(dmu_objset_spa(dn->dn_objset), NULL, NULL,
 	    ZIO_FLAG_CANFAIL);
 
+    pio->io_dn = dn;
 	dpa = kmem_zalloc(sizeof (*dpa), KM_SLEEP);
 	ds = dn->dn_objset->os_dsl_dataset;
 	SET_BOOKMARK(&dpa->dpa_zb, ds != NULL ? ds->ds_object : DMU_META_OBJSET,
@@ -3218,6 +3223,8 @@ dbuf_sync_indirect(dbuf_dirty_record_t *dr, dmu_tx_t *tx)
 	dbuf_write(dr, db->db_buf, tx);
 
 	zio = dr->dr_zio;
+    if (zio->io_dn == NULL)
+        zio->io_dn = dn;
 	mutex_enter(&dr->dt.di.dr_mtx);
 	dbuf_sync_list(&dr->dt.di.dr_children, db->db_level - 1, tx);
 	ASSERT(list_head(&dr->dt.di.dr_children) == NULL);
@@ -3778,8 +3785,11 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	ASSERT(zio);
     if (zio->filp == NULL)
         zio->filp = dn->filp;
-    if (zio->rot != dn->dn_rot)
-        zio->rot = dn->dn_rot;
+    if (zio->io_type == ZIO_TYPE_WRITE && dn->dn_write_rot > -1)
+        zio->io_write_rot = dn->dn_write_rot;
+
+/*    if (zio->rot != dn->dn_rot)
+        zio->rot = dn->dn_rot;*/
 
 	SET_BOOKMARK(&zb, os->os_dsl_dataset ?
 	    os->os_dsl_dataset->ds_object : DMU_META_OBJSET,

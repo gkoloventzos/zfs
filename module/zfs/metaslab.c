@@ -3878,8 +3878,8 @@ has_vdev:
     if (zio != NULL) {
         //if (zio->filp != NULL)
             //printk(KERN_EMERG "[SSD_FILE]file %s\n", zio->filp->f_path.dentry->d_name.name);
-        if (zio->rot > -1) {
-            rot = get_metaslab_class(mc, zio->rot);
+        if (zio->io_dn != NULL && zio->io_dn->dn_write_rot > -1) {
+            rot = get_metaslab_class(mc, zio->io_dn->dn_write_rot);
         }
     }
 
