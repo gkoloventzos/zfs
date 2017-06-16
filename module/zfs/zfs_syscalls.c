@@ -3,13 +3,19 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/rbtree.h>
-#include <linux/list.h>
 #include <linux/types.h>
 #include <linux/rwsem.h>
 #include <linux/slab.h>
 #include <sys/zfs_syscalls.h>
 #include <sys/hetfs.h>
+#include <sys/disk.h>
 #include <asm/uaccess.h>
+#include <linux/list.h>
+
+#include <linux/crypto.h>
+#include <crypto/sha.h>
+#include <linux/err.h>
+#include <linux/scatterlist.h>
 
 extern struct rb_root *hetfs_tree;
 extern int media_tree;
@@ -109,6 +115,91 @@ static void stop_print_medium(void)
     print_media_tree(false);
 }
 
+static void change_medium(void)
+{
+    unsigned char *output;
+    struct scatterlist sg;
+    struct crypto_hash *tfm;
+    struct hash_desc desc;
+    struct data *tree_entry = NULL;
+
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        return;
+    }
+
+    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+    desc.tfm = tfm;
+    desc.flags = 0;
+    sg_init_one(&sg, only_name, strlen(only_name));
+    crypto_hash_init(&desc);
+    crypto_hash_update(&desc, &sg, strlen(only_name));
+    crypto_hash_final(&desc, output);
+    crypto_free_hash(tfm);
+    tree_entry = rb_search(hetfs_tree, output);
+    if (tree_entry == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        kzfree(output);
+        return;
+    }
+    if (tree_entry->dnode->dn_write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
+        tree_entry->dnode->dn_write_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+    else
+        tree_entry->dnode->dn_write_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
+
+    kzfree(output);
+    return;
+}
+
+static void print_media(void)
+{
+    unsigned char *output;
+    struct scatterlist sg;
+    struct crypto_hash *tfm;
+    struct hash_desc desc;
+    struct data *tree_entry = NULL;
+
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        return;
+    }
+
+    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+    desc.tfm = tfm;
+    desc.flags = 0;
+    sg_init_one(&sg, only_name, strlen(only_name));
+    crypto_hash_init(&desc);
+    crypto_hash_update(&desc, &sg, strlen(only_name));
+    crypto_hash_final(&desc, output);
+    crypto_free_hash(tfm);
+    tree_entry = rb_search(hetfs_tree, output);
+    if (tree_entry == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        kzfree(output);
+        return;
+    }
+
+    if (tree_entry->dnode->dn_write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
+        printk(KERN_EMERG "[PRINT] File %s dn_write_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
+    else if (tree_entry->dnode->dn_write_rot < 0 )
+        printk(KERN_EMERG "[PRINT] File %s dn_write_rot %d\n", only_name, tree_entry->dnode->dn_write_rot);
+    else
+        printk(KERN_EMERG "[PRINT] File %s dn_write_rot METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name);
+
+    if (tree_entry->dnode->dn_read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
+        printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
+    else if (tree_entry->dnode->dn_write_rot < 0 )
+        printk(KERN_EMERG "[PRINT] File %s dn_read_rot %d\n", only_name, tree_entry->dnode->dn_read_rot);
+    else
+        printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name);
+
+
+    kzfree(output);
+    return;
+}
+
 struct list_head *zip_list(struct list_head *general)
 {
     struct list_head *pos, *n, *pos1, *new;
@@ -132,8 +223,11 @@ struct list_head *zip_list(struct list_head *general)
                 break;
             }
         }
-        if (!found)
-            list_move_tail(pos,new);
+        if (!found) {
+            //list_move_tail(pos,new);
+            __list_del_entry(pos);
+            list_add_tail(pos,new);
+        }
     }
     list_for_each_safe(pos, n, general) {
         areq = list_entry(pos, struct analyze_request, list);
@@ -221,6 +315,8 @@ struct zfs_syscalls available_syscalls[] = {
 	{ "stop_print_medium",		stop_print_medium	},
 	{ "print_list",	    print_list	},
 	{ "stop_print_list",		stop_print_list	},
+	{ "change_medium",	change_medium	},
+	{ "print_media",	print_media	},
 };
 
 static void run_syscall(struct zfs_syscalls *syscall)
