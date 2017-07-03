@@ -341,7 +341,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
         if (kdata != NULL) {
             kdata->filp = filp;
             kdata->dentry = file_dentry(filp);
-            kdata->dnode = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+            kdata->dnode = dn;
             kdata->type = UIO_READ;
             kdata->offset = start_ppos;
             kdata->length = read;
@@ -1134,7 +1134,7 @@ int add_request(void *data)
     struct rw_semaphore *sem;
     struct kdata *kdata = (struct kdata *)data;
     struct file *filp = kdata->filp;
-    dnode_t *dn = (dnode_t *)kdata->dnode;
+    dnode_t *dn = kdata->dnode;
     struct dentry *dentry = kdata->dentry;
     int type = kdata->type;
     long long offset = kdata->offset;
@@ -1199,27 +1199,37 @@ int add_request(void *data)
 
     down_write(&tree_sem);
     InsNode = rb_search(hetfs_tree, output);
-    if (InsNode  == NULL) {
+    if (InsNode == NULL) {
         InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
         if (InsNode == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot alloc memory for InsNode\n");
+            kzfree(output);
             kzfree(kdata);
             kzfree(name);
             return 1;
         }
+        InsNode->read_all_file = 0;
+        InsNode->write_all_file = 0;
+        InsNode->deleted = 0;
+        InsNode->to_rot = -1;
         //InsNode->file = kzalloc(strlen(name) + 1, GFP_KERNEL);
         InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
         if (InsNode->hash == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot alloc mem for InsNode hash\n");
+            kzfree(InsNode);
+            kzfree(output);
             kzfree(kdata);
             kzfree(name);
             return 1;
         }
         //memcpy(InsNode->file, name, strlen(name) + 1);
         memcpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
+        InsNode->dentry = dentry;
         InsNode->read_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
         if (InsNode->read_reqs == NULL) {
             printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
+            kzfree(InsNode->hash);
+            kzfree(InsNode);
             kzfree(output);
             kzfree(kdata);
             kzfree(name);
@@ -1229,6 +1239,8 @@ int add_request(void *data)
         if (InsNode->write_reqs == NULL) {
             printk(KERN_EMERG "[ERROR]InsNode write null after malloc\n");
             kzfree(InsNode->read_reqs);
+            kzfree(InsNode->hash);
+            kzfree(InsNode);
             kzfree(output);
             kzfree(kdata);
             kzfree(name);
@@ -1239,15 +1251,14 @@ int add_request(void *data)
         init_rwsem(&(InsNode->read_sem));
         init_rwsem(&(InsNode->write_sem));
         InsNode->size = i_size_read(d_inode(InsNode->dentry));
-        InsNode->read_all_file = 0;
-        InsNode->write_all_file = 0;
-        InsNode->deleted = 0;
-        InsNode->to_rot = -1;
-        InsNode->dentry = dentry;
-        InsNode->dnode = dn;
+        if (hetfs_tree == NULL)
+            printk(KERN_EMERG "[HETFS] WTF!!!!!!!!!!!! hetfs_tree!\n");
+        if (InsNode == NULL)
+            printk(KERN_EMERG "[HETFS] WTF!!!!!!!!!!!! InsNode!\n");
         if (!rb_insert(hetfs_tree, InsNode)) {
             printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
         }
+        InsNode->dnode = dn;
 /*        if (type == UIO_WRITE) {
             if (strstr(name, "log") == NULL)
                 printk(KERN_EMERG "[OUTPUT]Write request name %s\n", name);
@@ -1270,10 +1281,10 @@ int add_request(void *data)
     down_write(sem);
     if (dn == NULL)
         printk(KERN_EMERG "[ERROR] dnode NULL\n");
-    if (dn->filp != NULL && strstr(dn->filp, "log") == NULL) {
+/*    if (dn->filp != NULL && strstr(dn->filp, "log") == NULL) {
         //printk(KERN_EMERG "[zfs_media]name : %s\n", dn->filp);
         zfs_media_add(dn, offset, len, dn->dn_rot);
-    }
+    }*/
     if (only_name != NULL && bla)
         printk(KERN_EMERG "[ONLY]Name : %s\n", only_name); bla=0;
 
@@ -1330,6 +1341,10 @@ struct data *rb_search(struct rb_root *root, unsigned char *string)
 
     if (root == NULL || RB_EMPTY_ROOT(root))
         return NULL;
+    if (string == NULL) {
+        printk(KERN_EMERG "[ERROR]Search string is NULL\n");
+        return NULL;
+    }
 
     node = root->rb_node;
 
@@ -1356,6 +1371,15 @@ struct data *rb_search(struct rb_root *root, unsigned char *string)
 int rb_insert(struct rb_root *root, struct data *data)
 {
     struct rb_node **new, *parent = NULL;
+    if (root == NULL) {
+        printk(KERN_EMERG "[ERROR] NULL root - rb_insert\n");
+        return FALSE;
+    }
+
+    if (data == NULL) {
+        printk(KERN_EMERG "[ERROR] NULL data - rb_insert\n");
+        return FALSE;
+    }
     new = &(root->rb_node);
 
     /* Figure out where to put new node */

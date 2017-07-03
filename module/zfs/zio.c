@@ -678,6 +678,11 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 static void
 zio_destroy(zio_t *zio)
 {
+    if (zio->io_dn != NULL) {
+        //printk(KERN_EMERG "zio_done with valid dnode %p\n", zio->io_dn);
+        if (zio->io_read_rot > 0)
+            zio->io_dn->dn_read_rot = zio->io_read_rot;
+    }
 	metaslab_trace_fini(&zio->io_alloc_list);
 	list_destroy(&zio->io_parent_list);
 	list_destroy(&zio->io_child_list);
@@ -3707,6 +3712,11 @@ zio_done(zio_t *zio)
 	int c, w;
 	zio_link_t *zl = NULL;
 
+    if (zio->io_dn != NULL) {
+        //printk(KERN_EMERG "zio_done with valid dnode %p\n", zio->io_dn);
+        if (zio->io_read_rot > 0)
+            zio->io_dn->dn_read_rot = zio->io_read_rot;
+    }
 	/*
 	 * If our children haven't all completed,
 	 * wait for them and then repeat this pipeline stage.

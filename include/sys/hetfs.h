@@ -64,7 +64,7 @@ struct data {
 struct kdata {
     struct file *filp;
     struct dentry *dentry;
-    void *dnode;
+    dnode_t *dnode;
     loff_t offset;
     long length;
     int type;

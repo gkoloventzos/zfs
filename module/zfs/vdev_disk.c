@@ -537,7 +537,8 @@ vdev_submit_bio(struct bio *bio, int rw)
     if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
         if (rw == READ) {
             zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
-            zio->io_dn->dn_read_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+            if (zio->io_dn != NULL)
+                zio->io_dn->dn_read_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
         }
 /*            printk(KERN_EMERG "[PRINT]READ is %s of %s NON ROT\n", meta, name);
 //        else
@@ -546,7 +547,8 @@ vdev_submit_bio(struct bio *bio, int rw)
     else {
         if (rw == READ) {
             zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
-            zio->io_dn->dn_read_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
+            if (zio->io_dn != NULL)
+                zio->io_dn->dn_read_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
         }
 /*            printk(KERN_EMERG "[PRINT]READ is %s of %s ROT\n", meta, name);
         else

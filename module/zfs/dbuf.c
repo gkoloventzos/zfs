@@ -1211,7 +1211,7 @@ dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags)
 		    db->db_blkptr != NULL && !BP_IS_HOLE(db->db_blkptr))
 			zio = zio_root(spa, NULL, NULL, ZIO_FLAG_CANFAIL);
 
-        if (zio->io_dn == NULL)
+        if (zio != NULL && zio->io_dn == NULL)
             zio->io_dn = dn;
 		err = dbuf_read_impl(db, zio, flags);
 
@@ -2619,7 +2619,8 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 	pio = zio_root(dmu_objset_spa(dn->dn_objset), NULL, NULL,
 	    ZIO_FLAG_CANFAIL);
 
-    pio->io_dn = dn;
+    if (pio != NULL)
+        pio->io_dn = dn;
 	dpa = kmem_zalloc(sizeof (*dpa), KM_SLEEP);
 	ds = dn->dn_objset->os_dsl_dataset;
 	SET_BOOKMARK(&dpa->dpa_zb, ds != NULL ? ds->ds_object : DMU_META_OBJSET,
