@@ -42,8 +42,8 @@
 #include <crypto/sha.h>
 #include <linux/err.h>
 #include <linux/scatterlist.h>
-#include <crypto/sha.h>
 
+//extern struct rb_root hetfs_tree;
 struct rb_root *hetfs_tree = NULL;
 EXPORT_SYMBOL(hetfs_tree);
 int only_one = 0;
@@ -1170,7 +1170,7 @@ int add_request(void *data)
     }
 
     if (hetfs_tree == NULL) {
-	    hetfs_tree = kzalloc(sizeof(struct rb_root),GFP_KERNEL);
+        hetfs_tree = kzalloc(sizeof(struct rb_root),GFP_KERNEL);
         if (hetfs_tree == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
             kzfree(kdata);
@@ -1179,6 +1179,7 @@ int add_request(void *data)
         }
         *hetfs_tree = RB_ROOT;
     }
+
     InsNode = NULL;
     output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
     if (output == NULL) {
