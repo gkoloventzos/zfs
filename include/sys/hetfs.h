@@ -71,7 +71,7 @@ struct kdata {
     unsigned long long int time;
 };
 
-struct data *rb_search(struct rb_root *, char *);
+struct data *rb_search(struct rb_root *, unsigned char *);
 int rb_insert(struct rb_root *, struct data *);
 int add_request(void *);
 #endif

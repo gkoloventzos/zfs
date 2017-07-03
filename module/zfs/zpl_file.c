@@ -1323,7 +1323,7 @@ int add_request(void *data)
     return 0;
 }
 
-struct data *rb_search(struct rb_root *root, char *string)
+struct data *rb_search(struct rb_root *root, unsigned char *string)
 {
 	struct rb_node *node;
     int result;
