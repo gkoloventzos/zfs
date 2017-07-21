@@ -74,5 +74,6 @@ struct kdata {
 struct data *rb_search(struct rb_root *, unsigned char *);
 int rb_insert(struct rb_root *, struct data *);
 int add_request(void *);
+void fullname(struct file *, char *, int *);
 #endif
 #endif

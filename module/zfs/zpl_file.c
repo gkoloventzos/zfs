@@ -50,7 +50,7 @@ int only_one = 0;
 int bla = 1;
 char *only_name = NULL;
 
-void fullname(struct dentry *dentry, char *name, int *stop)
+void fullname_dentry(struct dentry *dentry, char *name, int *stop)
 {
     zfs_sb_t *zsb = NULL;
     struct inode *ip = NULL;
@@ -69,7 +69,7 @@ void fullname(struct dentry *dentry, char *name, int *stop)
             return;
         }
         (*stop)++;
-        fullname(dentry->d_parent, name, stop);
+        fullname_dentry(dentry->d_parent, name, stop);
     }
     strncat(name, dentry->d_name.name, strlen(dentry->d_name.name));
     if ((void *)dentry != (void *)dentry->d_parent && \
@@ -77,6 +77,37 @@ void fullname(struct dentry *dentry, char *name, int *stop)
         !list_empty(&dentry->d_subdirs)) {
         strncat(name,"/",1);
     }
+}
+
+void fullname(struct file *filp, char *name, int *stop)
+{
+/*    zfs_sb_t *zsb = NULL;
+    struct inode *ip = NULL;
+
+    ip = d_inode(dentry);
+    zsb = ITOZSB(ip);
+
+    if (zsb->z_mntopts->z_mntpoint != NULL)
+        strncat(name, zsb->z_mntopts->z_mntpoint,
+                strlen(zsb->z_mntopts->z_mntpoint));
+    if (dentry == dentry->d_parent)
+        *stop =-1;
+    while((void *)dentry != (void *)dentry->d_parent && *stop >= 0) {
+        if (*stop < 0 || *stop > 10) {
+            *stop =-1;
+            return;
+        }
+        (*stop)++;
+        fullname_dentry(dentry->d_parent, name, stop);
+    }
+    strncat(name, dentry->d_name.name, strlen(dentry->d_name.name));
+    if ((void *)dentry != (void *)dentry->d_parent && \
+        !list_empty(&dentry->d_child) && \
+        !list_empty(&dentry->d_subdirs)) {
+        strncat(name,"/",1);
+    }*/
+    struct dentry *dentry = file_dentry(filp);
+    fullname_dentry(dentry->d_parent, name, stop);
 }
 
 static int
@@ -468,7 +499,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
         return 1;
     }
-    fullname(file_dentry(filp), filename, &stop);
+    fullname(filp, filename, &stop);
     name = file_dentry(filp)->d_name.name;
     DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
@@ -509,6 +540,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             printk(KERN_EMERG "[ERROR] Kdata null write\n");
     }
 
+    kzfree(filename);
 	return (wrote);
 }
 
@@ -1162,7 +1194,7 @@ int add_request(void *data)
         return 1;
     }
 	//dentry_path_raw(dentry, name, PATH_MAX+NAME_MAX);
-	fullname(dentry, name, &stop);
+	fullname_dentry(dentry, name, &stop);
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR]name and mountpoint NULL\n");
         kzfree(kdata);
