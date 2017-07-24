@@ -81,33 +81,7 @@ void fullname_dentry(struct dentry *dentry, char *name, int *stop)
 
 void fullname(struct file *filp, char *name, int *stop)
 {
-/*    zfs_sb_t *zsb = NULL;
-    struct inode *ip = NULL;
-
-    ip = d_inode(dentry);
-    zsb = ITOZSB(ip);
-
-    if (zsb->z_mntopts->z_mntpoint != NULL)
-        strncat(name, zsb->z_mntopts->z_mntpoint,
-                strlen(zsb->z_mntopts->z_mntpoint));
-    if (dentry == dentry->d_parent)
-        *stop =-1;
-    while((void *)dentry != (void *)dentry->d_parent && *stop >= 0) {
-        if (*stop < 0 || *stop > 10) {
-            *stop =-1;
-            return;
-        }
-        (*stop)++;
-        fullname_dentry(dentry->d_parent, name, stop);
-    }
-    strncat(name, dentry->d_name.name, strlen(dentry->d_name.name));
-    if ((void *)dentry != (void *)dentry->d_parent && \
-        !list_empty(&dentry->d_child) && \
-        !list_empty(&dentry->d_subdirs)) {
-        strncat(name,"/",1);
-    }*/
-    struct dentry *dentry = file_dentry(filp);
-    fullname_dentry(dentry->d_parent, name, stop);
+    fullname_dentry(file_dentry(filp), name, stop);
 }
 
 static int
