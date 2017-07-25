@@ -3777,9 +3777,11 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	ASSERT3U(db->db_blkptr->blk_birth, <=, txg);
 	ASSERT(zio);
     if (zio->filp == NULL)
-        zio->filp = dn->filp;
-    if (zio->rot != dn->rot)
-        zio->rot = dn->rot;
+        zio->filp = dn->name;
+    if (zio->rot != dn->dn_write_rot) {
+        zio->rot = dn->dn_write_rot;
+        zio->io_dn = dn;
+    }
 
 	SET_BOOKMARK(&zb, os->os_dsl_dataset ?
 	    os->os_dsl_dataset->ds_object : DMU_META_OBJSET,

@@ -431,8 +431,8 @@ dnode_create(objset_t *os, dnode_phys_t *dnp, dmu_buf_impl_t *db,
 	dn->dn_have_spill = ((dnp->dn_flags & DNODE_FLAG_SPILL_BLKPTR) != 0);
 	dn->dn_id_flags = 0;
 
-    dn->rot = -2;
-    dn->filp = NULL;
+    dn->dn_write_rot = -2;
+    dn->name = NULL;
 
 	dmu_zfetch_init(&dn->dn_zfetch, dn);
 

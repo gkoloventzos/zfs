@@ -459,18 +459,18 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         }
     }*/
     //printk(KERN_EMERG "[ERROR]Write name %s\n", filp2name(filp));
-    if (dn->filp == NULL) {
-        dn->filp = name;
+    if (dn->name == NULL) {
+        dn->name = name;
         //dn->filp = filp;
     }
-    if (dn->rot == -2) {
+    if (dn->dn_write_rot == -2) {
         for (stop = 0; stop <= 195; stop++) {
             if (strstr(filename, boot_files[stop]) != NULL) {
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
                 break;
             }
         }
-        dn->rot = rot;
+        dn->dn_write_rot = rot;
     }
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 

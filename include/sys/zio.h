@@ -454,6 +454,7 @@ struct zio {
 	taskq_ent_t	io_tqent;
 
     int rot;
+    dnode_t *io_dn;
     const char *filp;
     //struct file *filp;
 };
