@@ -351,12 +351,12 @@ EXPORT_SYMBOL(zfs_media_range_compare);
 
 void print_media_list(dnode_t *dn)
 {
-    medium_t *loop;
+    /*medium_t *loop;
     printk(KERN_EMERG "Name: %s\n", dn->filp);
     for (loop = list_head(&dn->media); loop != NULL; loop = list_next(&dn->media, loop)) {
         printk(KERN_EMERG "st: %lld en: %lld ty: %d ->", loop->m_start, loop->m_end, loop->m_type);
     }
-    printk(KERN_EMERG "NULL\n");
+    printk(KERN_EMERG "NULL\n");*/
 }
 
 medium_t *

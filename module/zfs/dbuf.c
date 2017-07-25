@@ -3786,8 +3786,10 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	ASSERT(zio);
     if (zio->filp == NULL)
         zio->filp = dn->filp;
-    if (zio->io_type == ZIO_TYPE_WRITE && dn->dn_write_rot > -1)
-        zio->io_write_rot = dn->dn_write_rot;
+/*    if (zio->io_type == ZIO_TYPE_WRITE && dn->dn_write_rot > -1)
+        zio->io_write_rot = dn->dn_write_rot;*/
+    if (zio->io_dn == NULL)
+        zio->io_dn = dn;
 
 /*    if (zio->rot != dn->dn_rot)
         zio->rot = dn->dn_rot;*/
