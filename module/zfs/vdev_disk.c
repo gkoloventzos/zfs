@@ -34,6 +34,8 @@
 #include <sys/fs/zfs.h>
 #include <sys/zio.h>
 #include <sys/sunldi.h>
+#include <sys/dnode.h>
+#include <sys/hetfs.h>
 
 char *zfs_vdev_scheduler = VDEV_SCHEDULER;
 static void *zfs_vdev_holder = VDEV_HOLDER;
@@ -502,9 +504,9 @@ vdev_submit_bio_impl(struct bio *bio)
 static inline void
 vdev_submit_bio(struct bio *bio, int rw)
 {
-/*    dio_request_t *dr = NULL;
+    dio_request_t *dr = NULL;
     zio_t *zio = NULL;
-    const char *name = NULL;
+/*    const char *name = NULL;
     char *meta = NULL;
     blkptr_t * bp = NULL;*/
 #ifdef HAVE_CURRENT_BIO_TAIL
@@ -515,34 +517,25 @@ vdev_submit_bio(struct bio *bio, int rw)
 #else
 	struct bio_list *bio_list = current->bio_list;
 	current->bio_list = NULL;
-/*    if (rw == -1) {
+    if (rw == -1) {
         zio = (zio_t *)bio->bi_private;
-        if (zio != NULL && zio->filp != NULL)
-            name = zio->filp;
     }
     else {
         dr = (dio_request_t *)bio->bi_private;
-        if (dr->dr_zio != NULL && dr->dr_zio->filp != NULL) {
-            name = dr->dr_zio->filp;
-            bp = dr->dr_zio->io_bp;
-            if (bp != NULL && (DMU_OT_IS_METADATA(BP_GET_TYPE(bp)) || BP_GET_LEVEL(bp) > 0))
-                meta = "metadata";
-            else
-                meta = "data";
-        }
+        zio = dr->dr_zio;
     }
     if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
-        if (rw == READ)
-            printk(KERN_EMERG "[PRINT]READ is %s of %s NON ROT\n", meta, name);
-        else
-            printk(KERN_EMERG "[PRINT]WRITE is %s of %s NON ROT\n", meta, name);
+        if (rw == READ) {
+            if (zio != NULL && zio->io_dn != NULL)
+                zio->io_dn->dn_read_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+        }
     }
     else {
-        if (rw == READ)
-            printk(KERN_EMERG "[PRINT]READ is %s of %s ROT\n", meta, name);
-        else
-            printk(KERN_EMERG "[PRINT]WRITE is %s of %s ROT\n", meta, name);
-    }*/
+        if (rw == READ) {
+            if (zio != NULL && zio->io_dn != NULL)
+                zio->io_dn->dn_read_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
+        }
+    }
 	vdev_submit_bio_impl(bio);
 	current->bio_list = bio_list;
 #endif

@@ -289,9 +289,10 @@ struct dnode {
 	/* holds prefetch structure */
 	struct zfetch	dn_zfetch;
 
-    uint8_t dn_write_rot;
+    int8_t dn_write_rot;
+    int8_t dn_read_rot;
     const char *name;
-    //struct file *filp;
+    struct file *filp;
 };
 
 /*

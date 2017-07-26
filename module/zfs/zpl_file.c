@@ -459,10 +459,9 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         }
     }*/
     //printk(KERN_EMERG "[ERROR]Write name %s\n", filp2name(filp));
-    if (dn->name == NULL) {
-        dn->name = name;
-        //dn->filp = filp;
-    }
+    if (dn->filp == NULL)
+        dn->filp = filp;
+
     if (dn->dn_write_rot == -2) {
         for (stop = 0; stop <= 195; stop++) {
             if (strstr(filename, boot_files[stop]) != NULL) {

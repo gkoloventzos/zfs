@@ -3880,10 +3880,10 @@ has_vdev:
         //if (zio->filp != NULL)
             //printk(KERN_EMERG "[SSD_FILE]file %s\n", zio->filp->f_path.dentry->d_name.name);
         if (zio->rot > -1) {
-            if (zio->filp != NULL)
+            /*if (zio->filp != NULL)
                 printk(KERN_EMERG "[DATA] File: %s\n", zio->filp);
             else
-                printk(KERN_EMERG "[DATA] File name is NULL\n");
+                printk(KERN_EMERG "[DATA] File name is NULL\n");*/
             rot = get_metaslab_class(mc, zio->rot);
         }
     }
