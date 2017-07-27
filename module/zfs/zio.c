@@ -461,11 +461,13 @@ zio_add_child(zio_t *pio, zio_t *cio)
 	cio->io_parent_count++;
     if (pio->filp != NULL) {
         cio->rot = pio->rot;
+        cio->io_dn = pio->io_dn;
         cio->filp = pio->filp;
     }
     else {
         pio->rot = cio->rot;
         pio->filp = cio->filp;
+        pio->io_dn = cio->io_dn;
     }
 
 	mutex_exit(&pio->io_lock);
@@ -649,6 +651,11 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 
     zio->rot = -2;
     zio->filp = NULL;
+    zio->io_dn = NULL;
+/*    if (pio == NULL && private != NULL && !(flags & ZIO_FLAG_CONFIG_WRITER)) {
+        zio->io_dn = (dnode_t *)private;
+        printk(KERN_EMERG "dn->dn_write_rot %d\n", zio->io_dn->dn_write_rot);
+    }*/
 
 	if (zb != NULL)
 		zio->io_bookmark = *zb;
@@ -661,6 +668,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 
         zio->rot = pio->rot;
         zio->filp = pio->filp;
+        zio->io_dn = pio->io_dn;
 
 		zio_add_child(pio, zio);
 	}

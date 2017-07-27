@@ -3778,10 +3778,10 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	ASSERT(zio);
     if (zio->filp == NULL)
         zio->filp = dn->name;
-    if (zio->rot != dn->dn_write_rot)
-        zio->rot = dn->dn_write_rot;
-    if (zio->io_dn == NULL)
+    if (zio->rot != dn->dn_write_rot) {
         zio->io_dn = dn;
+        zio->rot = dn->dn_write_rot;
+    }
 
 	SET_BOOKMARK(&zb, os->os_dsl_dataset ?
 	    os->os_dsl_dataset->ds_object : DMU_META_OBJSET,

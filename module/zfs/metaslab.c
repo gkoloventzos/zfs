@@ -3830,7 +3830,7 @@ int get_metaslab_class(metaslab_class_t *mc, int rot)
 
     for(i = 0; i < METASLAB_CLASS_ROTORS; i++) {
         if (mc->mc_rotvec_categories[i] == rot) {
-            printk(KERN_EMERG "[DATA] rot: %d return %d\n", rot, i);
+//            printk(KERN_EMERG "[DATA] rot: %d return %d\n", rot, i);
             return (i);
         }
     }
@@ -3879,13 +3879,11 @@ has_vdev:
     if (zio != NULL) {
         //if (zio->filp != NULL)
             //printk(KERN_EMERG "[SSD_FILE]file %s\n", zio->filp->f_path.dentry->d_name.name);
-        if (zio->rot > -1) {
-            /*if (zio->filp != NULL)
-                printk(KERN_EMERG "[DATA] File: %s\n", zio->filp);
-            else
-                printk(KERN_EMERG "[DATA] File name is NULL\n");*/
-            rot = get_metaslab_class(mc, zio->rot);
+        if (zio->io_dn != NULL && zio->io_dn->dn_write_rot > -1) {
+            rot = get_metaslab_class(mc, zio->io_dn->dn_write_rot);
         }
+        /*if (zio->io_dn != NULL)
+            printk(KERN_EMERG "[DATA] rot: %d zio->rot %d zio->io_dn->dn_write_rot %d\n", rot, zio->rot, zio->io_dn->dn_write_rot);*/
     }
 
 	for (d = 0; d < ndvas; d++) {
