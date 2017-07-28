@@ -307,8 +307,8 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 
     struct task_struct *thread1;
     struct timespec arrival_time;
-    znode_t     *zp = ITOZ(filp->f_mapping->host);
     struct kdata *kdata = NULL;
+    znode_t     *zp = ITOZ(filp->f_mapping->host);
 
     ktime_get_ts(&arrival_time);
 	crhold(cr);
