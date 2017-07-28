@@ -6,6 +6,7 @@
 #include <linux/list.h>
 #include <linux/types.h>
 #include <linux/rwsem.h>
+#include <sys/dnode.h>
 #endif
 
 #define MAX_DIFF 200000000
@@ -50,6 +51,7 @@ struct data {
     int read_seq;
     int write_seq;
     int to_rot;
+    dnode_t *d_dn;
     unsigned long long int deleted;
     struct list_head *read_reqs;
     struct list_head *write_reqs;
@@ -61,6 +63,7 @@ struct data {
 
 struct kdata {
     struct dentry *dentry;
+    dnode_t *dn;
     loff_t offset;
     long length;
     int type;

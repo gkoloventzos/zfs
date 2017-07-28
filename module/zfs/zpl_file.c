@@ -307,6 +307,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 
     struct task_struct *thread1;
     struct timespec arrival_time;
+    znode_t     *zp = ITOZ(filp->f_mapping->host);
     struct kdata *kdata = NULL;
 
     ktime_get_ts(&arrival_time);
@@ -322,6 +323,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
             kdata->type = UIO_READ;
             kdata->offset = *ppos;
             kdata->length = read;
+            kdata->dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
             kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"readreq");
         }
@@ -484,6 +486,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             kdata->type = UIO_WRITE;
             kdata->offset = *ppos;
             kdata->length = wrote;
+            kdata->dn = dn;
             kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"writereq");
         }
@@ -1189,6 +1192,7 @@ int add_request(void *data)
         init_rwsem(&(InsNode->read_sem));
         init_rwsem(&(InsNode->write_sem));
         InsNode->size = i_size_read(d_inode(InsNode->dentry));
+        InsNode->d_dn = kdata->dn;
         if (!rb_insert(hetfs_tree, InsNode)) {
             printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
             //printk(KERN_EMERG "[HETFS] file: %s with ", InsNode->file);
