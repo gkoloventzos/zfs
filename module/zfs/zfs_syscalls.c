@@ -135,7 +135,6 @@ struct list_head *zip_list(struct list_head *general)
         if (!found) {
             __list_del_entry(pos);
             list_add_tail(pos,new);
-//            list_move_tail(pos,new);
         }
     }
     list_for_each_safe(pos, n, general) {
