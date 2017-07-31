@@ -326,9 +326,9 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 
     DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-    if (dn->filp == NULL) {
+/*    if (dn->filp == NULL) {
         dn->filp = file_dentry(filp)->d_name.name;
-    }
+    }*/
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
     if (read > 0) {
@@ -1146,13 +1146,13 @@ int add_request(void *data)
 /*    if (only_one && strstr(dentry->d_name.name, only_name) != NULL)
         printk(KERN_EMERG "[ONLY in READ] start: %lld end: %lld len:%ld time: %lld\n", offset, offset+len, len, time);
         */
-    if (dentry == NULL || filp == NULL || dn == NULL) {
-        printk(KERN_EMERG "[ERROR] either dentry %p, filp %p or dnode %p is NULL\n", dentry, filp, dn);
+    if (dentry == NULL) {
+        printk(KERN_EMERG "[ERROR] either dentry %p is NULL\n", dentry);
         return 1;
     }
 
     if (d_really_is_negative(dentry)) {
-        printk(KERN_EMERG "[ERROR] dentry is negative offset %lld len %ld name %s\n", offset, len, dn->filp);
+        printk(KERN_EMERG "[ERROR] dentry is negative offset %lld len %ld\n", offset, len);
         return 1;
     }
 
@@ -1269,12 +1269,12 @@ int add_request(void *data)
     }
 
     down_write(sem);
-    if (dn == NULL)
+/*    if (dn == NULL)
         printk(KERN_EMERG "[ERROR] dnode NULL\n");
     if (dn->filp != NULL && strstr(dn->filp, "log") == NULL) {
         //printk(KERN_EMERG "[zfs_media]name : %s\n", dn->filp);
         zfs_media_add(dn, offset, len, dn->dn_rot);
-    }
+    }*/
     if (only_name != NULL && bla)
         printk(KERN_EMERG "[ONLY]Name : %s\n", only_name); bla=0;
 
@@ -1290,7 +1290,6 @@ int add_request(void *data)
                 kzfree(kdata);
                 if (only_one && strstr(name, only_name) != NULL) {
                     print_lists(InsNode);
-                    print_media_list(dn);
                 }
                 up_write(sem);
                 kzfree(name);
@@ -1315,7 +1314,6 @@ int add_request(void *data)
     list_add_tail(&a_r->list, general);
     if (only_one && strstr(name, only_name) != NULL) {
         print_lists(InsNode);
-        print_media_list(dn);
     }
     up_write(sem);
 

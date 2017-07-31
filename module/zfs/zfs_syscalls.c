@@ -21,7 +21,7 @@ extern struct rb_root *hetfs_tree;
 extern int media_tree;
 extern int only_one;
 extern int bla;
-extern int media_list;
+//extern int media_list;
 extern char *only_name;
 char *number;
 char *procfs_buffer = NULL;
@@ -34,7 +34,8 @@ const char delimiters[] = " \n";
 
 void print_media_tree(int flag) {
 //    media_tree = flag;
-    media_list = flag;
+    //media_list = flag;
+    return;
 }
 
 void print_only_one(int flag) {
@@ -143,10 +144,10 @@ static void change_medium(void)
         kzfree(output);
         return;
     }
-    if (tree_entry->dnode->dn_write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
-        tree_entry->dnode->dn_write_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+    if (tree_entry->d_dn->dn_write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
+        tree_entry->d_dn->dn_write_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
     else
-        tree_entry->dnode->dn_write_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
+        tree_entry->d_dn->dn_write_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
 
     kzfree(output);
     return;
@@ -181,17 +182,17 @@ static void print_media(void)
         return;
     }
 
-    if (tree_entry->dnode->dn_write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
+    if (tree_entry->d_dn->dn_write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
         printk(KERN_EMERG "[PRINT] File %s dn_write_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
-    else if (tree_entry->dnode->dn_write_rot < 0 )
-        printk(KERN_EMERG "[PRINT] File %s dn_write_rot %d\n", only_name, tree_entry->dnode->dn_write_rot);
+    else if (tree_entry->d_dn->dn_write_rot < 0 )
+        printk(KERN_EMERG "[PRINT] File %s dn_write_rot %d\n", only_name, tree_entry->d_dn->dn_write_rot);
     else
         printk(KERN_EMERG "[PRINT] File %s dn_write_rot METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name);
 
-    if (tree_entry->dnode->dn_read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
+    if (tree_entry->d_dn->dn_read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
         printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
-    else if (tree_entry->dnode->dn_write_rot < 0 )
-        printk(KERN_EMERG "[PRINT] File %s dn_read_rot %d\n", only_name, tree_entry->dnode->dn_read_rot);
+    else if (tree_entry->d_dn->dn_write_rot < 0 )
+        printk(KERN_EMERG "[PRINT] File %s dn_read_rot %d\n", only_name, tree_entry->d_dn->dn_read_rot);
     else
         printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name);
 
