@@ -146,8 +146,10 @@ static void change_medium(void)
     }
     if (tree_entry->d_dn->dn_write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
         tree_entry->d_dn->dn_write_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
-    else
+    else if (tree_entry->d_dn->dn_write_rot == METASLAB_ROTOR_VDEV_TYPE_SSD)
         tree_entry->d_dn->dn_write_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
+    else
+        printk(KERN_EMERG "[ERROR] Not changed d_dn->dn_write_rot %d\n", tree_entry->d_dn->dn_write_rot);
 
     kzfree(output);
     return;
