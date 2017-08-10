@@ -11,6 +11,8 @@
 
 #define MAX_DIFF 200000000
 #define MAX_NAME 255
+#define HET_READ 0
+#define HET_WRITE 1
 
 /*
  * Five categories, from faster to slower:

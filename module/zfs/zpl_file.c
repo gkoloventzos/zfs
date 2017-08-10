@@ -333,7 +333,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->dentry = file_dentry(filp);
-            kdata->type = UIO_READ;
+            kdata->type = HET_READ;
             kdata->offset = start_ppos;
             kdata->length = read;
             kdata->rot = *rot;
@@ -498,7 +498,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->dentry = file_dentry(filp);
-            kdata->type = UIO_WRITE;
+            kdata->type = HET_WRITE;
             kdata->offset = *ppos;
             kdata->length = wrote;
             kdata->rot = rot;
@@ -1249,7 +1249,7 @@ int add_request(void *data)
     up_write(&tree_sem);
 
     kzfree(output);
-    if (type == UIO_READ) {
+    if (type == HET_READ) {
         general = InsNode->read_reqs;
         sem = &(InsNode->read_sem);
         InsNode->read_rot = kdata->rot;
