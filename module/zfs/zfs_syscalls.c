@@ -144,12 +144,16 @@ static void change_medium(void)
         kzfree(output);
         return;
     }
-    if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
+
+    if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD) {
         tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
-    else if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_SSD)
+    }
+    else if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_SSD) {
         tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
-    else
+    }
+    else {
         printk(KERN_EMERG "[ERROR] Not changed write_rot %d\n", tree_entry->write_rot);
+    }
 
     kzfree(output);
     return;
@@ -179,24 +183,26 @@ static void print_media(void)
     crypto_free_hash(tfm);
     tree_entry = rb_search(hetfs_tree, output);
     if (tree_entry == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        printk(KERN_EMERG "[ERROR] No node in tree\n");
         kzfree(output);
         return;
     }
 
     if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
         printk(KERN_EMERG "[PRINT] File %s dn_write_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
-    else if (tree_entry->write_rot < 0 )
-        printk(KERN_EMERG "[PRINT] File %s dn_write_rot %d\n", only_name, tree_entry->write_rot);
-    else
+    else if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_SSD)
         printk(KERN_EMERG "[PRINT] File %s dn_write_rot METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name);
+    else if (tree_entry->write_rot == -1)
+        printk(KERN_EMERG "[PRINT] File %s dn_write_rot METASLAB_ROTOR_VDEV_TYPE_HDD with -1\n", only_name);
+    else
+        printk(KERN_EMERG "[PRINT] File %s dn_write_rot %d\n", only_name, tree_entry->write_rot);
 
     if (tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
         printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
-    else if (tree_entry->read_rot < 0 )
-        printk(KERN_EMERG "[PRINT] File %s dn_read_rot %d\n", only_name, tree_entry->read_rot);
-    else
+    else if (tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_SSD)
         printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name);
+    else
+        printk(KERN_EMERG "[PRINT] File %s dn_read_rot %d\n", only_name, tree_entry->read_rot);
 
 
     kzfree(output);
