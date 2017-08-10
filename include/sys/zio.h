@@ -446,7 +446,7 @@ struct zio {
 	kmutex_t	io_lock;
 	kcondvar_t	io_cv;
 //#ifdef CONFIG_HTEFS
-    int     *rot;
+    int8_t     *rot;
 //#endif
 
 	/* FMA state */

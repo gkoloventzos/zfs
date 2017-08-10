@@ -437,7 +437,7 @@ dmu_spill_hold_by_bonus(dmu_buf_t *bonus, void *tag, dmu_buf_t **dbp)
 static int
 dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
     boolean_t read, void *tag, int *numbufsp, dmu_buf_t ***dbpp, uint32_t flags,
-    int *rot)
+    int8_t *rot)
 {
 	dmu_buf_t **dbp;
 	uint64_t blkid, nblks, i;
@@ -1159,7 +1159,7 @@ xuio_stat_wbuf_nocopy(void)
 
 #ifdef _KERNEL
 static int
-dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, int *rot)
+dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, int8_t *rot)
 {
 	dmu_buf_t **dbp;
 	int numbufs, i, err;
@@ -1225,7 +1225,7 @@ dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, int *rot)
  * because we don't have to find the dnode_t for the object.
  */
 int
-dmu_read_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size, int *rot)
+dmu_read_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size, int8_t *rot)
 {
 	dmu_buf_impl_t *db = (dmu_buf_impl_t *)zdb;
 	dnode_t *dn;

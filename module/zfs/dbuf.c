@@ -72,7 +72,7 @@ static void __dbuf_hold_impl_init(struct dbuf_hold_impl_data *dh,
     dnode_t *dn, uint8_t level, uint64_t blkid, boolean_t fail_sparse,
 	boolean_t fail_uncached,
 	void *tag, dmu_buf_impl_t **dbp, int depth);
-static int __dbuf_hold_impl(struct dbuf_hold_impl_data *dh, int *rot);
+static int __dbuf_hold_impl(struct dbuf_hold_impl_data *dh, int8_t *rot);
 
 uint_t zfs_dbuf_evict_key;
 /*
@@ -1160,7 +1160,7 @@ dbuf_fix_old_data(dmu_buf_impl_t *db, uint64_t txg)
 }
 
 int
-dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags, int *rot)
+dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags, int8_t *rot)
 {
 	int err = 0;
 	boolean_t havepzio = (zio != NULL);
@@ -2247,7 +2247,7 @@ __attribute__((always_inline))
 static inline int
 dbuf_findbp(dnode_t *dn, int level, uint64_t blkid, int fail_sparse,
     dmu_buf_impl_t **parentp, blkptr_t **bpp, struct dbuf_hold_impl_data *dh,
-    int *rot)
+    int8_t *rot)
 {
 	int nlevels, epbs;
 
@@ -2540,7 +2540,7 @@ dbuf_prefetch_indirect_done(zio_t *zio, arc_buf_t *abuf, void *private)
  */
 void
 dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
-    arc_flags_t aflags, int *rot)
+    arc_flags_t aflags, int8_t *rot)
 {
 	blkptr_t bp;
 	int epbs, nlevels, curlevel;
@@ -2668,7 +2668,7 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
  * Note: dn_struct_rwlock must be held.
  */
 static int
-__dbuf_hold_impl(struct dbuf_hold_impl_data *dh, int *rot)
+__dbuf_hold_impl(struct dbuf_hold_impl_data *dh, int8_t *rot)
 {
 	ASSERT3S(dh->dh_depth, <, DBUF_HOLD_IMPL_MAX_DEPTH);
 	dh->dh_parent = NULL;
@@ -2771,7 +2771,7 @@ __dbuf_hold_impl(struct dbuf_hold_impl_data *dh, int *rot)
 int
 dbuf_hold_impl(dnode_t *dn, uint8_t level, uint64_t blkid,
     boolean_t fail_sparse, boolean_t fail_uncached,
-    void *tag, dmu_buf_impl_t **dbp, int *rot)
+    void *tag, dmu_buf_impl_t **dbp, int8_t *rot)
 {
 	struct dbuf_hold_impl_data *dh;
 	int error;
@@ -2816,13 +2816,13 @@ __dbuf_hold_impl_init(struct dbuf_hold_impl_data *dh,
 }
 
 dmu_buf_impl_t *
-dbuf_hold(dnode_t *dn, uint64_t blkid, void *tag, int *rot)
+dbuf_hold(dnode_t *dn, uint64_t blkid, void *tag, int8_t *rot)
 {
 	return (dbuf_hold_level(dn, 0, blkid, tag, rot));
 }
 
 dmu_buf_impl_t *
-dbuf_hold_level(dnode_t *dn, int level, uint64_t blkid, void *tag, int *rot)
+dbuf_hold_level(dnode_t *dn, int level, uint64_t blkid, void *tag, int8_t *rot)
 {
 	dmu_buf_impl_t *db;
     int err;

@@ -261,7 +261,7 @@ zpl_aio_fsync(struct kiocb *kiocb, int datasync)
 static ssize_t
 zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
     unsigned long nr_segs, loff_t *ppos, uio_seg_t segment, int flags,
-    cred_t *cr, size_t skip, int *rot)
+    cred_t *cr, size_t skip, int8_t *rot)
 {
 	ssize_t read;
 	uio_t uio;
@@ -291,7 +291,7 @@ zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 
 inline ssize_t
 zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
-    uio_seg_t segment, int flags, cred_t *cr, int *rot)
+    uio_seg_t segment, int flags, cred_t *cr, int8_t *rot)
 {
 	struct iovec iov;
 
@@ -450,7 +450,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     struct task_struct *thread1;
     struct kdata *kdata;
     struct timespec arrival_time;
-    int rot = -1;
+    int8_t rot = -1;
     int stop = 0;
     znode_t     *zp = ITOZ(filp->f_mapping->host);
 

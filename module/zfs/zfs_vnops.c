@@ -373,7 +373,7 @@ update_pages(struct inode *ip, int64_t start, int len,
  *	 the file is memory mapped.
  */
 static int
-mappedread(struct inode *ip, int nbytes, uio_t *uio, int *rot)
+mappedread(struct inode *ip, int nbytes, uio_t *uio, int8_t *rot)
 {
 	struct address_space *mp = ip->i_mapping;
 	struct page *pp;
@@ -439,7 +439,7 @@ unsigned long zfs_delete_blocks = DMU_MAX_DELETEBLKCNT;
  */
 /* ARGSUSED */
 int
-zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr, int *rot)
+zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr, int8_t *rot)
 {
 	znode_t		*zp = ITOZ(ip);
 	zfs_sb_t	*zsb = ITOZSB(ip);

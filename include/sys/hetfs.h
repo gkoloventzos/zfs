@@ -64,7 +64,7 @@ struct data {
 
 struct kdata {
     struct dentry *dentry;
-    int rot;
+    int8_t rot;
     loff_t offset;
     long length;
     int type;
