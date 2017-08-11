@@ -3782,14 +3782,16 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	ASSERT(db->db_level == 0 || data == db->db_buf);
 	ASSERT3U(db->db_blkptr->blk_birth, <=, txg);
 	ASSERT(zio);
-    if (zio->filp == NULL)
-        zio->filp = dn->name;
-    if (zio->io_type == ZIO_TYPE_WRITE) {
+    zio->io_dn = dn;
+    if (zio->rot == NULL) {
         zio->rot = kzalloc(sizeof(int), GFP_KERNEL);
         if (zio->rot == NULL)
             printk(KERN_EMERG "[ZIO_ROT]No rot alloc\n");
-        *zio->rot = dn->dn_write_rot;
+        *zio->rot = -2;
     }
+
+    if (*zio->rot != dn->dn_write_rot)
+        *zio->rot = dn->dn_write_rot;
 
 	SET_BOOKMARK(&zb, os->os_dsl_dataset ?
 	    os->os_dsl_dataset->ds_object : DMU_META_OBJSET,

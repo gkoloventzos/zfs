@@ -312,7 +312,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     struct timespec arrival_time;
     struct kdata *kdata = NULL;
     loff_t start_ppos = *ppos;
-    int *rot;
+    int8_t *rot;
 
     ktime_get_ts(&arrival_time);
     rot = kzalloc(sizeof(int), GFP_KERNEL);

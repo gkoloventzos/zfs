@@ -459,13 +459,17 @@ zio_add_child(zio_t *pio, zio_t *cio)
 
 	pio->io_child_count++;
 	cio->io_parent_count++;
-    if (pio->filp != NULL) {
-        cio->rot = pio->rot;
+    if (pio->rot != NULL) {
+        if (*pio->rot > -1)
+            cio->rot = pio->rot;
         cio->filp = pio->filp;
+        cio->io_dn = pio->io_dn;
     }
     else {
-        pio->rot = cio->rot;
+        if (cio->rot != NULL && *cio->rot > -1)
+            pio->rot = cio->rot;
         pio->filp = cio->filp;
+        pio->io_dn = cio->io_dn;
     }
 
 	mutex_exit(&pio->io_lock);
@@ -646,6 +650,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 	zio->io_pipeline_trace = ZIO_STAGE_OPEN;
 //#ifdef CONFIG_HETFS
     zio->rot = NULL;
+    zio->io_dn = NULL;
 //#endif
 
 	zio->io_state[ZIO_WAIT_READY] = (stage >= ZIO_STAGE_READY);
@@ -668,6 +673,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 
         zio->rot = pio->rot;
         zio->filp = pio->filp;
+        zio->io_dn = pio->io_dn;
 
 		zio_add_child(pio, zio);
 	}

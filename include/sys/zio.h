@@ -456,6 +456,7 @@ struct zio {
 	/* Taskq dispatching state */
 	taskq_ent_t	io_tqent;
 
+    dnode_t *io_dn;
     const char *filp;
     //struct file *filp;
 };

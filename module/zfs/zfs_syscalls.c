@@ -154,7 +154,6 @@ static void change_medium(void)
     else {
         printk(KERN_EMERG "[ERROR] Not changed write_rot %d\n", tree_entry->write_rot);
     }
-
     kzfree(output);
     return;
 }
