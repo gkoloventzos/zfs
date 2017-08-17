@@ -480,6 +480,13 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         dn->filp = filp;
 
     if (dn->dn_write_rot == -2) {
+       if (strstr(filename, "sample_ssd") != NULL) {
+           rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+           dn->dn_write_rot = rot;
+       }
+    }
+
+    if (dn->dn_write_rot == -2) {
         for (stop = 0; stop <= 195; stop++) {
             if (strstr(filename, boot_files[stop]) != NULL) {
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
@@ -488,6 +495,11 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         }
         dn->dn_write_rot = rot;
     }
+
+/*    if (dn->dn_write_rot == -1) {
+        rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
+        dn->dn_write_rot = rot;
+    }*/
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
@@ -501,7 +513,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             kdata->type = HET_WRITE;
             kdata->offset = *ppos;
             kdata->length = wrote;
-            kdata->rot = rot;
+            kdata->rot = dn->dn_write_rot;
             kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"writereq");
         }

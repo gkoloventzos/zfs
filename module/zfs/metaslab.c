@@ -3848,7 +3848,7 @@ metaslab_alloc(spa_t *spa, metaslab_class_t *mc, uint64_t psize, blkptr_t *bp,
 	int i;
 	int alloc_class;
     int rot = -1;
-    int check_rot = 0;
+//    int check_rot = 0;
 
 	ASSERT(bp->blk_birth == 0);
 	ASSERT(BP_PHYSICAL_BIRTH(bp) == 0);

@@ -221,7 +221,7 @@ struct metaslab_class {
 	/* Should be a dynamic list. */
 	uint64_t		mc_rotvec_vdev_guids[METASLAB_CLASS_ROTORS][5];
 	/* vdev types to place in rotor vector category, if no guid match. */
-	int			mc_rotvec_categories[METASLAB_CLASS_ROTORS];
+	int8_t			mc_rotvec_categories[METASLAB_CLASS_ROTORS];
 };
 
 /*

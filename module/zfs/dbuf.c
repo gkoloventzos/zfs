@@ -31,6 +31,7 @@
 #include <sys/dmu.h>
 #include <sys/dmu_send.h>
 #include <sys/dmu_impl.h>
+#include <sys/metaslab_impl.h>
 #include <sys/dbuf.h>
 #include <sys/dmu_objset.h>
 #include <sys/dsl_dataset.h>
@@ -1213,6 +1214,8 @@ dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags, int8_t *rot)
 			zio = zio_root(spa, NULL, NULL, ZIO_FLAG_CANFAIL);
             zio->rot = rot;
         }
+        if (zio != NULL && zio->rot == NULL)
+            zio->rot = rot;
 
 		err = dbuf_read_impl(db, zio, flags);
 
@@ -3732,7 +3735,9 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	zbookmark_phys_t zb;
 	zio_prop_t zp;
 	zio_t *zio;
+    int alloc_class, nrot;
 	int wp_flag = 0;
+    metaslab_class_t *mc;
 
 	ASSERT(dmu_tx_is_syncing(tx));
 
@@ -3784,14 +3789,35 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	ASSERT(zio);
     zio->io_dn = dn;
     if (zio->rot == NULL) {
+#if defined(_KERNEL)
         zio->rot = kzalloc(sizeof(int), GFP_KERNEL);
         if (zio->rot == NULL)
             printk(KERN_EMERG "[ZIO_ROT]No rot alloc\n");
         *zio->rot = -2;
+#endif
     }
 
     if (*zio->rot != dn->dn_write_rot)
         *zio->rot = dn->dn_write_rot;
+//The following sequence should be done at the end
+    if (dn->dn_write_rot == -1) {
+        mc = spa_normal_class(zio->io_spa);
+	    alloc_class = METASLAB_ROTOR_ALLOC_CLASS_DATA;
+	    if (DMU_OT_IS_METADATA(BP_GET_TYPE(zio->io_bp)))
+		    alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
+	    /* Also include these blocks in metadata (from #5182). */
+	    if (BP_GET_LEVEL(zio->io_bp) > 0)
+		    alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
+       	nrot = 0;
+	    while (nrot < mc->mc_max_nrot) {
+		    if (zio->io_size < mc->mc_rotvec_threshold[nrot][alloc_class])
+			    break; /* Size below threshold, accept.*/
+		    nrot++;
+	    }
+        dn->dn_write_rot = *zio->rot = 0;
+        dn->dn_write_rot |= mc->mc_rotvec_categories[nrot];
+        *zio->rot |= mc->mc_rotvec_categories[nrot];
+    }
 
 	SET_BOOKMARK(&zb, os->os_dsl_dataset ?
 	    os->os_dsl_dataset->ds_object : DMU_META_OBJSET,
