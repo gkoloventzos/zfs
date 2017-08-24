@@ -145,14 +145,15 @@ static void change_medium(void)
         return;
     }
 
-    if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD) {
+    /* You have read where the medium is stored and changed it */
+    if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD) {
         tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
     }
-    else if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_SSD) {
+    else if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_SSD) {
         tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
     }
     else {
-        printk(KERN_EMERG "[ERROR] Not changed write_rot %d\n", tree_entry->write_rot);
+        printk(KERN_EMERG "[ERROR] Not changed read_rot %d\n", tree_entry->read_rot);
     }
     kzfree(output);
     return;
