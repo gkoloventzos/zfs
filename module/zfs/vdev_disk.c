@@ -524,6 +524,7 @@ vdev_submit_bio(struct bio *bio, int rw)
         dr = (dio_request_t *)bio->bi_private;
         zio = dr->dr_zio;
     }
+
     if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
         if (rw == READ) {
             if (zio != NULL && zio->rot != NULL)

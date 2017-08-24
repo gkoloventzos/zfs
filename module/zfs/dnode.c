@@ -1256,7 +1256,7 @@ dnode_hold_impl(objset_t *os, uint64_t object, int flag, int slots,
 		rw_exit(&mdn->dn_struct_rwlock);
 	if (db == NULL)
 		return (SET_ERROR(EIO));
-	err = dbuf_read(db, NULL, DB_RF_CANFAIL,  NULL);
+	err = dbuf_read(db, NULL, DB_RF_CANFAIL, NULL);
 	if (err) {
 		dbuf_rele(db, FTAG);
 		return (err);

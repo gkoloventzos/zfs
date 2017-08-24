@@ -54,7 +54,7 @@ struct data {
     int8_t write_seq;
     int8_t to_rot;
     int8_t write_rot;
-    int8_t read_rot;
+    int8_t *read_rot;
     unsigned long long int deleted;
     struct list_head *read_reqs;
     struct list_head *write_reqs;
@@ -66,7 +66,7 @@ struct data {
 
 struct kdata {
     struct dentry *dentry;
-    int8_t rot;
+    int8_t *rot;
     loff_t offset;
     long length;
     int type;

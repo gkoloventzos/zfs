@@ -460,17 +460,23 @@ zio_add_child(zio_t *pio, zio_t *cio)
 	pio->io_child_count++;
 	cio->io_parent_count++;
     if (pio->rot != NULL) {
-        if (*pio->rot > -1)
+        if(cio->rot == NULL)
             cio->rot = pio->rot;
+        else if (*cio->rot > *pio->rot)
+            *pio->rot = *cio->rot;
+        else
+            *cio->rot = *pio->rot;
+    }
+
+    if (pio->filp != NULL)
         cio->filp = pio->filp;
-        cio->io_dn = pio->io_dn;
-    }
-    else {
-        if (cio->rot != NULL && *cio->rot > -1)
-            pio->rot = cio->rot;
+    else
         pio->filp = cio->filp;
+
+    if (pio->io_dn != NULL)
+        cio->io_dn = pio->io_dn;
+    else
         pio->io_dn = cio->io_dn;
-    }
 
 	mutex_exit(&pio->io_lock);
 	mutex_exit(&cio->io_lock);
@@ -651,12 +657,12 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 //#ifdef CONFIG_HETFS
     zio->rot = NULL;
     zio->io_dn = NULL;
+    zio->filp = NULL;
 //#endif
 
 	zio->io_state[ZIO_WAIT_READY] = (stage >= ZIO_STAGE_READY);
 	zio->io_state[ZIO_WAIT_DONE] = (stage >= ZIO_STAGE_DONE);
 
-    zio->filp = NULL;
 /*    if (pio == NULL && private != NULL && !(flags & ZIO_FLAG_CONFIG_WRITER)) {
         zio->io_dn = (dnode_t *)private;
         printk(KERN_EMERG "dn->dn_write_rot %d\n", zio->io_dn->dn_write_rot);

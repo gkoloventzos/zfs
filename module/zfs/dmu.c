@@ -476,8 +476,13 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	dbp = kmem_zalloc(sizeof (dmu_buf_t *) * nblks, KM_SLEEP);
 
 	zio = zio_root(dn->dn_objset->os_spa, NULL, NULL, ZIO_FLAG_CANFAIL);
-    if (read)
+
+    if (read) {
+        if (dn->name != NULL && zio->filp == NULL)
+            zio->filp = dn->name;
         zio->rot = rot;
+    }
+
 	blkid = dbuf_whichblock(dn, 0, offset);
 	for (i = 0; i < nblks; i++) {
 		dmu_buf_impl_t *db = dbuf_hold(dn, blkid + i, tag, rot);
@@ -1177,6 +1182,10 @@ dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, int8_t *rot)
 	 * NB: we could do this block-at-a-time, but it's nice
 	 * to be reading in parallel.
 	 */
+/*    if(dn != NULL && 
+        dn->name != NULL && 
+        strstr(dn->name, "sample_ssd") != NULL)
+        printk(KERN_EMERG "rot: %p", rot);*/
 	err = dmu_buf_hold_array_by_dnode(dn, uio->uio_loffset, size,
 	    TRUE, FTAG, &numbufs, &dbp, 0, rot);
 	if (err)

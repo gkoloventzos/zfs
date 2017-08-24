@@ -313,11 +313,20 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     struct kdata *kdata = NULL;
     loff_t start_ppos = *ppos;
     int8_t *rot;
+    dnode_t *dn;
+    znode_t     *zp = ITOZ(filp->f_mapping->host);
 
     ktime_get_ts(&arrival_time);
     rot = kzalloc(sizeof(int), GFP_KERNEL);
     *rot = -2;
 
+    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+
+    if (dn->name == NULL)
+        dn->name = file_dentry(filp)->d_name.name;
+
+    DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 	crhold(cr);
 /*    if (only_one && strstr(file_dentry(filp)->d_name.name, only_name) != NULL)
         printk(KERN_EMERG "[ONLY] start: %lld end: %lld len:%ld time: %ld\n", *ppos, *ppos+len, len, arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec);
@@ -336,7 +345,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
             kdata->type = HET_READ;
             kdata->offset = start_ppos;
             kdata->length = read;
-            kdata->rot = *rot;
+            kdata->rot = rot;
             kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"readreq");
         }
@@ -476,8 +485,8 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         }
     }*/
     //printk(KERN_EMERG "[ERROR]Write name %s\n", filp2name(filp));
-    if (dn->filp == NULL)
-        dn->filp = filp;
+    if (dn->name == NULL)
+        dn->name = file_dentry(filp)->d_name.name;
 
     if (dn->dn_write_rot == -2) {
        if (strstr(filename, "sample_ssd") != NULL) {
@@ -513,7 +522,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             kdata->type = HET_WRITE;
             kdata->offset = *ppos;
             kdata->length = wrote;
-            kdata->rot = dn->dn_write_rot;
+            kdata->rot = &dn->dn_write_rot;
             kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"writereq");
         }
@@ -1220,6 +1229,8 @@ int add_request(void *data)
         InsNode->read_all_file = 0;
         InsNode->write_all_file = 0;
         InsNode->deleted = 0;
+        InsNode->write_rot = -2;
+        InsNode->read_rot = NULL;
         InsNode->to_rot = -1;
         //InsNode->file = kzalloc(strlen(name) + 1, GFP_KERNEL);
         InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
@@ -1269,7 +1280,7 @@ int add_request(void *data)
     else {
         general = InsNode->write_reqs;
         sem = &(InsNode->write_sem);
-        InsNode->write_rot = kdata->rot;
+        InsNode->write_rot = *kdata->rot;
     }
 
     down_write(sem);

@@ -1213,9 +1213,11 @@ dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags, int8_t *rot)
 		    db->db_blkptr != NULL && !BP_IS_HOLE(db->db_blkptr)) {
 			zio = zio_root(spa, NULL, NULL, ZIO_FLAG_CANFAIL);
             zio->rot = rot;
+            zio->filp = dn->name;
         }
+
         if (zio != NULL && zio->rot == NULL)
-            zio->rot = rot;
+                zio->rot = rot;
 
 		err = dbuf_read_impl(db, zio, flags);
 
@@ -2622,6 +2624,10 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 	pio = zio_root(dmu_objset_spa(dn->dn_objset), NULL, NULL,
 	    ZIO_FLAG_CANFAIL);
     pio->rot = rot;
+#ifdef _KERNEL
+    if (dn->name != NULL)
+        pio->filp = dn->name;
+#endif
 
 	dpa = kmem_zalloc(sizeof (*dpa), KM_SLEEP);
 	ds = dn->dn_objset->os_dsl_dataset;
@@ -3735,9 +3741,9 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	zbookmark_phys_t zb;
 	zio_prop_t zp;
 	zio_t *zio;
-    int alloc_class, nrot;
+    //int alloc_class, nrot;
 	int wp_flag = 0;
-    metaslab_class_t *mc;
+    //metaslab_class_t *mc;
 
 	ASSERT(dmu_tx_is_syncing(tx));
 

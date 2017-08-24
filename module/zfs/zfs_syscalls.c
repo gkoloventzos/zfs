@@ -196,13 +196,17 @@ static void print_media(void)
     else
         printk(KERN_EMERG "[PRINT] File %s dn_write_rot %d\n", only_name, tree_entry->write_rot);
 
-    if (tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
-        printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
-    else if (tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_SSD)
-        printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name);
-    else
-        printk(KERN_EMERG "[PRINT] File %s dn_read_rot %d\n", only_name, tree_entry->read_rot);
-
+    if (tree_entry->read_rot != NULL) {
+        if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
+            printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
+        else if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_SSD)
+            printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name);
+        else
+            printk(KERN_EMERG "[PRINT] File %s dn_read_rot %d\n", only_name, *tree_entry->read_rot);
+    }
+    else {
+        printk(KERN_EMERG "[PRINT] File %s dn_read_rot is NULL\n", only_name);
+    }
 
     kzfree(output);
     return;
