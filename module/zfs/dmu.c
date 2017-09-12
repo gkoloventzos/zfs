@@ -480,7 +480,8 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
     if (read) {
         if (dn->name != NULL && zio->filp == NULL)
             zio->filp = dn->name;
-        zio->rot = rot;
+        if (zio->rot == NULL)
+            zio->rot = rot;
     }
 
 	blkid = dbuf_whichblock(dn, 0, offset);
