@@ -140,7 +140,7 @@ static void change_medium(void)
     crypto_free_hash(tfm);
     tree_entry = rb_search(hetfs_tree, output);
     if (tree_entry == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        printk(KERN_EMERG "[ERROR] No node in tree\n");
         kzfree(output);
         return;
     }
