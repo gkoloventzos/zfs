@@ -55,11 +55,16 @@ void fullname(struct dentry *dentry, char *name, int *stop)
     struct inode *ip = NULL;
 
     ip = d_inode(dentry);
-    zsb = ITOZSB(ip);
+    if (ip != NULL) {
+        zsb = ITOZSB(ip);
 
-    if (zsb->z_mntopts->z_mntpoint != NULL)
-        strncat(name, zsb->z_mntopts->z_mntpoint,
-                strlen(zsb->z_mntopts->z_mntpoint));
+        if (zsb->z_mntopts->z_mntpoint != NULL) {
+            if (strncmp(name, zsb->z_mntopts->z_mntpoint, strlen(zsb->z_mntopts->z_mntpoint)) != 0) {
+                strncat(name, zsb->z_mntopts->z_mntpoint,
+                    strlen(zsb->z_mntopts->z_mntpoint));
+            }
+        }
+    }
     if (dentry == dentry->d_parent)
         *stop =-1;
     while((void *)dentry != (void *)dentry->d_parent && *stop >= 0) {
