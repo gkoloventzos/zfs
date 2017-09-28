@@ -9,6 +9,7 @@
 #include <sys/zfs_syscalls.h>
 #include <sys/hetfs.h>
 #include <sys/disk.h>
+#include <sys/zpl.h>
 #include <asm/uaccess.h>
 #include <linux/list.h>
 
@@ -148,12 +149,14 @@ static void change_medium(void)
     /* You have read where the medium is stored and changed it */
     if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD) {
         tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+        zpl_rewrite(tree_entry->filp);
     }
     else if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_SSD) {
         tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
+        zpl_rewrite(tree_entry->filp);
     }
     else {
-        printk(KERN_EMERG "[ERROR] Not changed read_rot %d\n", tree_entry->read_rot);
+        printk(KERN_EMERG "[ERROR] Not changed read_rot %d\n", *tree_entry->read_rot);
     }
     kzfree(output);
     return;

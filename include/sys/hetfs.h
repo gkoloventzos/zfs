@@ -61,11 +61,13 @@ struct data {
     struct rw_semaphore read_sem;
     struct rw_semaphore write_sem;
     struct dentry *dentry;
+    struct file *filp;
     struct rb_node node;
 };
 
 struct kdata {
     struct dentry *dentry;
+    struct file *filp;
     int8_t *rot;
     loff_t offset;
     long length;
@@ -76,5 +78,8 @@ struct kdata {
 struct data *rb_search(struct rb_root *, char *);
 int rb_insert(struct rb_root *, struct data *);
 int add_request(void *);
+void fullname(struct dentry *, char *, int *);
+int delete_node(unsigned char *, loff_t);
+int rename_node(unsigned char *, unsigned char *);
 #endif
 #endif
