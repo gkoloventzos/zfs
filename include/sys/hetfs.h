@@ -80,6 +80,6 @@ int rb_insert(struct rb_root *, struct data *);
 int add_request(void *);
 void fullname(struct dentry *, char *, int *);
 int delete_node(unsigned char *, loff_t);
-int rename_node(unsigned char *, unsigned char *);
+struct rb_node *rename_node(unsigned char *, unsigned char *, struct dentry *);
 #endif
 #endif

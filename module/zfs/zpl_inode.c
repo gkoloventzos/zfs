@@ -313,9 +313,6 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
         //printk(KERN_EMERG "[ERROR]after delete\n");
         up_write(&tree_sem);
     }
-    if (output != NULL) {
-        kzfree(output);
-    }
 
 	spl_fstrans_unmark(cookie);
 	crfree(cr);
@@ -450,6 +447,7 @@ zpl_rename2(struct inode *sdip, struct dentry *sdentry,
     struct crypto_hash *tfm, *tfm1;
     struct hash_desc desc, desc1;
     unsigned char *output, *output1;
+    struct rb_node * node;
 	char *name;
 	int stop = 0;
 
@@ -469,7 +467,6 @@ zpl_rename2(struct inode *sdip, struct dentry *sdentry,
         printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
         kzfree(name);
     }
-    //printk(KERN_EMERG "[ZPL_RENAME]rename sname %s tname %s\n", dname(sdentry), dname(tdentry));
     if (name != NULL && output != NULL) {
         fullname(sdentry, name, &stop);
         tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
@@ -480,17 +477,8 @@ zpl_rename2(struct inode *sdip, struct dentry *sdentry,
         crypto_hash_update(&desc, &sg, strlen(name));
         crypto_hash_final(&desc, output);
         crypto_free_hash(tfm);
-        //printk(KERN_EMERG "[ZPL_RENAME]Unlink name %s\n", name);
     }
 	error = -zfs_rename(sdip, dname(sdentry), tdip, dname(tdentry), cr, 0);
-/*    if (d_inode(tdentry) == NULL) {
-        printk(KERN_EMERG "[ERROR]No inode for target, source %s target %s\n", name, dname(tdentry));
-        kzfree(name);
-        delete_node(output, 0);
-        kzfree(output);
-        kzfree(output1);
-        goto out;
-    }*/
     if (name != NULL && output1 != NULL) {
         stop = 0;
         if (name == NULL)
@@ -507,12 +495,15 @@ zpl_rename2(struct inode *sdip, struct dentry *sdentry,
         crypto_hash_update(&desc1, &sg1, strlen(name));
         crypto_hash_final(&desc1, output1);
         crypto_free_hash(tfm1);
-        //printk(KERN_EMERG "[ZPL_RENAME]Unlink name1 %s\n", name);
         kzfree(name);
     }
-    down_write(&tree_sem);
-    rename_node(output, output1);
-    up_write(&tree_sem);
+    if (error >= 0) {
+        down_write(&tree_sem);
+        node = rename_node(output, output1, tdentry);
+        up_write(&tree_sem);
+        if (node != NULL)
+            kzfree(node);
+    }
     if (output != NULL)
         kzfree(output);
     if (output1 != NULL)
