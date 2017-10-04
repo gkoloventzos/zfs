@@ -1339,16 +1339,17 @@ int add_request(void *data)
         InsNode->read_rot = NULL;
         InsNode->to_rot = -1;
         //InsNode->file = kzalloc(strlen(name) + 1, GFP_KERNEL);
-        InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+/*        InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
         if (InsNode->hash == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot alloc mem for InsNode hash %s\n", name);
             up_write(&tree_sem);
             kzfree(kdata);
             kzfree(name);
             return 1;
-        }
+        }*/
         //memcpy(InsNode->file, name, strlen(name) + 1);
-        memcpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
+        //memcpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
+        InsNode->hash = output;
         InsNode->dentry = dentry;
         InsNode->filp = kdata->filp;
         InsNode->read_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
@@ -1382,7 +1383,7 @@ int add_request(void *data)
 //    printk(KERN_EMERG "[ERROR]Up_write %s\n", name);
     up_write(&tree_sem);
 
-    kzfree(output);
+//    kzfree(output);
     if (type == HET_READ) {
         general = InsNode->read_reqs;
         sem = &(InsNode->read_sem);
@@ -1623,6 +1624,7 @@ int delete_node(unsigned char *output, loff_t size)
     rb_erase(node, hetfs_tree);
     kzfree(node);
     printk(KERN_EMERG "[ERROR]Out delete\n");*/
+    kzfree(output);
     return 0;
 }
 
