@@ -485,6 +485,12 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     struct timespec arrival_time;
     int8_t rot = -1;
     int stop = 0;
+    struct scatterlist sg;
+    struct crypto_hash *tfm;
+    struct hash_desc desc;
+    unsigned char *output;
+    struct data *InsNode;//, *OutNode;
+    int flag = 0;
     znode_t     *zp = ITOZ(filp->f_mapping->host);
 
     ktime_get_ts(&arrival_time);
@@ -495,20 +501,35 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
         return 1;
     }
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for hash\n");
+        kzfree(filename);
+        return 1;
+    }
     fullname(file_dentry(filp), filename, &stop);
     name = file_dentry(filp)->d_name.name;
     DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-    if (name == NULL)
-        printk(KERN_EMERG "[ERROR]name is NULL %s\n", file_dentry(filp)->d_name.name);
-/*    else {
-        if (strstr(filename, "log") != NULL || strstr(filename, "sample_ssd") != NULL) {
-            dn->rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
-            dn->filp = name;
-            //dn->filp = filp;
+
+    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+    desc.tfm = tfm;
+    desc.flags = 0;
+    sg_init_one(&sg, filename, strlen(filename));
+    crypto_hash_init(&desc);
+    crypto_hash_update(&desc, &sg, strlen(filename));
+    crypto_hash_final(&desc, output);
+    crypto_free_hash(tfm);
+    down_read(&tree_sem);
+    InsNode = rb_search(hetfs_tree, output);
+    if (InsNode != NULL && strstr(filename, "log") == NULL) {
+        if (InsNode->write_rot > -1 && dn->dn_write_rot != InsNode->write_rot) {
+            dn->dn_write_rot = InsNode->write_rot;
+            printk(KERN_EMERG "[ZPL_WRITE] 1 dn->dn_write_rot:%d InsNode->write_rot:%d\n", dn->dn_write_rot, InsNode->write_rot);
+            flag = 1;
         }
-    }*/
-    //printk(KERN_EMERG "[ERROR]Write name %s\n", filp2name(filp));
+    }
+    up_read(&tree_sem);
     if (dn->name == NULL)
         dn->name = file_dentry(filp)->d_name.name;
 
@@ -528,11 +549,9 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         }
         dn->dn_write_rot = rot;
     }
+    if (flag)
+        printk(KERN_EMERG "[ZPL_WRITE]dn->dn_write_rot:%d\n", dn->dn_write_rot);
 
-/*    if (dn->dn_write_rot == -1) {
-        rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
-        dn->dn_write_rot = rot;
-    }*/
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
@@ -555,6 +574,8 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             printk(KERN_EMERG "[ERROR] Kdata null write\n");
     }
 
+    kzfree(filename);
+    kzfree(output);
 	return (wrote);
 }
 
