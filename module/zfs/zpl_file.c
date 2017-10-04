@@ -579,6 +579,20 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 	return (wrote);
 }
 
+static ssize_t
+re_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
+{
+	cred_t *cr = CRED();
+	ssize_t wrote;
+
+    crhold(cr);
+	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
+	    UIO_USERSPACE, filp->f_flags, cr);
+	crfree(cr);
+
+	return (wrote);
+}
+
 int
 zpl_rewrite(struct file *filp)
 {
@@ -610,7 +624,7 @@ zpl_rewrite(struct file *filp)
         reread = re_read(filp, NULL, len, &pos);
         printk(KERN_EMERG "[ZPL_REWRITE]Read from %lld to %lld\n", start_pos, start_pos+reread);
         if (reread > 0) {
-            zpl_write(filp, buf, reread, &npos);
+            re_write(filp, buf, reread, &npos);
             printk(KERN_EMERG "[ZPL_REWRITE]Write from %lld to %lld\n", start_pos, npos);
             start_pos += reread;
             pos = start_pos;
