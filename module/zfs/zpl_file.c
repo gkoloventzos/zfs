@@ -1323,7 +1323,7 @@ int add_request(void *data)
 //    printk(KERN_EMERG "[ERROR]Down_write %s\n", name);
     down_write(&tree_sem);
     InsNode = rb_search(hetfs_tree, output);
-    if (InsNode  == NULL) {
+    if (InsNode == NULL) {
         InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
         if (InsNode == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot alloc memory for InsNode %s\n", name);
@@ -1455,13 +1455,17 @@ struct data *rb_search(struct rb_root *root, char *string)
 
     if (root == NULL || RB_EMPTY_ROOT(root))
         return NULL;
+    if (string == NULL) {
+        printk(KERN_EMERG "[ERROR]Name are NULL in tree\n");
+        return NULL;
+    }
 
     node = root->rb_node;
 
     while (node) {
 		struct data *data = container_of(node, struct data, node);
         if (data->hash == NULL) {
-            printk(KERN_EMERG "[ERROR]Name ame NULL in tree\n");
+            printk(KERN_EMERG "[ERROR]Name are NULL in tree\n");
             return NULL;
         }
 
@@ -1485,13 +1489,17 @@ struct rb_node *rb_search_node(struct rb_root *root, char *string)
 
     if (root == NULL || RB_EMPTY_ROOT(root))
         return NULL;
+    if (string == NULL) {
+        printk(KERN_EMERG "[ERROR]String is NULL in search_node\n");
+        return NULL;
+    }
 
     node = root->rb_node;
 
     while (node) {
 		struct data *data = container_of(node, struct data, node);
         if (data->hash == NULL) {
-            printk(KERN_EMERG "[ERROR]Name ame NULL in tree\n");
+            printk(KERN_EMERG "[ERROR]Name are NULL in tree\n");
             return NULL;
         }
 
@@ -1563,12 +1571,12 @@ int delete_node(unsigned char *output, loff_t size)
     node = rb_search_node(hetfs_tree, output);*/
     if (hetfs_tree == NULL) {
         printk(KERN_EMERG "[DELETE]No tree\n");
-        return 0;
+        return 1;
     }
     InsNode = rb_search(hetfs_tree, output);
     if (InsNode == NULL) {
         //printk(KERN_EMERG "[DELETE]Node not inside!!!!\n");
-        return 0;
+        return 1;
     }
     InsNode->size = size;
     InsNode->deleted = time;
