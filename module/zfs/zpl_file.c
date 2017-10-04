@@ -1301,7 +1301,12 @@ int add_request(void *data)
     if (type == HET_READ) {
         general = InsNode->read_reqs;
         sem = &(InsNode->read_sem);
-        InsNode->read_rot = kdata->rot;
+        if (InsNode->read_rot == NULL)
+            InsNode->read_rot = kdata->rot;
+        else {
+            if (kdata->rot > -1 && InsNode->read_rot != kdata->rot)
+                InsNode->read_rot = kdata->rot;
+        }
     }
     else {
         general = InsNode->write_reqs;
