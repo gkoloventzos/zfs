@@ -146,6 +146,11 @@ static void change_medium(void)
     }
 
     /* You have read where the medium is stored and changed it */
+    if (tree_entry->read_rot == NULL) {
+        printk(KERN_EMERG "[ERROR] Not changed read_rot because it is NULL\n");
+        kzfree(output);
+        return;
+    }
     if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD) {
         tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
     }
