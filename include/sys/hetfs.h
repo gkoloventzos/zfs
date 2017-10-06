@@ -45,7 +45,7 @@ struct analyze_request {
 };
 
 struct data {
-	char *hash;
+	char *hash;             //Should NEVER be NULL
     char *file;
 	loff_t size;
     int8_t read_all_file;
@@ -60,8 +60,8 @@ struct data {
     struct list_head *write_reqs;
     struct rw_semaphore read_sem;
     struct rw_semaphore write_sem;
-    struct dentry *dentry;
-    struct file *filp;
+    struct dentry *dentry;  //Mainly never NULL
+    struct file *filp;      //It can be NULL in case of rename
     struct rb_node node;
 };
 
