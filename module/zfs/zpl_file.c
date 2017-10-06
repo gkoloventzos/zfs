@@ -1383,6 +1383,9 @@ int add_request(void *data)
 //    printk(KERN_EMERG "[ERROR]Up_write %s\n", name);
     up_write(&tree_sem);
 
+    if (InsNode->filp == NULL)
+        InsNode->filp = kdata->filp;
+
 //    kzfree(output);
     if (type == HET_READ) {
         general = InsNode->read_reqs;
