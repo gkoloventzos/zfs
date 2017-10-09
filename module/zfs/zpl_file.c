@@ -621,7 +621,7 @@ zpl_rewrite(struct file *filp)
         return 1;
     }
     for(;;) {
-        reread = re_read(filp, NULL, len, &pos);
+        reread = re_read(filp, buf, len, &pos);
         printk(KERN_EMERG "[ZPL_REWRITE]Read from %lld to %lld\n", start_pos, start_pos+reread);
         if (reread > 0) {
             re_write(filp, buf, reread, &npos);
@@ -1639,7 +1639,7 @@ int delete_node(unsigned char *output, loff_t size)
 
 /* If the new node already exists does do anything.
  * Insert just fails silently. */
-struct rb_node *rename_node(unsigned char *output, unsigned char *output1, struct dentry *dentry)
+struct rb_node *rename_node(unsigned char *output, unsigned char *output1, struct dentry *dentry, char *name, char *name1)
 {
 	struct rb_node *node, *node1;
     struct data *InsNode;//, *InsNode1;
@@ -1655,7 +1655,7 @@ struct rb_node *rename_node(unsigned char *output, unsigned char *output1, struc
 
     node = rb_search_node(hetfs_tree, output);
     if (node == NULL) {
-        printk(KERN_EMERG "[RENAME]Node not found in rename\n");
+        printk(KERN_EMERG "[RENAME]Node not found in rename %s %s\n", name, name1);
         return NULL;
     }
     rb_erase(node, hetfs_tree);

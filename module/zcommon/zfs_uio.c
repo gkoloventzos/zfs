@@ -75,9 +75,8 @@ uiomove_iov(void *p, size_t n, enum uio_rw rw, struct uio *uio)
 			 */
 			if (rw == UIO_READ) {
 				if (copy_to_user(iov->iov_base+skip, p, cnt)) {
-                    if (iov->iov_base != NULL)
-					    return (EFAULT);
-                    printk(KERN_EMERG "[COPY_TO_USER]I am the problem. base %p skip %ld p %p\n", iov->iov_base+skip, skip, p);
+                    printk(KERN_EMERG "[COPY_TO_USER]I am the problem. base %p base+skip %p skip %ld p %p\n", iov->iov_base, iov->iov_base+skip, skip, p);
+					return (EFAULT);
                 }
 			} else {
 				if (copy_from_user(p, iov->iov_base+skip, cnt))
