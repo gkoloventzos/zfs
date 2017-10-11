@@ -263,10 +263,41 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
 	cred_t *cr = CRED();
 	int error;
 	fstrans_cookie_t cookie;
+    struct scatterlist sg;
+    struct crypto_hash *tfm;
+    struct hash_desc desc;
+    unsigned char *output;
+    loff_t size = 0;
+    char *name;
+    int stop = 0;
 	zfs_sb_t *zsb = dentry->d_sb->s_fs_info;
 
 	crhold(cr);
 	cookie = spl_fstrans_mark();
+
+    name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+    if (name == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
+    }
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        kzfree(name);
+    }
+    if (name != NULL && output != NULL) {
+        fullname(dentry, name, &stop);
+        tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+        desc.tfm = tfm;
+        desc.flags = 0;
+        sg_init_one(&sg, name, strlen(name));
+        crypto_hash_init(&desc);
+        crypto_hash_update(&desc, &sg, strlen(name));
+        crypto_hash_final(&desc, output);
+        crypto_free_hash(tfm);
+        //printk(KERN_EMERG "[ZPL_UNLINK]Unlink name %s\n", name);
+        kzfree(name);
+        size = d_inode(dentry)->i_size;
+    }
 	error = -zfs_remove(dir, dname(dentry), cr, 0);
 
 	/*
@@ -275,6 +306,14 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
 	 */
 	if (error == 0 && zsb->z_case == ZFS_CASE_INSENSITIVE)
 		d_invalidate(dentry);
+
+    if (error == 0) {
+        //printk(KERN_EMERG "[ERROR]before delete\n");
+        down_write(&tree_sem);
+        delete_node(output, size);
+        //printk(KERN_EMERG "[ERROR]after delete\n");
+        up_write(&tree_sem);
+    }
 
 	spl_fstrans_unmark(cookie);
 	crfree(cr);

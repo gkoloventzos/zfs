@@ -1574,6 +1574,73 @@ struct data *rb_insearch(struct rb_root *root, struct data *data, struct dentry 
     return NULL;
 }
 
+int delete_node(unsigned char *output, loff_t size)
+{
+    struct data *InsNode;
+    struct timespec arrival_time;
+    unsigned long long int time;
+    struct list_head *pos, *n;
+    struct analyze_request *areq;
+	struct rb_node *node;
+
+    ktime_get_ts(&arrival_time);
+    time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+    //printk(KERN_EMERG "[ERROR]In delete\n");
+    if (hetfs_tree == NULL) {
+        printk(KERN_EMERG "[ERROR]No tree\n");
+        return 1;
+    }
+
+    node = rb_search_node(hetfs_tree, output);
+    if (node == NULL) {
+        //printk(KERN_EMERG "[ERROR]Not in tree!!! WTF!!!\n");
+        return 1;
+    }
+
+    InsNode = container_of(node, struct data, node);
+    if (InsNode == NULL) {
+        printk(KERN_EMERG "[DELETE]Node not inside!!!!\n");
+        return 1;
+    }
+
+    //printk(KERN_EMERG "[ERROR]get node delete\n");
+    list_for_each_safe(pos, n, InsNode->read_reqs) {
+        areq = list_entry(pos, struct analyze_request, list);
+        list_del(pos);
+        kzfree(areq);
+        kzfree(pos);
+    }
+    kzfree(InsNode->read_reqs);
+    list_for_each_safe(pos, n, InsNode->write_reqs) {
+        areq = list_entry(pos, struct analyze_request, list);
+        list_del(pos);
+        kzfree(areq);
+        kzfree(pos);
+    }
+    kzfree(InsNode->write_reqs);
+    //printk(KERN_EMERG "[ERROR]free lists delete\n");
+    InsNode->read_all_file = 0;
+    InsNode->size = 0;
+    InsNode->write_all_file = 0;
+    InsNode->deleted = 0;
+    InsNode->write_rot = -2;
+    InsNode->to_rot = -1;
+    //InsNode->filp = NULL;
+    InsNode->file = NULL;
+    InsNode->dentry = NULL;
+    if (InsNode->read_rot != NULL)
+        kzfree(InsNode->read_rot);
+    kzfree(InsNode->hash);
+    kzfree(InsNode);
+    //printk(KERN_EMERG "[ERROR]before erase delete\n");
+    rb_erase(node, hetfs_tree);
+    kzfree(node);
+    //printk(KERN_EMERG "[ERROR]Out delete\n");
+    kzfree(output);
+    return 0;
+}
+
+
 /* If the new node already exists does do anything.
  * Insert just fails silently. */
 struct rb_node *rename_node(unsigned char *output, unsigned char *output1, struct dentry *dentry)
