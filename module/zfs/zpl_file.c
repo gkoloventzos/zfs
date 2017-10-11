@@ -1573,3 +1573,41 @@ struct data *rb_insearch(struct rb_root *root, struct data *data, struct dentry 
 
     return NULL;
 }
+
+/* If the new node already exists does do anything.
+ * Insert just fails silently. */
+struct rb_node *rename_node(unsigned char *output, unsigned char *output1, struct dentry *dentry)
+{
+	struct rb_node *node, *node1;
+    struct data *InsNode;//, *InsNode1;
+
+    if (hetfs_tree == NULL) {
+        printk(KERN_EMERG "[RENAME]NULL tree in rename\n");
+        return NULL;
+    }
+
+    node = rb_search_node(hetfs_tree, output);
+    if (node == NULL) {
+        printk(KERN_EMERG "[RENAME]Node not found in rename\n");
+        return NULL;
+    }
+    rb_erase(node, hetfs_tree);
+    InsNode = container_of(node, struct data, node);
+    node1 = rb_search_node(hetfs_tree, output1);
+    if (node1 == NULL) {
+        memcpy(InsNode->hash, output1, SHA512_DIGEST_SIZE+1);
+        //InsNode->filp = NULL;
+        InsNode->dentry = dentry;
+        rb_insert(hetfs_tree, InsNode);
+    }
+    else {
+        delete_node(output, 0);
+        //InsNode1 = container_of(node1, struct data, node);
+        /*if (InsNode->read_reqs != NULL && InsNode1->read_reqs != NULL)
+            list_splice(InsNode->read_reqs, InsNode1->read_reqs);
+        if (InsNode->write_reqs != NULL && InsNode1->write_reqs != NULL)
+            list_splice(InsNode->write_reqs, InsNode1->write_reqs);*/
+        //return node;
+    }
+    return NULL;
+}
