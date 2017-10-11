@@ -1217,7 +1217,7 @@ void data_analyze(struct data* InsNode)
         printk(KERN_EMERG "[HETFS] It was write sequentially\n");
 }
 
-int delete_request(struct dentry *dentry, char *file_id, loff_t size)
+/*int delete_request(struct dentry *dentry, char *file_id, loff_t size)
 {
     struct timespec arrival_time;
     unsigned long long int time;
@@ -1261,7 +1261,7 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
     kzfree(output);
 
     return 0;
-}
+}*/
 
 void print_lists(struct data *entry) {
 
@@ -1433,20 +1433,60 @@ int add_request(void *data)
     return 0;
 }
 
-struct data *rb_search(struct rb_root *root, char *string)
+struct rb_node *rb_search_node(struct rb_root *root, char *string)
 {
 	struct rb_node *node;
     int result;
 
     if (root == NULL || RB_EMPTY_ROOT(root))
         return NULL;
+    if (string == NULL) {
+        printk(KERN_EMERG "[ERROR]String is NULL in search_node\n");
+        return NULL;
+    }
 
     node = root->rb_node;
 
     while (node) {
 		struct data *data = container_of(node, struct data, node);
         if (data->hash == NULL) {
-            printk(KERN_EMERG "[ERROR]Name ame NULL in tree\n");
+            printk(KERN_EMERG "[ERROR]Name are NULL in tree\n");
+            return NULL;
+        }
+
+        result = strncmp(string, data->hash, SHA512_DIGEST_SIZE+1);
+
+        if (result < 0)
+			node = node->rb_left;
+        else if (result > 0)
+			node = node->rb_right;
+        else {
+			return node;
+        }
+    }
+    return NULL;
+}
+
+struct data *rb_search(struct rb_root *root, unsigned char *string)
+{
+	struct rb_node *node;
+    int result;
+
+    //printk(KERN_EMERG "[RB_SEARCH]Hetfs_tree %p string %p\n", root, string);
+    if (root == NULL || RB_EMPTY_ROOT(root))
+        return NULL;
+
+    //printk(KERN_EMERG "[RB_SEARCH]Hetfs_tree->rb_node %p string %p\n", root->rb_node, string);
+    node = root->rb_node;
+
+    while (node) {
+		struct data *data = container_of(node, struct data, node);
+        if (data == NULL) {
+            printk(KERN_EMERG "[ERROR]data is NULL in tree\n");
+            return NULL;
+        }
+        if (data->hash == NULL) {
+            printk(KERN_EMERG "[ERROR]Name is NULL in tree\n");
             return NULL;
         }
 

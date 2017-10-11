@@ -158,7 +158,7 @@ static void change_medium(void)
         tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
     }
     else {
-        printk(KERN_EMERG "[ERROR] Not changed read_rot %d\n", tree_entry->read_rot);
+        printk(KERN_EMERG "[ERROR] Not changed read_rot %d\n", *tree_entry->read_rot);
     }
     kzfree(output);
     return;

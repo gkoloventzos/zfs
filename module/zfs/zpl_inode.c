@@ -32,7 +32,11 @@
 #include <sys/vfs.h>
 #include <sys/zpl.h>
 #include <sys/file.h>
-
+#include <sys/hetfs.h>
+#include <linux/crypto.h>
+#include <linux/err.h>
+#include <linux/scatterlist.h>
+#include <crypto/sha.h>
 
 static struct dentry *
 #ifdef HAVE_LOOKUP_NAMEIDATA
