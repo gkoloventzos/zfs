@@ -265,7 +265,7 @@ zpl_aio_fsync(struct kiocb *kiocb, int datasync)
 static ssize_t
 zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
     unsigned long nr_segs, loff_t *ppos, uio_seg_t segment, int flags,
-    cred_t *cr, size_t skip, int8_t *rot)
+    cred_t *cr, size_t skip, int8_t *rot, bool rewrite)
 {
 	ssize_t read;
 	uio_t uio;
@@ -279,6 +279,7 @@ zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 	uio.uio_loffset = *ppos;
 	uio.uio_limit = MAXOFFSET_T;
 	uio.uio_segflg = segment;
+    uio.uio_rewrite = rewrite;
 
 	cookie = spl_fstrans_mark();
 	error = -zfs_read(ip, &uio, flags, cr, rot);
@@ -295,7 +296,7 @@ zpl_read_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 
 inline ssize_t
 zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
-    uio_seg_t segment, int flags, cred_t *cr, int8_t *rot)
+    uio_seg_t segment, int flags, cred_t *cr, int8_t *rot, bool rewrite)
 {
 	struct iovec iov;
 
@@ -303,7 +304,7 @@ zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
 	iov.iov_len = len;
 
 	return (zpl_read_common_iovec(ip, &iov, len, 1, ppos, segment,
-	    flags, cr, 0, rot));
+	    flags, cr, 0, rot, rewrite));
 }
 
 static ssize_t
@@ -316,7 +317,7 @@ re_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     printk(KERN_EMERG "[RE_READ]If not rewrite what the fuck I am doing here\n");
     crhold(cr);
     read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
-       UIO_USERSPACE, filp->f_flags, cr, NULL);
+       UIO_USERSPACE, filp->f_flags, cr, NULL, true);
        //UIO_USERSPACE, filp->f_flags, cr, &rot);
     crfree(cr);
 
@@ -353,7 +354,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
         printk(KERN_EMERG "[ONLY] start: %lld end: %lld len:%ld time: %ld\n", *ppos, *ppos+len, len, arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec);
         */
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
-	    UIO_USERSPACE, filp->f_flags, cr, rot);
+	    UIO_USERSPACE, filp->f_flags, cr, rot, false);
 	crfree(cr);
 
     if (read > 0) {
@@ -393,7 +394,7 @@ zpl_iter_read_common(struct kiocb *kiocb, const struct iovec *iovp,
 
 	crhold(cr);
 	read = zpl_read_common_iovec(filp->f_mapping->host, iovp, count,
-	    nr_segs, &kiocb->ki_pos, seg, filp->f_flags, cr, skip, NULL);
+	    nr_segs, &kiocb->ki_pos, seg, filp->f_flags, cr, skip, NULL, false);
 	crfree(cr);
 
 	file_accessed(filp);
@@ -429,7 +430,7 @@ zpl_aio_read(struct kiocb *kiocb, const struct iovec *iovp,
 static ssize_t
 zpl_write_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
     unsigned long nr_segs, loff_t *ppos, uio_seg_t segment, int flags,
-    cred_t *cr, size_t skip)
+    cred_t *cr, size_t skip, bool rewrite)
 {
 	ssize_t wrote;
 	uio_t uio;
@@ -446,6 +447,7 @@ zpl_write_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 	uio.uio_loffset = *ppos;
 	uio.uio_limit = MAXOFFSET_T;
 	uio.uio_segflg = segment;
+    uio.uio_rewrite = rewrite;
 
 	cookie = spl_fstrans_mark();
 	error = -zfs_write(ip, &uio, flags, cr);
@@ -461,7 +463,7 @@ zpl_write_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 }
 inline ssize_t
 zpl_write_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
-    uio_seg_t segment, int flags, cred_t *cr)
+    uio_seg_t segment, int flags, cred_t *cr, bool rewrite)
 {
 	struct iovec iov;
 
@@ -469,7 +471,7 @@ zpl_write_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
 	iov.iov_len = len;
 
 	return (zpl_write_common_iovec(ip, &iov, len, 1, ppos, segment,
-	    flags, cr, 0));
+	    flags, cr, 0, rewrite));
 }
 
 static ssize_t
@@ -555,7 +557,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
-	    UIO_USERSPACE, filp->f_flags, cr);
+	    UIO_USERSPACE, filp->f_flags, cr, false);
 	crfree(cr);
 
     if (wrote > 0) {
@@ -580,14 +582,14 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 }
 
 static ssize_t
-re_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
+re_write(struct file *filp, const char *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t wrote;
 
     crhold(cr);
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
-	    UIO_USERSPACE, filp->f_flags, cr);
+	    UIO_USERSPACE, filp->f_flags, cr, true);
 	crfree(cr);
 
 	return (wrote);
@@ -647,7 +649,7 @@ zpl_iter_write_common(struct kiocb *kiocb, const struct iovec *iovp,
 
 	crhold(cr);
 	wrote = zpl_write_common_iovec(filp->f_mapping->host, iovp, count,
-	    nr_segs, &kiocb->ki_pos, seg, filp->f_flags, cr, skip);
+	    nr_segs, &kiocb->ki_pos, seg, filp->f_flags, cr, skip, false);
 	crfree(cr);
 
 	return (wrote);

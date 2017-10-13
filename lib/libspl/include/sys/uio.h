@@ -64,6 +64,7 @@ typedef struct uio {
 	uint16_t	uio_extflg;	/* extended flags */
 	offset_t	uio_limit;	/* u-limit (maximum byte offset) */
 	ssize_t		uio_resid;	/* residual count */
+    bool        uio_rewrite;
 } uio_t;
 
 typedef enum xuio_type {
