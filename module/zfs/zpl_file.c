@@ -1587,8 +1587,7 @@ int delete_node(unsigned char *output, loff_t size)
     time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
     //printk(KERN_EMERG "[ERROR]In delete\n");
     if (hetfs_tree == NULL) {
-        printk(KERN_EMERG "[ERROR]No tree\n");
-        return 1;
+        init_tree();
     }
 
     node = rb_search_node(hetfs_tree, output);
@@ -1653,8 +1652,7 @@ struct rb_node *rename_node(unsigned char *output, unsigned char *output1, struc
     struct data *InsNode;//, *InsNode1;
 
     if (hetfs_tree == NULL) {
-        printk(KERN_EMERG "[RENAME]NULL tree in rename\n");
-        return NULL;
+        init_tree();
     }
 
     node = rb_search_node(hetfs_tree, output);
