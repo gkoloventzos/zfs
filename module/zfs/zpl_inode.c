@@ -265,17 +265,17 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
 	int error;
 	fstrans_cookie_t cookie;
 	zfs_sb_t *zsb = dentry->d_sb->s_fs_info;
-    struct scatterlist sg;
+/*    struct scatterlist sg;
     struct crypto_hash *tfm;
     struct hash_desc desc;
     unsigned char *output;
     loff_t size = 0;
 	char *name;
-	int stop = 0;
+	int stop = 0;*/
 
 	crhold(cr);
 	cookie = spl_fstrans_mark();
-	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+/*	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
     }
@@ -297,7 +297,7 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
         //printk(KERN_EMERG "[ZPL_UNLINK]Unlink name %s\n", name);
         kzfree(name);
         size = d_inode(dentry)->i_size;
-    }
+    }*/
 	error = -zfs_remove(dir, dname(dentry), cr, 0);
 
 	/*
@@ -306,13 +306,13 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
 	 */
 	if (error == 0 && zsb->z_case == ZFS_CASE_INSENSITIVE)
 		d_invalidate(dentry);
-    if (error == 0) {
+/*    if (error == 0) {
         //printk(KERN_EMERG "[ERROR]before delete\n");
         down_write(&tree_sem);
         delete_node(output, size);
         //printk(KERN_EMERG "[ERROR]after delete\n");
         up_write(&tree_sem);
-    }
+    }*/
 
 	spl_fstrans_unmark(cookie);
 	crfree(cr);
@@ -443,13 +443,13 @@ zpl_rename2(struct inode *sdip, struct dentry *sdentry,
 	cred_t *cr = CRED();
 	int error;
 	fstrans_cookie_t cookie;
-    struct scatterlist sg, sg1;
+/*    struct scatterlist sg, sg1;
     struct crypto_hash *tfm, *tfm1;
     struct hash_desc desc, desc1;
     unsigned char *output, *output1;
     struct rb_node * node;
 	char *name, *name1;
-	int stop = 0;
+	int stop = 0;*/
 
 	/* We don't have renameat2(2) support */
 	if (flags)
@@ -457,7 +457,7 @@ zpl_rename2(struct inode *sdip, struct dentry *sdentry,
 
 	crhold(cr);
 	cookie = spl_fstrans_mark();
-	name = kzalloc(PATH_MAX+NAME_MAX,GFP_KERNEL);
+/*	name = kzalloc(PATH_MAX+NAME_MAX,GFP_KERNEL);
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
     }
@@ -482,9 +482,9 @@ zpl_rename2(struct inode *sdip, struct dentry *sdentry,
         crypto_hash_update(&desc, &sg, strlen(name));
         crypto_hash_final(&desc, output);
         crypto_free_hash(tfm);
-    }
+    }*/
 	error = -zfs_rename(sdip, dname(sdentry), tdip, dname(tdentry), cr, 0);
-    if (name1 != NULL && output1 != NULL) {
+/*    if (name1 != NULL && output1 != NULL) {
         stop = 0;
         if (name == NULL)
             printk(KERN_EMERG "[ERROR]name NULL WTF\n");
@@ -513,7 +513,7 @@ zpl_rename2(struct inode *sdip, struct dentry *sdentry,
     if (output != NULL)
         kzfree(output);
     if (output1 != NULL)
-        kzfree(output1);
+        kzfree(output1);*/
 
 	spl_fstrans_unmark(cookie);
 	crfree(cr);
