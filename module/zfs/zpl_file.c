@@ -1604,20 +1604,24 @@ int delete_node(unsigned char *output, loff_t size)
     }
 
     //printk(KERN_EMERG "[ERROR]get node delete\n");
-    list_for_each_safe(pos, n, InsNode->read_reqs) {
-        areq = list_entry(pos, struct analyze_request, list);
-        list_del(pos);
-        kzfree(areq);
-        kzfree(pos);
+    if (InsNode->read_reqs != NULL) {
+        list_for_each_safe(pos, n, InsNode->read_reqs) {
+            areq = list_entry(pos, struct analyze_request, list);
+            list_del(pos);
+            kzfree(areq);
+            kzfree(pos);
+        }
+        kzfree(InsNode->read_reqs);
     }
-    kzfree(InsNode->read_reqs);
-    list_for_each_safe(pos, n, InsNode->write_reqs) {
-        areq = list_entry(pos, struct analyze_request, list);
-        list_del(pos);
-        kzfree(areq);
-        kzfree(pos);
+    if (InsNode->write_reqs != NULL) {
+        list_for_each_safe(pos, n, InsNode->write_reqs) {
+            areq = list_entry(pos, struct analyze_request, list);
+            list_del(pos);
+            kzfree(areq);
+            kzfree(pos);
+        }
+        kzfree(InsNode->write_reqs);
     }
-    kzfree(InsNode->write_reqs);
     //printk(KERN_EMERG "[ERROR]free lists delete\n");
     InsNode->read_all_file = 0;
     InsNode->size = 0;
