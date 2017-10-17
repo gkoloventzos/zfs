@@ -478,8 +478,8 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	zio = zio_root(dn->dn_objset->os_spa, NULL, NULL, ZIO_FLAG_CANFAIL);
 
     if (read) {
-        if (dn->name != NULL && zio->filp == NULL)
-            zio->filp = dn->name;
+/*        if (dn->name != NULL && zio->filp == NULL)
+            zio->filp = dn->name;*/
         if (zio->rot == NULL)
             zio->rot = rot;
     }

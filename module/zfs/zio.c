@@ -468,10 +468,10 @@ zio_add_child(zio_t *pio, zio_t *cio)
             *cio->rot = *pio->rot;
     }
 
-    if (pio->filp != NULL)
+/*    if (pio->filp != NULL)
         cio->filp = pio->filp;
     else
-        pio->filp = cio->filp;
+        pio->filp = cio->filp;*/
 
     if (pio->io_dn != NULL)
         cio->io_dn = pio->io_dn;
@@ -678,7 +678,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 			zio->io_gang_leader = pio->io_gang_leader;
 
         zio->rot = pio->rot;
-        zio->filp = pio->filp;
+        //zio->filp = pio->filp;
         zio->io_dn = pio->io_dn;
 
 		zio_add_child(pio, zio);

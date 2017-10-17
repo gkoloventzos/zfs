@@ -314,7 +314,7 @@ re_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     ssize_t read;
     //int8_t rot = -5;
 
-    printk(KERN_EMERG "[RE_READ]If not rewrite what the fuck I am doing here\n");
+    //printk(KERN_EMERG "[RE_READ]If not rewrite what the fuck I am doing here\n");
     crhold(cr);
     read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
        UIO_USERSPACE, filp->f_flags, cr, NULL, true);
@@ -345,8 +345,8 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
-    if (dn->name == NULL)
-        dn->name = file_dentry(filp)->d_name.name;
+/*    if (dn->name == NULL)
+        dn->name = file_dentry(filp)->d_name.name;*/
 
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 	crhold(cr);
@@ -527,13 +527,13 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     if (InsNode != NULL && strstr(filename, "log") == NULL) {
         if (InsNode->write_rot > -1 && dn->dn_write_rot != InsNode->write_rot) {
             dn->dn_write_rot = InsNode->write_rot;
-            printk(KERN_EMERG "[ZPL_WRITE] 1 dn->dn_write_rot:%d InsNode->write_rot:%d\n", dn->dn_write_rot, InsNode->write_rot);
-            flag = 1;
+            //printk(KERN_EMERG "[ZPL_WRITE] 1 dn->dn_write_rot:%d InsNode->write_rot:%d\n", dn->dn_write_rot, InsNode->write_rot);
+            //flag = 1;
         }
     }
     up_read(&tree_sem);
-    if (dn->name == NULL)
-        dn->name = file_dentry(filp)->d_name.name;
+/*    if (dn->name == NULL)
+        dn->name = file_dentry(filp)->d_name.name;*/
 
     if (dn->dn_write_rot == -2) {
        if (strstr(filename, "sample_ssd") != NULL) {

@@ -1213,7 +1213,7 @@ dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags, int8_t *rot)
 		    db->db_blkptr != NULL && !BP_IS_HOLE(db->db_blkptr)) {
 			zio = zio_root(spa, NULL, NULL, ZIO_FLAG_CANFAIL);
             zio->rot = rot;
-            zio->filp = dn->name;
+            //zio->filp = dn->name;
         }
 
         if (zio != NULL && zio->rot == NULL)
@@ -2624,10 +2624,10 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 	pio = zio_root(dmu_objset_spa(dn->dn_objset), NULL, NULL,
 	    ZIO_FLAG_CANFAIL);
     pio->rot = rot;
-#ifdef _KERNEL
+/*#ifdef _KERNEL
     if (dn->name != NULL)
         pio->filp = dn->name;
-#endif
+#endif*/
 
 	dpa = kmem_zalloc(sizeof (*dpa), KM_SLEEP);
 	ds = dn->dn_objset->os_dsl_dataset;

@@ -432,9 +432,8 @@ dnode_create(objset_t *os, dnode_phys_t *dnp, dmu_buf_impl_t *db,
 	dn->dn_id_flags = 0;
 
     dn->dn_write_rot = -2;
-    dn->dn_read_rot = -2;
-    dn->name = NULL;
-    dn->filp = NULL;
+    //dn->name = NULL;
+    //dn->filp = NULL;
 
 	dmu_zfetch_init(&dn->dn_zfetch, dn);
 
