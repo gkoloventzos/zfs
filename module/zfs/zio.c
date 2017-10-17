@@ -459,14 +459,18 @@ zio_add_child(zio_t *pio, zio_t *cio)
 
 	pio->io_child_count++;
 	cio->io_parent_count++;
-    if (pio->rot != NULL) {
+/*    if (pio->rot != NULL) {
         if(cio->rot == NULL)
             cio->rot = pio->rot;
         else if (*cio->rot > *pio->rot)
             *pio->rot = *cio->rot;
         else
             *cio->rot = *pio->rot;
-    }
+    }*/
+    if (pio->rot != NULL)
+        cio->rot = pio->rot;
+    else
+        pio->rot = cio->rot;
 
 /*    if (pio->filp != NULL)
         cio->filp = pio->filp;
