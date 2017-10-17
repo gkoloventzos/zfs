@@ -41,6 +41,7 @@
 #define	_LIBSPL_SYS_UIO_H
 
 #include_next <sys/uio.h>
+#include <stdbool.h>
 
 typedef struct iovec iovec_t;
 

@@ -599,10 +599,11 @@ int
 zpl_rewrite(struct file *filp)
 {
     ssize_t reread = 0;
+    ssize_t rewrite = 0;
     loff_t pos = 0;
     loff_t start_pos = 0;
     loff_t npos = 0;
-    size_t len = 1024;
+    size_t len = 4096;
     char *buf = kzalloc(len, GFP_KERNEL);
 
     if (filp == NULL) {
@@ -624,14 +625,21 @@ zpl_rewrite(struct file *filp)
     }
     for(;;) {
         reread = re_read(filp, buf, len, &pos);
-        printk(KERN_EMERG "[ZPL_REWRITE]Read from %lld to %lld\n", start_pos, start_pos+reread);
+        //printk(KERN_EMERG "[ZPL_REWRITE]Read from %lld to %lld\n", start_pos, start_pos+reread);
         if (reread > 0) {
-            re_write(filp, buf, reread, &npos);
-            printk(KERN_EMERG "[ZPL_REWRITE]Write from %lld to %lld\n", start_pos, npos);
+            rewrite = re_write(filp, buf, reread, &npos);
+            if (reread != rewrite) {
+                printk(KERN_EMERG "[ERROR]ZPL_REWRITE %lld %lld error %zd\n", start_pos, npos, reread);
+                break;
+            }
+            //printk(KERN_EMERG "[ZPL_REWRITE]Write from %lld to %lld\n", start_pos, npos);
             start_pos += reread;
             pos = start_pos;
             memset(buf, 0, len);
             continue;
+        }
+        else {
+            printk(KERN_EMERG "[ERROR]ZPL_REWRITE %lld %lld error %zd\n", start_pos, npos, reread);
         }
         break;
     }
