@@ -3803,7 +3803,7 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 #endif
     }
 
-    if (*zio->rot != dn->dn_write_rot)
+    if (dn->dn_write_rot > -1 && *zio->rot != dn->dn_write_rot)
         *zio->rot = dn->dn_write_rot;
 //The following sequence should be done at the end
 /*    if (dn->dn_write_rot == -1) {
