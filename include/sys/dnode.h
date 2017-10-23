@@ -290,8 +290,6 @@ struct dnode {
 	struct zfetch	dn_zfetch;
 
     int8_t dn_write_rot;
-    //const char *name;
-    //struct file *filp;
 };
 
 /*

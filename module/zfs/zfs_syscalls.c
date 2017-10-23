@@ -21,7 +21,7 @@
 extern struct rb_root *hetfs_tree;
 extern int media_tree;
 extern int only_one;
-extern int bla;
+//extern int bla;
 //extern int media_list;
 extern char *only_name;
 char *number;
@@ -102,7 +102,7 @@ static void print_medium(void)
 static void print_list(void)
 {
     printk(KERN_EMERG "[HETFS]Searching for %s\n", only_name);
-    bla=1;
+//    bla=1;
     print_only_one(1);
 }
 

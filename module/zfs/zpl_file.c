@@ -45,7 +45,7 @@
 struct rb_root *hetfs_tree = NULL;
 EXPORT_SYMBOL(hetfs_tree);
 int only_one = 0;
-int bla = 1;
+int bla = 0;
 char *only_name = NULL;
 
 void fullname(struct dentry *dentry, char *name, int *stop)
@@ -345,22 +345,13 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
-/*    if (dn->name == NULL)
-        dn->name = file_dentry(filp)->d_name.name;*/
-
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 	crhold(cr);
-/*    if (only_one && strstr(file_dentry(filp)->d_name.name, only_name) != NULL)
-        printk(KERN_EMERG "[ONLY] start: %lld end: %lld len:%ld time: %ld\n", *ppos, *ppos+len, len, arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec);
-        */
 	read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr, rot, false);
 	crfree(cr);
 
     if (read > 0) {
-/*        if (only_one && strstr(file_dentry(filp)->d_name.name, only_name) != NULL)
-            printk(KERN_EMERG "[ONLY in READ] start: %lld end: %lld read:%ld len:%ld time: %ld\n", start_ppos, start_ppos+read, read, len, arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec);
-            */
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->filp = filp;
@@ -492,7 +483,6 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     struct hash_desc desc;
     unsigned char *output;
     struct data *InsNode;//, *OutNode;
-    int flag = 0;
     znode_t     *zp = ITOZ(filp->f_mapping->host);
 
     ktime_get_ts(&arrival_time);
@@ -527,13 +517,10 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     if (InsNode != NULL && strstr(filename, "log") == NULL) {
         if (InsNode->write_rot > -1 && dn->dn_write_rot != InsNode->write_rot) {
             dn->dn_write_rot = InsNode->write_rot;
-            //printk(KERN_EMERG "[ZPL_WRITE] 1 dn->dn_write_rot:%d InsNode->write_rot:%d\n", dn->dn_write_rot, InsNode->write_rot);
-            //flag = 1;
+            rot = InsNode->write_rot;
         }
     }
     up_read(&tree_sem);
-/*    if (dn->name == NULL)
-        dn->name = file_dentry(filp)->d_name.name;*/
 
     if (dn->dn_write_rot == -2) {
        if (strstr(filename, "sample_ssd") != NULL) {
@@ -551,8 +538,6 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         }
         dn->dn_write_rot = rot;
     }
-    if (flag)
-        printk(KERN_EMERG "[ZPL_WRITE]dn->dn_write_rot:%d\n", dn->dn_write_rot);
 
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
@@ -625,14 +610,12 @@ zpl_rewrite(struct file *filp)
     }
     for(;;) {
         reread = re_read(filp, buf, len, &pos);
-        //printk(KERN_EMERG "[ZPL_REWRITE]Read from %lld to %lld\n", start_pos, start_pos+reread);
         if (reread > 0) {
             rewrite = re_write(filp, buf, reread, &npos);
             if (reread != rewrite) {
                 printk(KERN_EMERG "[ERROR]ZPL_REWRITE %lld %lld error %zd\n", start_pos, npos, reread);
                 break;
             }
-            //printk(KERN_EMERG "[ZPL_REWRITE]Write from %lld to %lld\n", start_pos, npos);
             start_pos += reread;
             pos = start_pos;
             memset(buf, 0, len);
@@ -1388,14 +1371,15 @@ int add_request(void *data)
         if (!rb_insert(hetfs_tree, InsNode)) {
             printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
             //printk(KERN_EMERG "[HETFS] file: %s with ", InsNode->file);
+            return -3;
         }
+        bla++;
+        if(bla%1000 == 0)
+            printk(KERN_EMERG "[HETFS]Tree has %d nodes.\n", bla);
     }
-//    printk(KERN_EMERG "[ERROR]Up_write %s\n", name);
+    InsNode->filp = kdata->filp;
     up_write(&tree_sem);
 
-    InsNode->filp = kdata->filp;
-
-//    kzfree(output);
     if (type == HET_READ) {
         general = InsNode->read_reqs;
         sem = &(InsNode->read_sem);
@@ -1413,14 +1397,6 @@ int add_request(void *data)
     }
 
     down_write(sem);
-/*    if (dn == NULL)
-        printk(KERN_EMERG "[ERROR] dnode NULL\n");
-    if (dn->filp != NULL && strstr(dn->filp, "log") == NULL) {
-        //printk(KERN_EMERG "[zfs_media]name : %s\n", dn->filp);
-        zfs_media_add(dn, offset, len, dn->dn_rot);
-    }*/
-    if (only_name != NULL && bla)
-        printk(KERN_EMERG "[ONLY]Name : %s\n", only_name); bla=0;
 
     if (!list_empty_careful(general)) {
         list_for_each_prev_safe(pos, n, general) {

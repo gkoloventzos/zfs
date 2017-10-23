@@ -447,6 +447,7 @@ struct zio {
 	kcondvar_t	io_cv;
 //#ifdef CONFIG_HTEFS
     int8_t     *rot;
+    dnode_t *io_dn;
 //#endif
 
 	/* FMA state */
@@ -456,9 +457,6 @@ struct zio {
 	/* Taskq dispatching state */
 	taskq_ent_t	io_tqent;
 
-    dnode_t *io_dn;
-    const char *filp;
-    //struct file *filp;
 };
 
 extern int zio_timestamp_compare(const void *, const void *);

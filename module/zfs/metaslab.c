@@ -3878,21 +3878,8 @@ has_vdev:
 
     if (zio != NULL) {
         if (zio->io_dn != NULL && zio->io_dn->dn_write_rot > -1) {
-        //if (zio->rot != NULL && zio->rot > -1) {
             rot = get_metaslab_class(mc, zio->io_dn->dn_write_rot);
-            //rot = get_metaslab_class(mc, zio->rot);
         }
-        //if (zio->filp != NULL)
-            //printk(KERN_EMERG "[SSD_FILE]file %s\n", zio->filp->f_path.dentry->d_name.name);
-/*        if (zio->rot != NULL && *zio->rot > -1 ) {
-            check_rot = *zio->rot;
-            printk(KERN_EMERG "[DATA] first rot: %d zio->rot %d check_rot %d io_txg: %lld io_queued_timestamp: %lld\n", rot, *zio->rot, check_rot, zio->io_txg, zio->io_queued_timestamp);
-            rot = get_metaslab_class(mc, check_rot);
-            printk(KERN_EMERG "[DATA] second rot: %d zio->rot %d check_rot %d io_txg: %lld io_queued_timestamp: %lld\n", rot, *zio->rot, check_rot, zio->io_txg, zio->io_queued_timestamp);
-            *zio->rot = check_rot;
-        }
-        if (zio->io_dn != NULL)
-            printk(KERN_EMERG "[DATA] rot: %d zio->rot %d zio->io_dn->dn_write_rot %d\n", rot, zio->rot, zio->io_dn->dn_write_rot);*/
     }
 
 	for (d = 0; d < ndvas; d++) {
