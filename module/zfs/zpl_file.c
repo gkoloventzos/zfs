@@ -621,7 +621,7 @@ zpl_rewrite(struct file *filp)
             memset(buf, 0, len);
             continue;
         }
-        else {
+        else if (reread < 0){
             printk(KERN_EMERG "[ERROR]ZPL_REWRITE %lld %lld error %zd\n", start_pos, npos, reread);
         }
         break;
