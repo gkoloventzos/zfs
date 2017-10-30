@@ -7,6 +7,7 @@
 #include <linux/types.h>
 #include <linux/rwsem.h>
 #include <sys/dnode.h>
+//#include <sys/zfs_media.h>
 #endif
 
 #define MAX_DIFF 200000000
@@ -58,6 +59,8 @@ struct data {
     unsigned long long int deleted;
     struct list_head *read_reqs;
     struct list_head *write_reqs;
+    struct list_head *list_write_rot;
+    struct list_head *list_read_rot;
     struct rw_semaphore read_sem;
     struct rw_semaphore write_sem;
     struct dentry *dentry;  //Mainly never NULL
@@ -69,6 +72,7 @@ struct kdata {
     struct dentry *dentry;
     struct file *filp;
     int8_t *rot;
+    struct list_head *list_rot;
     loff_t offset;
     long length;
     int type;

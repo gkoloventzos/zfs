@@ -7,6 +7,7 @@
 #include <linux/rwsem.h>
 #include <linux/slab.h>
 #include <sys/zfs_syscalls.h>
+//#include <sys/zfs_media.h>
 #include <sys/hetfs.h>
 #include <sys/disk.h>
 #include <sys/zpl.h>
@@ -167,6 +168,19 @@ static void change_medium(void)
     return;
 }
 
+/*void list_print(struct list_head *dn) {
+    medium_t *loop, *n = NULL;
+//    for (loop = list_head(&dn); loop != NULL; loop = list_next(&dn, loop)) {
+    list_for_each_entry_safe(loop, n, dn, list) {
+        if (loop->m_type == METASLAB_ROTOR_VDEV_TYPE_HDD)
+            printk(KERN_EMERG "[PRINT]File %s from %lld to %lld is in METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name, loop->m_start, loop->m_end);
+        else if (loop->m_type == METASLAB_ROTOR_VDEV_TYPE_SSD)
+            printk(KERN_EMERG "[PRINT]File %s from %lld to %lld is in METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name, loop->m_start, loop->m_end);
+        else if (loop->m_type == -1)
+            printk(KERN_EMERG "[PRINT]File %s from %lld to %lld is in METASLAB_ROTOR_VDEV_TYPE_HDD with -1\n", only_name, loop->m_start, loop->m_end);
+    }
+}*/
+
 static void print_media(void)
 {
     unsigned char *output;
@@ -205,6 +219,7 @@ static void print_media(void)
     else
         printk(KERN_EMERG "[PRINT] File %s dn_write_rot %d\n", only_name, tree_entry->write_rot);
 
+//    list_print(tree_entry->list_write_rot);
     if (tree_entry->read_rot != NULL) {
         if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
             printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
@@ -216,6 +231,7 @@ static void print_media(void)
     else {
         printk(KERN_EMERG "[PRINT] File %s dn_read_rot is NULL\n", only_name);
     }
+//    list_print(tree_entry->list_read_rot);
 
     kzfree(output);
     return;

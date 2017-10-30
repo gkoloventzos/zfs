@@ -31,6 +31,7 @@
 #include <sys/zfs_vfsops.h>
 #include <sys/zfs_vnops.h>
 #include <sys/zfs_znode.h>
+#include <sys/zfs_media.h>
 #include <sys/zpl.h>
 #include <sys/boot_files.h>
 #include <sys/hetfs.h>
@@ -1244,7 +1245,7 @@ int add_request(void *data)
     struct crypto_hash *tfm;
     struct hash_desc desc;
     unsigned char *output;
-    struct data *InsNode;//, *OutNode;
+    struct data *InsNode;
     struct analyze_request *a_r;
 	char *name;
 	int stop = 0;
@@ -1258,9 +1259,6 @@ int add_request(void *data)
     unsigned long long int time = kdata->time;
     InsNode = NULL;
 
-/*    if (only_one && strstr(dentry->d_name.name, only_name) != NULL)
-        printk(KERN_EMERG "[ONLY in READ] start: %lld end: %lld len:%ld time: %lld\n", offset, offset+len, len, time);
-        */
     if (dentry == NULL) {
         printk(KERN_EMERG "[ERROR] either dentry %p is NULL\n", dentry);
         return 1;
@@ -1277,7 +1275,7 @@ int add_request(void *data)
         kzfree(kdata);
         return 1;
     }
-	//dentry_path_raw(dentry, name, PATH_MAX+NAME_MAX);
+
 	fullname(dentry, name, &stop);
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR]name and mountpoint NULL\n");
@@ -1313,7 +1311,6 @@ int add_request(void *data)
     crypto_hash_final(&desc, output);
     crypto_free_hash(tfm);
 
-//    printk(KERN_EMERG "[ERROR]Down_write %s\n", name);
     down_write(&tree_sem);
     InsNode = rb_search(hetfs_tree, output);
     if (InsNode == NULL) {
@@ -1331,25 +1328,12 @@ int add_request(void *data)
         InsNode->write_rot = -2;
         InsNode->read_rot = NULL;
         InsNode->to_rot = -1;
-        //InsNode->file = kzalloc(strlen(name) + 1, GFP_KERNEL);
-/*        InsNode->hash = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-        if (InsNode->hash == NULL) {
-            printk(KERN_EMERG "[ERROR] Cannot alloc mem for InsNode hash %s\n", name);
-            up_write(&tree_sem);
-            kzfree(kdata);
-            kzfree(name);
-            return 1;
-        }*/
-        //memcpy(InsNode->file, name, strlen(name) + 1);
-        //memcpy(InsNode->hash, output, SHA512_DIGEST_SIZE+1);
         InsNode->hash = output;
-        InsNode->dentry = dentry;
         InsNode->filp = kdata->filp;
         InsNode->read_reqs = kzalloc(sizeof(struct list_head), GFP_KERNEL);
         if (InsNode->read_reqs == NULL) {
             printk(KERN_EMERG "[ERROR]InsNode read null after malloc %s\n", name);
             up_write(&tree_sem);
-            kzfree(output);
             kzfree(kdata);
             kzfree(name);
             return 1;
@@ -1358,19 +1342,41 @@ int add_request(void *data)
         if (InsNode->write_reqs == NULL) {
             printk(KERN_EMERG "[ERROR]InsNode write null after malloc %s\n", name);
             up_write(&tree_sem);
-            kzfree(output);
+            kzfree(InsNode->read_reqs);
+            kzfree(kdata);
+            kzfree(name);
+            return 1;
+        }
+        InsNode->list_write_rot = kzalloc(sizeof(struct list_head), GFP_KERNEL);
+        if (InsNode->list_write_rot == NULL) {
+            printk(KERN_EMERG "[ERR]InsNode write null after malloc %s\n", name);
+            up_write(&tree_sem);
+            kzfree(InsNode->write_reqs);
+            kzfree(InsNode->read_reqs);
+            kzfree(kdata);
+            kzfree(name);
+            return 1;
+        }
+        InsNode->list_read_rot = kzalloc(sizeof(struct list_head), GFP_KERNEL);
+        if (InsNode->list_read_rot == NULL) {
+            printk(KERN_EMERG "[ERR]InsNode read null after malloc %s\n", name);
+            up_write(&tree_sem);
+            kzfree(InsNode->list_write_rot);
+            kzfree(InsNode->write_reqs);
+            kzfree(InsNode->read_reqs);
             kzfree(kdata);
             kzfree(name);
             return 1;
         }
         INIT_LIST_HEAD(InsNode->read_reqs);
         INIT_LIST_HEAD(InsNode->write_reqs);
+        INIT_LIST_HEAD(InsNode->list_write_rot);
+        INIT_LIST_HEAD(InsNode->list_read_rot);
         init_rwsem(&(InsNode->read_sem));
         init_rwsem(&(InsNode->write_sem));
         InsNode->size = i_size_read(d_inode(InsNode->dentry));
         if (!rb_insert(hetfs_tree, InsNode)) {
             printk(KERN_EMERG "[HETFS] rb insert return FALSE.\n");
-            //printk(KERN_EMERG "[HETFS] file: %s with ", InsNode->file);
             return -3;
         }
         bla++;
@@ -1378,6 +1384,7 @@ int add_request(void *data)
             printk(KERN_EMERG "[HETFS]Tree has %d nodes.\n", bla);
     }
     InsNode->filp = kdata->filp;
+    InsNode->dentry = dentry;
     up_write(&tree_sem);
 
     if (type == HET_READ) {
@@ -1389,11 +1396,20 @@ int add_request(void *data)
             if (*kdata->rot > -1 && *InsNode->read_rot != *kdata->rot)
                 InsNode->read_rot = kdata->rot;
         }
+//        zfs_media_add(InsNode->list_read_rot, offset, len, *kdata->rot);
     }
     else {
+        printk(KERN_EMERG "[LIST_ROT]add_request %s\n", name);
         general = InsNode->write_reqs;
         sem = &(InsNode->write_sem);
         InsNode->write_rot = *kdata->rot;
+        InsNode->size = i_size_read(d_inode(dentry));
+        if (InsNode->list_write_rot != NULL) {
+            zfs_media_add(InsNode->list_write_rot, offset, len, *kdata->rot);
+        }
+        else {
+            printk(KERN_EMERG "[LIST_ROT]Write list is NULL name %s\n", name);
+        }
     }
 
     down_write(sem);
@@ -1458,6 +1474,10 @@ struct data *rb_search(struct rb_root *root, char *string)
 
     while (node) {
 		struct data *data = container_of(node, struct data, node);
+        if (data == NULL) {
+            printk(KERN_EMERG "[ERROR]No data !!!!!!!!!!!!!!!!!!!!!!!!\n");
+            return NULL;
+        }
         if (data->hash == NULL) {
             printk(KERN_EMERG "[ERROR]Name are NULL in tree\n");
             return NULL;

@@ -290,6 +290,7 @@ struct dnode {
 	struct zfetch	dn_zfetch;
 
     int8_t dn_write_rot;
+    struct list_head *list_write_rot;
 };
 
 /*

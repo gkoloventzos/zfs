@@ -132,6 +132,7 @@ dnode_cons(void *arg, void *unused, int kmflag)
 	dn->dn_bonus = NULL;
 	dn->dn_have_spill = B_FALSE;
 	dn->dn_zio = NULL;
+	dn->list_write_rot = NULL;
 	dn->dn_oldused = 0;
 	dn->dn_oldflags = 0;
 	dn->dn_olduid = 0;
@@ -432,6 +433,7 @@ dnode_create(objset_t *os, dnode_phys_t *dnp, dmu_buf_impl_t *db,
 	dn->dn_id_flags = 0;
 
     dn->dn_write_rot = -2;
+    dn->list_write_rot = NULL;
     //dn->name = NULL;
     //dn->filp = NULL;
 
