@@ -381,13 +381,13 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     filename = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
     if (filename == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
-        return 1;
+        goto err;
     }
     output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
     if (output == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for hash\n");
         kzfree(filename);
-        return 1;
+        goto err;
     }
 
     if (hetfs_tree == NULL)
