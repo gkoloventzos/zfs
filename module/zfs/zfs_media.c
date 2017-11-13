@@ -85,7 +85,7 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot)
     start = stop = -1;
 
     if (list_empty(dn)) {
-        new = kzalloc(1, sizeof(medium_t));
+        new = kzalloc(sizeof(medium_t), GFP_KERNEL);
         if (new == NULL)
             return NULL;
         new->m_start = ppos;
@@ -99,7 +99,7 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot)
     printk(KERN_EMERG "[LIST_ROT]find first\n");
     loop = find_in(dn, list_first_entry(dn, typeof(*new), list), false, ppos, &start);
 
-    new = kzalloc(1, sizeof(medium_t));
+    new = kzalloc(sizeof(medium_t), GFP_KERNEL);
     if (new == NULL)
         return NULL;
     new->m_start = ppos;
@@ -119,7 +119,7 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot)
         if (start != 0 && stop != 0) {
             if (loop->m_type != rot) {
                 list_add(&new->list, &loop->list);
-                del = kzalloc(1, sizeof(medium_t));
+                del = kzalloc(sizeof(medium_t), GFP_KERNEL);
                 if (del == NULL)
                     return NULL;
                 del->m_start = end;
