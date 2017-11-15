@@ -130,6 +130,7 @@ dnode_cons(void *arg, void *unused, int kmflag)
 	dn->dn_dirtyctx = 0;
 	dn->dn_dirtyctx_firstset = NULL;
 	dn->dn_bonus = NULL;
+	dn->cadmus = NULL;
 	dn->dn_have_spill = B_FALSE;
 	dn->dn_zio = NULL;
 	dn->list_write_rot = NULL;
@@ -432,6 +433,7 @@ dnode_create(objset_t *os, dnode_phys_t *dnp, dmu_buf_impl_t *db,
 	dn->dn_have_spill = ((dnp->dn_flags & DNODE_FLAG_SPILL_BLKPTR) != 0);
 	dn->dn_id_flags = 0;
 
+    dn->cadmus = NULL;
     dn->dn_write_rot = -2;
     dn->list_write_rot = NULL;
     //dn->name = NULL;
@@ -506,6 +508,7 @@ dnode_destroy(dnode_t *dn)
 		kmem_free(dn->dn_dirtyctx_firstset, 1);
 		dn->dn_dirtyctx_firstset = NULL;
 	}
+	dn->cadmus = NULL;
 	if (dn->dn_bonus != NULL) {
 		mutex_enter(&dn->dn_bonus->db_mtx);
 		dbuf_destroy(dn->dn_bonus);
@@ -778,6 +781,7 @@ dnode_move_impl(dnode_t *odn, dnode_t *ndn)
 	ndn->dn_zio = odn->dn_zio;
 	ndn->dn_oldused = odn->dn_oldused;
 	ndn->dn_oldflags = odn->dn_oldflags;
+	ndn->cadmus = odn->cadmus;
 	ndn->dn_olduid = odn->dn_olduid;
 	ndn->dn_oldgid = odn->dn_oldgid;
 	ndn->dn_newuid = odn->dn_newuid;
@@ -802,6 +806,7 @@ dnode_move_impl(dnode_t *odn, dnode_t *ndn)
 	 */
 	odn->dn_dbuf = NULL;
 	odn->dn_handle = NULL;
+	odn->cadmus = NULL;
 	avl_create(&odn->dn_dbufs, dbuf_compare, sizeof (dmu_buf_impl_t),
 	    offsetof(dmu_buf_impl_t, db_link));
 	odn->dn_dbufs_count = 0;

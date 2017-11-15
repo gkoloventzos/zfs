@@ -36,6 +36,8 @@
 #include <sys/dmu_zfetch.h>
 #include <sys/zrlock.h>
 
+#include <sys/hetfs.h>
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -289,6 +291,7 @@ struct dnode {
 	/* holds prefetch structure */
 	struct zfetch	dn_zfetch;
 
+	struct data     *cadmus;
     int8_t dn_write_rot;
     struct list_head *list_write_rot;
 };

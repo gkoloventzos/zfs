@@ -77,10 +77,11 @@ struct kdata {
     long length;
     int type;
     unsigned long long int time;
+    struct data *InsNode;
 };
 
 struct data *rb_search(struct rb_root *, char *);
-int rb_insert(struct rb_root *, struct data *);
+struct data *rb_insert(struct rb_root *, struct data *);
 int add_request(void *);
 void fullname(struct dentry *, char *, int *);
 int delete_node(unsigned char *, loff_t);
