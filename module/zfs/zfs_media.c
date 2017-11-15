@@ -47,7 +47,7 @@ find_in(struct list_head *head, medium_t *start, bool contin, loff_t posi, int *
     else
         pos = list_first_entry(head, typeof(*where), list);
     n = list_next_entry(pos, list);
-    do {        
+    do {
         where = pos;
         if (posi > pos->m_end) {
             pos = n;
@@ -92,11 +92,9 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot)
         new->m_end = end;
         new->m_type = rot;
         list_add_tail(&new->list, dn);
-        printk(KERN_EMERG "[LIST_ROT]zfs_media_add added at empty list\n");
         return new;
     }
     return NULL;
-    printk(KERN_EMERG "[LIST_ROT]find first\n");
     loop = find_in(dn, list_first_entry(dn, typeof(*new), list), false, ppos, &start);
 
     new = kzalloc(sizeof(medium_t), GFP_KERNEL);
@@ -111,9 +109,7 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot)
         return new;
     }
 
-    printk(KERN_EMERG "[LIST_ROT]find second\n");
     del = find_in(dn, loop, true, end, &stop);
-    printk(KERN_EMERG "[LIST_ROT]find both\n");
 
     if (loop == del && loop != NULL) {
         if (start != 0 && stop != 0) {
