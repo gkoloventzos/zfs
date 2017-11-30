@@ -18,6 +18,7 @@
 #include <crypto/sha.h>
 #include <linux/err.h>
 #include <linux/scatterlist.h>
+#include <sys/hetfs.h>
 
 extern struct rb_root *hetfs_tree;
 extern int media_tree;
@@ -26,6 +27,9 @@ extern int only_one;
 //extern int media_list;
 extern char *only_name;
 char *number;
+char *start;
+char *end;
+char *where;
 char *procfs_buffer = NULL;
 const char delimiters[] = " \n";
 
@@ -33,6 +37,11 @@ const char delimiters[] = " \n";
 	for (_tmp = 0, _iter = _tests; \
 	     _tmp < ARRAY_SIZE(_tests); \
 	     _tmp++, _iter++)
+
+struct storage_media available_media[] = {
+    {"METASLAB_ROTOR_VDEV_TYPE_SSD", 0x01},
+    {"METASLAB_ROTOR_VDEV_TYPE_HDD", 0x08},
+};
 
 void print_media_tree(int flag) {
 //    media_tree = flag;
@@ -102,7 +111,6 @@ static void print_medium(void)
 
 static void print_list(void)
 {
-    printk(KERN_EMERG "[HETFS]Searching for %s\n", only_name);
 //    bla=1;
     print_only_one(1);
 }
@@ -120,13 +128,37 @@ static void stop_print_medium(void)
 
 static void change_medium(void)
 {
-    unsigned char *output;
+/*    unsigned char *output;
     struct scatterlist sg;
     struct crypto_hash *tfm;
-    struct hash_desc desc;
+    struct hash_desc desc;*/
     struct data *tree_entry = NULL;
+    ssize_t n_start, n_end;
+    int ret, n_where;
 
-    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (start == NULL || end == NULL || where == NULL) {
+        printk(KERN_EMERG "[ERROR] Start, end and where should be mentioned\n");
+        return;
+    }
+
+    ret = kstrtoul(start, 10, &n_start);
+    if (ret) {
+        printk(KERN_EMERG "[ERROR] Change start to n_start failed\n");
+        return ;
+    }
+    ret = kstrtoul(end, 10, &n_end);
+    if (ret) {
+        printk(KERN_EMERG "[ERROR] Change end to n_end failed\n");
+        return ;
+    }
+    ret = kstrtoint(where, 10, &n_where);
+    if (ret) {
+        printk(KERN_EMERG "[ERROR] Change where to n_where failed\n");
+        return ;
+    }
+
+    tree_entry = tree_insearch(NULL, only_name);
+/*    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
     if (output == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
         return;
@@ -140,15 +172,22 @@ static void change_medium(void)
     crypto_hash_update(&desc, &sg, strlen(only_name));
     crypto_hash_final(&desc, output);
     crypto_free_hash(tfm);
-    tree_entry = rb_search(hetfs_tree, output);
+    tree_entry = rb_search(hetfs_tree, output);*/
     if (tree_entry == NULL) {
         printk(KERN_EMERG "[ERROR] No node in tree\n");
-        kzfree(output);
+//        kzfree(output);
         return;
     }
 
+    if (n_end != n_start)
+        zfs_media_add(tree_entry->list_write_rot, n_start, n_end-n_start, available_media[n_where].bit, 0);
+    else
+        zfs_media_add(tree_entry->list_write_rot, n_start, UINT64_MAX, available_media[n_where].bit, 0);
+
+
+    zpl_rewrite(tree_entry->filp);
     /* You have read where the medium is stored and changed it */
-    if (tree_entry->read_rot == NULL) {
+/*    if (tree_entry->read_rot == NULL) {
         printk(KERN_EMERG "[ERROR] Not changed read_rot because it is NULL\n");
         kzfree(output);
         return;
@@ -164,7 +203,7 @@ static void change_medium(void)
     else {
         printk(KERN_EMERG "[ERROR] Not changed read_rot %d\n", *tree_entry->read_rot);
     }
-    kzfree(output);
+    kzfree(output);*/
     return;
 }
 
@@ -219,8 +258,14 @@ static void print_media(void)
     else
         printk(KERN_EMERG "[PRINT] File %s dn_write_rot %d\n", only_name, tree_entry->write_rot);
 
-    printk(KERN_EMERG "[PRINT] File %s write list rotor\n", only_name);
-    list_print(tree_entry->list_write_rot);
+    if (!list_empty(tree_entry->list_write_rot)) {
+        printk(KERN_EMERG "[PRINT] File %s write list rotor\n", only_name);
+        list_print(tree_entry->list_write_rot);
+    }
+    else {
+        printk(KERN_EMERG "[PRINT] File %s write list rotor is empty\n", only_name);
+    }
+
     if (tree_entry->read_rot != NULL) {
         if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
             printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
@@ -232,8 +277,14 @@ static void print_media(void)
     else {
         printk(KERN_EMERG "[PRINT] File %s dn_read_rot is NULL\n", only_name);
     }
-    printk(KERN_EMERG "[PRINT] File %s read list rotor\n", only_name);
-    list_print(tree_entry->list_read_rot);
+
+    if (!list_empty(tree_entry->list_read_rot)) {
+        printk(KERN_EMERG "[PRINT] File %s read list rotor\n", only_name);
+        list_print(tree_entry->list_read_rot);
+    }
+    else {
+        printk(KERN_EMERG "[PRINT] File %s read list rotor is empty\n", only_name);
+    }
 
     kzfree(output);
     return;
@@ -410,6 +461,9 @@ static ssize_t __zfs_syscall_write(struct file *file, const char __user *buffer,
     if (ret)
         return ret;
     only_name = strsep(&procfs_buffer, delimiters);
+    start = strsep(&procfs_buffer, delimiters);
+    end = strsep(&procfs_buffer, delimiters);
+    where = strsep(&procfs_buffer, delimiters);
     strsep(&procfs_buffer, delimiters);
     ret = zfs_syscalls_run(val);
     if (ret)

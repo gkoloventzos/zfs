@@ -34,6 +34,12 @@
 #define filp2name(filp) filp->f_path.dentry->d_name.name
 
 #ifdef _KERNEL
+
+struct storage_media {
+    char *name;
+    int bit;
+};
+
 static DECLARE_RWSEM(tree_sem);
 
 struct analyze_request {
@@ -86,5 +92,6 @@ int add_request(void *);
 void fullname(struct dentry *, char *, int *);
 int delete_node(unsigned char *, loff_t);
 struct rb_node *rename_node(unsigned char *, unsigned char *, struct dentry *, char *, char *);
+struct data *tree_insearch(struct dentry *dentry, char *filename);
 #endif
 #endif
