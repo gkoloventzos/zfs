@@ -36,11 +36,13 @@
 #include <linux/slab.h>
 
 /*
- *              0 1 3 2            -1
+ * ret          0 1 3 2            -1
  *              | | | |             |
  *              v v v v             v
  * head -> ( ) -> (   ) -> ( ) -> NULL
+ * Returns the node which last touched.
  * Position of the offset in the list
+ * ret meaning
  * 0 : between the 2 nodes
  * 1 : Equal with the start of the node
  * 2 : Equal with the end of the node
