@@ -206,3 +206,105 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot)
 
     return new;
 }
+
+struct list_head *
+get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend)
+{
+    struct medium *nh, *new, *loop;
+    int start;
+
+    struct list_head *ret = NULL;
+    loop = find_in(dn, list_first_entry(dn, typeof(*new), list), false, ppos, &start);
+    if (loop == NULL || start < 0)
+        return NULL;
+
+    ret = kzalloc(sizeof(struct list_head), GFP_KERNEL);
+    if (ret == NULL) {
+        printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate list\n");
+        return NULL;
+    }
+    INIT_LIST_HEAD(ret);
+
+    switch (start) {
+        case 0:
+            nh = list_next_entry(loop, list);
+            if (pend <= nh->m_start) {
+                kzfree(ret);
+                return NULL;
+            }
+            else {
+                new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+                if (new == NULL) {
+                    printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
+                    kzfree(ret);
+                    return NULL;
+                }
+                new->m_start = ppos;
+                new->m_end = nh->m_start;
+                new->m_type = -1;
+                list_add_tail(&new->list, ret);
+                if (pend > nh->m_end) {
+                    new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+                    if (new == NULL) {
+                        printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
+                        kzfree(ret);
+                        return NULL;
+                    }
+                    new->m_start = nh->m_start;
+                    new->m_end = nh->m_end;
+                    new->m_type = nh->m_type;
+                    list_add_tail(&new->list, ret);
+                    loop = nh;
+                    break;
+                }
+                new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+                if (new == NULL) {
+                    printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
+                    kzfree(ret);
+                    return NULL;
+                }
+                new->m_start = nh->m_start;
+                new->m_end = nh->m_end;
+                new->m_type = nh->m_type;
+                list_add_tail(&new->list, ret);
+                return ret;
+            }
+            break;
+        case 1:
+            nh = list_next_entry(loop, list);
+            if (pend <= nh->m_start) {
+                kzfree(ret);
+                return NULL;
+            }
+            break;
+        default:
+            break;
+    }
+
+    list_for_each_entry_safe_continue(loop, nh, dn, list) {
+        if (pend >= loop->m_start && pend <= loop->m_end) {
+            new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+            if (new == NULL) {
+                printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
+                return NULL;
+            }
+            new->m_start = loop->m_start;
+            new->m_end = loop->m_end;
+            new->m_type = loop->m_type;
+            list_add_tail(&new->list, ret);
+        }
+    }
+    nh = list_last_entry(ret, typeof(*new), list);
+    if (nh->m_end > pend) {
+        new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+        if (new == NULL) {
+            printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
+            return NULL;
+        }
+        new->m_start = nh->m_end;
+        new->m_end = pend;
+        new->m_type = -1;
+        list_add_tail(&new->list, ret);
+    }
+    return ret;
+}
