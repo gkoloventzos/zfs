@@ -33,10 +33,11 @@
  */
 
 #include <sys/zfs_media.h>
+#include <sys/zfs_syscalls.h>
 #include <linux/slab.h>
 
 /*
- * ret          0 1 3 2            -1
+ * ret          0 1 2 3            -1
  *              | | | |             |
  *              v v v v             v
  * head -> ( ) -> (   ) -> ( ) -> NULL
@@ -45,8 +46,8 @@
  * ret meaning
  * 0 : between the 2 nodes
  * 1 : Equal with the start of the node
- * 2 : Equal with the end of the node
- * 3 : Inside the node
+ * 2 : Inside the node
+ * 3 : Equal with the end of the node
  * -1 : when it is after the last node. For partial reads mostly.
  */
 medium_t *
@@ -73,31 +74,44 @@ find_in(struct list_head *head, medium_t *start, bool contin, loff_t posi, int *
             return where;
         }
         if (posi == pos->m_end) {
-            *ret = 1;
+            *ret = 3;
             return where;
         }
         if (posi == pos->m_start) {
-            *ret = 2;
+            *ret = 1;
             return where;
         }
-        *ret = 3;
+        *ret = 2;
         return where;
     } while (&pos->list != (head));
     return NULL;
 }
 
-/* Interval list of medium of part of file */
-/* Debug of this will be done as we do experiments */
+/* Interval list of medium of part of file.
+ * Debug of this will be done as we do experiments.
+ * Notes:
+ * New rotation device is always best.
+ * Search for start and end.
+ * -Start:
+ * --If the start is before a node (not currently in the list)
+ * or at the beginning then add before.
+ * --If it is in the middle:
+ * If rotating device the same adjust end. Else split the node and new one.
+ * --If is the same as the end of the node:
+ * If rotating device is same, change the end. Else check next node.
+ * In this section remove all the unwanted nodes between start and end.
+ * -End*/
 medium_t *
-zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot)
+zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int only)
 {
     int start, stop;
     medium_t *new, *loop, *next, *del;
-    struct medium *posh, *nh;
     loff_t end = ppos + len;
     loop = new = del = next = NULL;
     start = stop = -1;
 
+    if (only)
+        printk(KERN_EMERG "[LIST] in start %lld end %lld rot %d\n", ppos, end, rot);
     new = kzalloc(sizeof(medium_t), GFP_KERNEL);
     if (new == NULL) {
         printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
@@ -107,6 +121,8 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot)
     new->m_end = end;
     new->m_type = rot;
     if (list_empty(dn)) {
+        if (only)
+            printk(KERN_EMERG "[LIST] list empty start %lld end %lld rot %d\n", ppos, end, rot);
         list_add_tail(&new->list, dn);
         return new;
     }
@@ -115,7 +131,8 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot)
     loop = find_in(dn, list_first_entry(dn, typeof(*new), list), false, ppos, &start);
 
     /* Probably on read. Reading 10 first and then 10 last lines.
-     * Accessing not sequencial parts of file.*/
+     * Accessing not sequencial parts of file.
+     * -1 on start variable*/
     if (loop == NULL) {
         list_add_tail(&new->list, dn);
         return new;
@@ -123,35 +140,65 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot)
 
     /* Find where the end of this part is supposed to be added.*/
     del = find_in(dn, loop, true, end, &stop);
-
+    if (loop == del) {
+        if (start == stop && start == 0) {
+            list_add_tail(&new->list, &loop->list);
+            return new;
+        }
+        if (loop->m_type == rot) {
+            if (start == 0)
+                loop->m_start = ppos;
+            if (stop == -1)
+                loop->m_end = end;
+            kzfree(new);
+            return loop;
+        }
+        list_add_tail(&new->list, &loop->list);
+        if (stop == 1)
+            return new;
+        loop->m_start = end;
+        if (stop == 3) {
+            list_del(&loop->list);
+            kzfree(loop);
+        }
+        return new;
+    }
 
     switch(start) {
         case 0:
-        case 2:
-            list_add(&new->list, loop->list.prev);
+        case 1:
+            list_add_tail(&new->list, &loop->list);
             next = loop;
             break;
-        case 1:
+        case 2:
+            next = list_next_entry(loop, list);
             if (rot != loop->m_type) {
+                loop->m_end = new->m_start;
                 list_add(&new->list, &loop->list);
-                next = list_next_entry(new, list);
             }
             else {
-                loop->m_end = end;
-                next = list_next_entry(loop, list);
+                if (loop->m_end < end)
+                    loop->m_end = end;
+                kzfree(new);
+                new = loop;
             }
             break;
         case 3:
-            if (rot != loop->m_type) {
-                loop->m_end = ppos;
+            next = list_next_entry(loop, list);
+            if (rot == loop->m_type) {
+                loop->m_end = new->m_end;
+                kzfree(new);
+                new = loop;;
+            }
+            else {
                 list_add(&new->list, &loop->list);
-                next = list_next_entry(new, list);
             }
             break;
         default:
             printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Default in start.\n");
             return NULL;
     }
+
     /* Remove the excess part */
     while (next != NULL && next != del && &next->list != (dn)) {
         loop = list_next_entry(next, list);
@@ -173,32 +220,27 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot)
             loop->m_end = end;
             return loop;
         case 1:
-            del->m_type = rot;
-            return del;
+            next = list_prev_entry(del, list);
+            if (del->m_type == next->m_type) {
+                next->m_end = del->m_end;
+                list_del(&del->list);
+                kzfree(del);
+            }
+            return next;
         case 2:
-            loop = list_entry(del->list.prev, typeof(*loop), list);
-            loop->m_type = rot;
-            loop->m_end = end;
-            return loop;
+            if (del->m_type == new->m_type) {
+                new->m_end = del->m_end;
+                list_del(&del->list);
+                kzfree(del);
+                break;
+            }
+            del->m_start = end;
             break;
         case 3:
-            if (del->m_type == rot)
-                return del;
-            else {
-                new = kzalloc(sizeof(medium_t), GFP_KERNEL);
-                if (new == NULL) {
-                    printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
-                    return NULL;
-                }
-                new->m_start = end;
-                new->m_end = del->m_end;
-                new->m_type = del->m_type;
-                del->m_end = end;
-                del->m_type = rot;
-                list_add(&new->list, &del->list);
-                return del;
-            }
-            break;
+            next = list_prev_entry(del, list);
+            list_del(&del->list);
+            kzfree(del);
+            return next;
         default:
             printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Default in stop.\n");
             return NULL;
@@ -208,7 +250,7 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot)
 }
 
 struct list_head *
-get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend)
+get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend, int *size)
 {
     struct medium *nh, *new, *loop;
     int start;
@@ -243,6 +285,7 @@ get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend)
                 new->m_end = nh->m_start;
                 new->m_type = -1;
                 list_add_tail(&new->list, ret);
+                ++(*size);
                 if (pend > nh->m_end) {
                     new = kzalloc(sizeof(medium_t), GFP_KERNEL);
                     if (new == NULL) {
@@ -254,6 +297,7 @@ get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend)
                     new->m_end = nh->m_end;
                     new->m_type = nh->m_type;
                     list_add_tail(&new->list, ret);
+                    ++(*size);
                     loop = nh;
                     break;
                 }
@@ -267,6 +311,7 @@ get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend)
                 new->m_end = nh->m_end;
                 new->m_type = nh->m_type;
                 list_add_tail(&new->list, ret);
+                ++(*size);
                 return ret;
             }
             break;
@@ -292,6 +337,7 @@ get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend)
             new->m_end = loop->m_end;
             new->m_type = loop->m_type;
             list_add_tail(&new->list, ret);
+            ++(*size);
         }
     }
     nh = list_last_entry(ret, typeof(*new), list);
@@ -305,6 +351,7 @@ get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend)
         new->m_end = pend;
         new->m_type = -1;
         list_add_tail(&new->list, ret);
+        ++(*size);
     }
     return ret;
 }
