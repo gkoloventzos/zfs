@@ -37,6 +37,6 @@ typedef struct medium {
     struct list_head list;
 } medium_t;
 
-medium_t * zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot);
-
+medium_t * zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int only);
+struct list_head *get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend, int *size);
 #endif	/* _SYS_ZFS_MEDIA_H */

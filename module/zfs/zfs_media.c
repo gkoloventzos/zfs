@@ -58,7 +58,7 @@ find_in(struct list_head *head, medium_t *start, bool contin, loff_t posi, int *
     if (start == NULL)
         return NULL;
     if (contin)
-        pos = list_next_entry(start, list);
+        pos = start;
     else
         pos = list_first_entry(head, typeof(*where), list);
     n = list_next_entry(pos, list);
@@ -105,11 +105,13 @@ medium_t *
 zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int only)
 {
     int start, stop;
-    medium_t *new, *loop, *next, *del;
+    medium_t *new, *loop, *next, *del, *inter;
     loff_t end = ppos + len;
     loop = new = del = next = NULL;
     start = stop = -1;
 
+    if (len == 0)
+        return NULL;
     if (only)
         printk(KERN_EMERG "[LIST] in start %lld end %lld rot %d\n", ppos, end, rot);
     new = kzalloc(sizeof(medium_t), GFP_KERNEL);
@@ -140,46 +142,49 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int onl
 
     /* Find where the end of this part is supposed to be added.*/
     del = find_in(dn, loop, true, end, &stop);
-    if (loop == del) {
-        if (start == stop && start == 0) {
-            list_add_tail(&new->list, &loop->list);
-            return new;
-        }
-        if (loop->m_type == rot) {
-            if (start == 0)
-                loop->m_start = ppos;
-            if (stop == -1)
-                loop->m_end = end;
-            kzfree(new);
-            return loop;
-        }
-        list_add_tail(&new->list, &loop->list);
-        if (stop == 1)
-            return new;
-        loop->m_start = end;
-        if (stop == 3) {
-            list_del(&loop->list);
-            kzfree(loop);
-        }
-        return new;
-    }
+    next = loop;
 
     switch(start) {
         case 0:
         case 1:
             list_add_tail(&new->list, &loop->list);
-            next = loop;
             break;
         case 2:
             next = list_next_entry(loop, list);
             if (rot != loop->m_type) {
-                loop->m_end = new->m_start;
                 list_add(&new->list, &loop->list);
+                /*If same node break here and return*/
+                if (loop == del) {
+                    if (stop == 3 && next->m_start == new->m_end && next->m_type == new->m_type) {
+                        new->m_end = next->m_end;
+                        loop->m_end = new->m_start;
+                        list_del(&next->list);
+                        kzfree(next);
+                        return new;
+                    }
+                    if(stop != 3) {
+                        next = kzalloc(sizeof(medium_t), GFP_KERNEL);
+                        if (next == NULL) {
+                            printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
+                            return NULL;
+                        }
+                        next->m_end = loop->m_end;
+                        next->m_type = loop->m_type;
+                        next->m_start = new->m_end;
+                        list_add(&next->list, &new->list);
+                    }
+                    loop->m_end = new->m_start;
+                    return new;
+                }
+                loop->m_end = new->m_start;
             }
             else {
                 if (loop->m_end < end)
                     loop->m_end = end;
                 kzfree(new);
+                if (loop == del) {
+                    return loop;
+                }
                 new = loop;
             }
             break;
@@ -188,7 +193,7 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int onl
             if (rot == loop->m_type) {
                 loop->m_end = new->m_end;
                 kzfree(new);
-                new = loop;;
+                new = loop;
             }
             else {
                 list_add(&new->list, &loop->list);
@@ -201,10 +206,10 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int onl
 
     /* Remove the excess part */
     while (next != NULL && next != del && &next->list != (dn)) {
-        loop = list_next_entry(next, list);
+        inter = list_next_entry(next, list);
         list_del(&next->list);
         kzfree(next);
-        next = loop;
+        next = inter;
     }
 
     /* After last node */
@@ -216,17 +221,17 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int onl
 
     switch(stop) {
         case 0:
-            loop = list_entry(del->list.prev, typeof(*loop), list);
-            loop->m_end = end;
-            return loop;
+            return new;
         case 1:
-            next = list_prev_entry(del, list);
-            if (del->m_type == next->m_type) {
-                next->m_end = del->m_end;
+            if (del->m_type == new->m_type) {
+                new->m_end = del->m_end;
                 list_del(&del->list);
                 kzfree(del);
+                if (start == 2) {
+                    loop->m_end = new->m_start;
+                }
             }
-            return next;
+            return new;
         case 2:
             if (del->m_type == new->m_type) {
                 new->m_end = del->m_end;
@@ -240,7 +245,18 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int onl
             next = list_prev_entry(del, list);
             list_del(&del->list);
             kzfree(del);
-            return next;
+            if (new != next && new->m_start == next->m_end && next->m_type == new->m_type) {
+                new->m_end = next->m_end;
+                list_del(&next->list);
+                kzfree(next);
+            }
+            next = list_next_entry(new, list);
+            if (new != next && new->m_end == next->m_start && next->m_type == new->m_type) {
+                new->m_end = next->m_end;
+                list_del(&next->list);
+                kzfree(next);
+            }
+            break;
         default:
             printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Default in stop.\n");
             return NULL;
