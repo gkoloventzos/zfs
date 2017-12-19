@@ -472,8 +472,10 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 
     DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    mutex_enter(&dn->dn_mtx);
     if (dn->cadmus == NULL)
         dn->cadmus = tree_insearch(file_dentry(filp), filename);
+    mutex_exit(&dn->dn_mtx);
 
     dn->cadmus->dentry = file_dentry(filp);
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
@@ -631,8 +633,10 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         goto err;
     }
     fullname(file_dentry(filp), filename, &stop);
+    mutex_enter(&dn->dn_mtx);
     if (dn->cadmus == NULL)
         dn->cadmus = tree_insearch(file_dentry(filp), filename);
+    mutex_exit(&dn->dn_mtx);
 
     InsNode = dn->cadmus;
     InsNode->dentry = file_dentry(filp);
