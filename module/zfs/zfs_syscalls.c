@@ -128,10 +128,6 @@ static void stop_print_medium(void)
 
 static void change_medium(void)
 {
-/*    unsigned char *output;
-    struct scatterlist sg;
-    struct crypto_hash *tfm;
-    struct hash_desc desc;*/
     struct data *tree_entry = NULL;
     ssize_t n_start, n_end;
     int ret, n_where;
@@ -151,6 +147,10 @@ static void change_medium(void)
         printk(KERN_EMERG "[ERROR] Change end to n_end failed\n");
         return ;
     }
+    if (n_end > n_start) {
+        printk(KERN_EMERG "[ERROR] End bigger than start\n");
+        return;
+    }
     ret = kstrtoint(where, 10, &n_where);
     if (ret) {
         printk(KERN_EMERG "[ERROR] Change where to n_where failed\n");
@@ -158,34 +158,19 @@ static void change_medium(void)
     }
 
     tree_entry = tree_insearch(NULL, only_name);
-/*    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-    if (output == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
-        return;
-    }
-
-    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
-    desc.tfm = tfm;
-    desc.flags = 0;
-    sg_init_one(&sg, only_name, strlen(only_name));
-    crypto_hash_init(&desc);
-    crypto_hash_update(&desc, &sg, strlen(only_name));
-    crypto_hash_final(&desc, output);
-    crypto_free_hash(tfm);
-    tree_entry = rb_search(hetfs_tree, output);*/
     if (tree_entry == NULL) {
         printk(KERN_EMERG "[ERROR] No node in tree\n");
-//        kzfree(output);
         return;
     }
 
     if (n_end != n_start)
-        zfs_media_add(tree_entry->list_write_rot, n_start, n_end-n_start, available_media[n_where].bit, 0);
+        zfs_media_add(tree_entry->list_write_rot, n_start, n_end-n_start, available_media[n_where].bit, 1);
     else
-        zfs_media_add(tree_entry->list_write_rot, n_start, UINT64_MAX, available_media[n_where].bit, 0);
+        zfs_media_add(tree_entry->list_write_rot, n_start, UINT64_MAX, available_media[n_where].bit, 1);
 
 
-    zpl_rewrite(tree_entry->filp);
+    if (tree_entry->filp != NULL)
+        zpl_rewrite(tree_entry->filp);
     /* You have read where the medium is stored and changed it */
 /*    if (tree_entry->read_rot == NULL) {
         printk(KERN_EMERG "[ERROR] Not changed read_rot because it is NULL\n");
