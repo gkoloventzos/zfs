@@ -190,13 +190,15 @@ struct data *tree_insearch(struct dentry *dentry, char *filename)
     down_write(&tree_sem);
     OutNode = rb_insert(hetfs_tree, InsNode);
 
-    if (OutNode != InsNode && OutNode != NULL) {
+    if (OutNode == NULL || InsNode == NULL)
+        return NULL;
+    if (OutNode == InsNode)
+        init_data(InsNode, dentry);
+    else {
         kzfree(output);
         kzfree(InsNode);
         InsNode = OutNode;
     }
-    if (OutNode == InsNode)
-        init_data(InsNode, dentry);
     up_write(&tree_sem);
 
     return InsNode;
