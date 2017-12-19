@@ -152,11 +152,16 @@ struct data *tree_insearch(struct dentry *dentry, char *filename)
     int stop = 0;
 
     if (filename == NULL) {
+        if (dentry == NULL) {
+            printk(KERN_EMERG "[ERROR] Both Dentry and filename is empty\n");
+            return NULL;
+        }
         filename = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
         if (filename == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
             return NULL;
         }
+        fullname(dentry, filename, &stop);
     }
     output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
     if (output == NULL) {
@@ -164,7 +169,6 @@ struct data *tree_insearch(struct dentry *dentry, char *filename)
         kzfree(filename);
         return NULL;
     }
-    fullname(dentry, filename, &stop);
 
     tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
     desc.tfm = tfm;
