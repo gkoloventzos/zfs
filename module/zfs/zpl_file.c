@@ -589,7 +589,7 @@ zpl_write_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 }
 inline ssize_t
 zpl_write_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
-    uio_seg_t segment, int flags, cred_t *cr, bool rewrite)
+    uio_seg_t segment, int flags, cred_t *cr, bool rewrite, dnode_t *dn)
 {
 	struct iovec iov;
 
@@ -667,7 +667,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 err:
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
-	    UIO_USERSPACE, filp->f_flags, cr, false);
+	    UIO_USERSPACE, filp->f_flags, cr, false, dn);
 	crfree(cr);
 
     if (wrote > 0) {
@@ -699,7 +699,7 @@ re_write(struct file *filp, const char *buf, size_t len, loff_t *ppos)
 
     crhold(cr);
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
-	    UIO_USERSPACE, filp->f_flags, cr, true);
+	    UIO_USERSPACE, filp->f_flags, cr, true, dn);
 	crfree(cr);
 
 	return (wrote);
