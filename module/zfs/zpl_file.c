@@ -65,11 +65,6 @@ int init_tree(void)
 
 int init_data(struct data *InsNode, struct dentry *dentry)
 {
-    InsNode->read_all_file = 0;
-    InsNode->write_all_file = 0;
-    InsNode->write_rot = -2;
-    InsNode->deleted = 0;
-    InsNode->to_rot = -1;
     InsNode->read_reqs = kmem_zalloc(sizeof(struct list_head), GFP_KERNEL);
     if (InsNode->read_reqs == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
@@ -100,6 +95,11 @@ int init_data(struct data *InsNode, struct dentry *dentry)
     INIT_LIST_HEAD(InsNode->list_write_rot);
     INIT_LIST_HEAD(InsNode->read_reqs);
     INIT_LIST_HEAD(InsNode->write_reqs);
+    InsNode->read_all_file = 100;
+    InsNode->write_all_file = 0;
+    InsNode->write_rot = -2;
+    InsNode->deleted = 0;
+    InsNode->to_rot = -1;
     init_rwsem(&(InsNode->read_sem));
     init_rwsem(&(InsNode->write_sem));
 /*    bla++;
@@ -1417,6 +1417,11 @@ int add_request(void *data)
     InsNode->size = i_size_read(d_inode(dentry));
     InsNode->filp = kdata->filp;
 
+sema:
+    if (InsNode->read_all_file != 100) {
+        printk(KERN_EMERG "[ERROR] Should not be here name %s\n", name);
+        goto sema;
+    }
     down_write(sem);
 
     if (general_add != NULL)
