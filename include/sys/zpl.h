@@ -37,6 +37,7 @@
 #include <linux/vfs_compat.h>
 #include <linux/writeback.h>
 #include <linux/xattr_compat.h>
+#include <sys/dnode.h>
 
 /* zpl_inode.c */
 extern void zpl_vap_init(vattr_t *vap, struct inode *dir,
@@ -54,7 +55,7 @@ extern ssize_t zpl_read_common(struct inode *ip, const char *buf,
     cred_t *cr, int8_t *rot, bool rewrite);
 extern ssize_t zpl_write_common(struct inode *ip, const char *buf,
     size_t len, loff_t *ppos, uio_seg_t segment, int flags,
-    cred_t *cr, bool rewrite);
+    cred_t *cr, bool rewrite, dnode_t * dnode);
 int zpl_rewrite(struct file *filp);
 #if defined(HAVE_FILE_FALLOCATE) || defined(HAVE_INODE_FALLOCATE)
 extern long zpl_fallocate_common(struct inode *ip, int mode,
