@@ -205,15 +205,14 @@ struct data *tree_insearch(struct dentry *dentry, char *filename)
     if (OutNode == NULL || InsNode == NULL)
         return NULL;
     if (OutNode == InsNode)
-        init_data(InsNode, dentry);
+        init_data(OutNode, dentry);
     else {
         kzfree(output);
         kzfree(InsNode);
-        InsNode = OutNode;
     }
     up_write(&tree_sem);
 
-    return InsNode;
+    return OutNode;
 }
 
 static int
