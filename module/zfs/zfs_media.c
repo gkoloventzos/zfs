@@ -268,14 +268,17 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int onl
 struct list_head *
 get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend, int *size)
 {
-    struct medium *nh, *new, *loop;
-    int start;
+    struct medium *nh, *new, *loop, *del, *next, *prev;
+    int start, stop;
 
     struct list_head *ret = NULL;
     loop = find_in(dn, list_first_entry(dn, typeof(*new), list), false, ppos, &start);
     if (loop == NULL || start < 0)
         return NULL;
 
+    del = find_in(dn, loop, true, pend, &stop);
+    if (loop == del && start == 0 && stop < 2)
+        return NULL;
     ret = kzalloc(sizeof(struct list_head), GFP_KERNEL);
     if (ret == NULL) {
         printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate list\n");
@@ -283,91 +286,111 @@ get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend, int *size)
     }
     INIT_LIST_HEAD(ret);
 
+    new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+    if (new == NULL) {
+        printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
+        kzfree(ret);
+        return NULL;
+    }
     switch (start) {
         case 0:
-            nh = list_next_entry(loop, list);
-            if (pend <= nh->m_start) {
-                kzfree(ret);
-                return NULL;
-            }
-            else {
-                new = kzalloc(sizeof(medium_t), GFP_KERNEL);
-                if (new == NULL) {
-                    printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
-                    kzfree(ret);
-                    return NULL;
-                }
+            new->m_start = ppos;
+            new->m_end = loop->m_start;
+            new->m_type = -1;
+            list_add_tail(&new->list, ret);
+            ++(*size);
+            break;
+        case 1:
+        case 2:
+            if (loop == del) {
                 new->m_start = ppos;
-                new->m_end = nh->m_start;
-                new->m_type = -1;
+                new->m_type = loop->m_type;
                 list_add_tail(&new->list, ret);
                 ++(*size);
-                if (pend > nh->m_end) {
-                    new = kzalloc(sizeof(medium_t), GFP_KERNEL);
-                    if (new == NULL) {
-                        printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
-                        kzfree(ret);
-                        return NULL;
-                    }
-                    new->m_start = nh->m_start;
-                    new->m_end = nh->m_end;
-                    new->m_type = nh->m_type;
-                    list_add_tail(&new->list, ret);
-                    ++(*size);
-                    loop = nh;
-                    break;
+                if (stop == 2) {
+                    new->m_end = pend;
+                    return ret;
                 }
+                else if (stop == 3) {
+                    new->m_end = loop->m_end;
+                    return ret;
+                }
+                nh = new;
                 new = kzalloc(sizeof(medium_t), GFP_KERNEL);
                 if (new == NULL) {
                     printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
                     kzfree(ret);
                     return NULL;
                 }
-                new->m_start = nh->m_start;
-                new->m_end = nh->m_end;
-                new->m_type = nh->m_type;
-                list_add_tail(&new->list, ret);
+                new->m_start = loop->m_end;
+                new->m_end = pend;
+                new->m_type = -1;
+                list_add_tail(&nh->list, &new->list);
                 ++(*size);
                 return ret;
             }
-            break;
-        case 1:
-            nh = list_next_entry(loop, list);
-            if (pend <= nh->m_start) {
-                kzfree(ret);
-                return NULL;
-            }
-            break;
-        default:
-            break;
-    }
-
-    list_for_each_entry_safe_continue(loop, nh, dn, list) {
-        if (pend >= loop->m_start && pend <= loop->m_end) {
-            new = kzalloc(sizeof(medium_t), GFP_KERNEL);
-            if (new == NULL) {
-                printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
-                return NULL;
-            }
-            new->m_start = loop->m_start;
+            new->m_start = ppos;
             new->m_end = loop->m_end;
             new->m_type = loop->m_type;
             list_add_tail(&new->list, ret);
             ++(*size);
-        }
+            break;
+        case 3:
+            if (loop == del) {
+                if (stop == -1) {
+                    new->m_start = ppos;
+                    new->m_end = loop->m_start;
+                    new->m_type = -1;
+                    list_add_tail(&new->list, ret);
+                    ++(*size);
+                    return ret;
+                }
+                return NULL;
+            }
+            break;
     }
-    nh = list_last_entry(ret, typeof(*new), list);
-    if (nh->m_end > pend) {
+
+    next = list_next_entry(loop, list);
+    while (next != NULL && next != del && &next->list != (dn)) {
         new = kzalloc(sizeof(medium_t), GFP_KERNEL);
         if (new == NULL) {
             printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
+            kzfree(ret);
             return NULL;
         }
-        new->m_start = nh->m_end;
-        new->m_end = pend;
-        new->m_type = -1;
+        new->m_start = next->m_start;
+        new->m_end = next->m_end;
+        new->m_type = next->m_type;
         list_add_tail(&new->list, ret);
         ++(*size);
+        next = list_next_entry(next, list);
+    }
+
+    new = kzalloc(sizeof(medium_t), GFP_KERNEL);
+    if (new == NULL) {
+        printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
+        kzfree(ret);
+        return NULL;
+    }
+    /*We have dealt with loop == del on switch of start*/
+    switch(stop) {
+        case 0:
+        case 1:
+            prev = list_prev_entry(next, list);
+            new->m_start = prev->m_end;
+            new->m_end = pend;
+            new->m_type = -1;
+            list_add_tail(&new->list, ret);
+            ++(*size);
+            break;
+        case 2:
+        case 3:
+            new->m_start = next->m_start;
+            new->m_end = pend;
+            new->m_type = next->m_type;
+            list_add_tail(&new->list, ret);
+            ++(*size);
+            break;
     }
     return ret;
 }
