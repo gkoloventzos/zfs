@@ -202,6 +202,8 @@ void list_print(struct list_head *dn) {
             printk(KERN_EMERG "[PRINT]File %s from %lld to %lld is in METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name, loop->m_start, loop->m_end);
         else if (loop->m_type == -1)
             printk(KERN_EMERG "[PRINT]File %s from %lld to %lld is in METASLAB_ROTOR_VDEV_TYPE_HDD with -1\n", only_name, loop->m_start, loop->m_end);
+        else
+            printk(KERN_EMERG "[PRINT]File %s from %lld to %lld with rot %d\n", only_name, loop->m_start, loop->m_end, loop->m_type);
     }
 }
 
