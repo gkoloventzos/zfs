@@ -1433,7 +1433,7 @@ int add_request(void *data)
     struct analyze_request *a_r;
 	char *name;
 	int stop = 0;
-    struct list_head *general, *general_add, *pos, *n;
+    struct list_head *general, *pos, *n;
     struct rw_semaphore *sem;
     struct kdata *kdata = (struct kdata *)data;
     struct dentry *dentry = kdata->dentry;
@@ -1461,10 +1461,12 @@ int add_request(void *data)
     }
 
 	fullname(dentry, name, &stop);
+    if (strstr(name, "/log/") != NULL) {
+        return 1;
+    }
 
     if (type == HET_READ) {
         general = InsNode->read_reqs;
-        general_add = InsNode->list_read_rot;
         sem = &(InsNode->read_sem);
         if (InsNode->read_rot == NULL)
             InsNode->read_rot = kdata->rot;
@@ -1472,10 +1474,12 @@ int add_request(void *data)
             if (*kdata->rot > -1 && *InsNode->read_rot != *kdata->rot)
                 InsNode->read_rot = kdata->rot;
         }
+        down_write(sem);
+        zfs_media_add(InsNode->list_read_rot, offset, len, *kdata->rot, 0);
+        up_write(sem);
     }
     else {
         general = InsNode->write_reqs;
-        general_add = InsNode->list_write_rot;
         sem = &(InsNode->write_sem);
         InsNode->write_rot = *kdata->rot;
     }
@@ -1488,9 +1492,6 @@ sema:
         goto sema;
     }
     down_write(sem);
-
-    if (general_add != NULL)
-        zfs_media_add(general_add, offset, len, *kdata->rot);
 
     if (!list_empty_careful(general)) {
         list_for_each_prev_safe(pos, n, general) {
