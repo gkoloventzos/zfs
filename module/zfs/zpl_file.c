@@ -601,12 +601,38 @@ zpl_write_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
     uio_seg_t segment, int flags, cred_t *cr, bool rewrite, dnode_t *dn)
 {
 	struct iovec iov;
+    ssize_t all_written = 0;
+    ssize_t error = 0;
+    struct list_head *rot;
+    struct medium *loop, *nh;
+    loff_t start_pos;
+    int size = 0;
 
+    loop = NULL;
 	iov.iov_base = (void *)buf;
 	iov.iov_len = len;
 
-	return (zpl_write_common_iovec(ip, &iov, len, 1, ppos, segment,
-	    flags, cr, 0, rewrite));
+    if (dn != NULL && dn->cadmus != NULL && !list_empty(dn->cadmus->list_write_rot)) {
+        start_pos = *ppos;
+        rot = get_media_storage(dn->cadmus->list_write_rot, start_pos, start_pos+len, &size);
+        if (rot == NULL || list_empty(rot) || size == 1)
+            goto all;
+
+        printk(KERN_EMERG "[LIST]rot %p size %d start %lld end %lld\n", rot, size, start_pos, start_pos+len);
+        list_for_each_entry_safe(loop, nh, rot, list) {
+            printk(KERN_EMERG "[LIST] pointer %p start %lld end %lld rot %d\n", loop, loop->m_start, loop->m_end, loop->m_type);
+            error = zpl_write_common_iovec(ip, &iov, len, 1, ppos, segment,
+                flags, cr, all_written, rewrite);
+            if (error < 0)
+                return (error);
+            all_written += error;
+        }
+        my_delete_list(rot);
+        return all_written;
+    }
+all:
+    return (zpl_write_common_iovec(ip, &iov, len, 1, ppos, segment,
+                flags, cr, 0, rewrite));
 }
 
 static ssize_t
@@ -622,6 +648,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     int8_t rot = -1;
     struct data *InsNode = NULL;
     int stop = 0;
+    loff_t start_ppos = *ppos;
     char *filename = NULL;
     znode_t     *zp = ITOZ(filp->f_mapping->host);
 
@@ -649,28 +676,40 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 
     InsNode = dn->cadmus;
     InsNode->dentry = file_dentry(filp);
-    if (InsNode != NULL && strstr(filename, "log") == NULL) {
-        if (InsNode->write_rot > -1 && dn->dn_write_rot != InsNode->write_rot) {
-            dn->dn_write_rot = InsNode->write_rot;
-            rot = InsNode->write_rot;
-        }
-    }
-
-    if (dn->dn_write_rot == -2) {
-       if (strstr(filename, "sample_ssd") != NULL) {
-           rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
-           dn->dn_write_rot = rot;
-       }
-    }
-
-    if (dn->dn_write_rot == -2) {
-        for (stop = 0; stop <= 195; stop++) {
-            if (strstr(filename, boot_files[stop]) != NULL) {
-                rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
-                break;
+    if (InsNode != NULL) {
+        if (strstr(filename, "/log/") == NULL) {
+            if (InsNode->write_rot > -1 && dn->dn_write_rot != InsNode->write_rot) {
+                dn->dn_write_rot = InsNode->write_rot;
+                rot = InsNode->write_rot;
             }
         }
-        dn->dn_write_rot = rot;
+        else {
+            /* We do not care about logs*/
+            dn = NULL;
+            goto err;
+        }
+        if (strstr(filename, "sample_ssd") != NULL) {
+            rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+            InsNode->write_rot = rot;
+            dn->dn_write_rot = rot;
+        }
+        else {
+            for (stop = 0; stop <= 195; stop++) {
+                if (strstr(filename, boot_files[stop]) != NULL) {
+                    rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+                    break;
+                }
+            }
+            dn->dn_write_rot = rot;
+        }
+
+        down_write(&(InsNode->write_sem));
+        zfs_media_add(InsNode->list_write_rot, start_ppos, len, rot, 0);
+        up_write(&(InsNode->write_sem));
+    }
+
+    if (strstr(filename, "sample_ssd") != NULL) {
+        printk(KERN_EMERG "[LIST]size %ld start %lld end %lld insnode %p\n", len, *ppos, *ppos+len, dn->cadmus);
     }
 
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
@@ -686,7 +725,7 @@ err:
             kdata->filp = filp;
             kdata->dentry = file_dentry(filp);
             kdata->type = HET_WRITE;
-            kdata->offset = *ppos;
+            kdata->offset = start_ppos;
             kdata->length = wrote;
             kdata->rot = &dn->dn_write_rot;
             kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
