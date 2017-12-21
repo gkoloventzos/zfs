@@ -108,6 +108,18 @@ int init_data(struct data *InsNode, struct dentry *dentry)
     return 0;
 }
 
+void my_delete_list(struct list_head *dn)
+{
+    struct list_head *pos, *q;
+    struct medium *tmp;
+
+    list_for_each_safe(pos, q, dn){
+         tmp = list_entry(pos, struct medium, list);
+         list_del(pos);
+         kzfree(tmp);
+    }
+}
+
 void fullname(struct dentry *dentry, char *name, int *stop)
 {
     zfs_sb_t *zsb = NULL;
