@@ -744,8 +744,25 @@ re_write(struct file *filp, const char *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t wrote;
+    char *filename;
+    dnode_t *dn;
+    int stop = 0;
+    znode_t     *zp = ITOZ(filp->f_mapping->host);
 
     crhold(cr);
+
+    filename = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
+    if (filename == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
+    }
+    fullname(file_dentry(filp), filename, &stop);
+    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    mutex_enter(&dn->dn_mtx);
+    dn->cadmus = tree_insearch(file_dentry(filp), filename);
+    mutex_exit(&dn->dn_mtx);
+    DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr, true, dn);
 	crfree(cr);
