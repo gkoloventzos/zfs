@@ -495,7 +495,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 	    UIO_USERSPACE, filp->f_flags, cr, rot, false);
 	crfree(cr);
 
-    if (read > 0) {
+    if (read > 0 && dn->cadmus != NULL) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->InsNode = dn->cadmus;
@@ -681,10 +681,10 @@ err:
 	    UIO_USERSPACE, filp->f_flags, cr, false, dn);
 	crfree(cr);
 
-    if (wrote > 0) {
+    if (wrote > 0 && InsNode != NULL) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
-            kdata->InsNode = InsNode;
+            kdata->InsNode = (dn != NULL ? dn->cadmus : NULL);
             kdata->filp = filp;
             kdata->dentry = file_dentry(filp);
             kdata->type = HET_WRITE;
