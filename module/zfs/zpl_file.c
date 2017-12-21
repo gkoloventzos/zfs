@@ -52,14 +52,12 @@ static DEFINE_SEMAPHORE(tree_lock);
 
 int init_tree(void)
 {
-        printk(KERN_EMERG "[INIT_TREE]Sould only be once %p\n", hetfs_tree);
 	    hetfs_tree = kmem_zalloc(sizeof(struct rb_root),GFP_KERNEL);
         if (hetfs_tree == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
             return 1;
         }
         *hetfs_tree = RB_ROOT;
-        printk(KERN_EMERG "[INIT_TREE]End %p\n", hetfs_tree);
         return 0;
 }
 
@@ -1448,9 +1446,6 @@ sema:
                 a_r->end_offset += len;
                 a_r->end_time = time;
                 kzfree(kdata);
-                if (only_one && strstr(name, only_name) != NULL) {
-                    print_lists(InsNode);
-                }
                 up_write(sem);
                 kzfree(name);
                 return 0;
@@ -1472,9 +1467,6 @@ sema:
     a_r->end_offset = offset + len;
     a_r->times = 1;
     list_add_tail(&a_r->list, general);
-    if (only_one && strstr(name, only_name) != NULL) {
-        print_lists(InsNode);
-    }
     up_write(sem);
 
     kzfree(name);
@@ -1574,15 +1566,11 @@ struct data *rb_insert(struct rb_root *root, struct data *data)
             new = &((*new)->rb_left);
         else if (result > 0)
             new = &((*new)->rb_right);
-        else {
-//            printk(KERN_EMERG "[ERROR]already in? sem fail\n");
+        else
             return this;
-        }
     }
 
-    //printk(KERN_EMERG "[HETFS] add in tree %s as %d node\n", data->file, __exact);
     /* Add new node and rebalance tree. */
-    //printk(KERN_EMERG "[ERROR]insert hetfstree %p\n", root);
     rb_link_node(&data->node, parent, new);
     rb_insert_color(&data->node, root);
 

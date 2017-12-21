@@ -194,7 +194,6 @@ static void change_medium(void)
 
 void list_print(struct list_head *dn) {
     medium_t *loop, *n = NULL;
-//    for (loop = list_head(&dn); loop != NULL; loop = list_next(&dn, loop)) {
     list_for_each_entry_safe(loop, n, dn, list) {
         if (loop->m_type == METASLAB_ROTOR_VDEV_TYPE_HDD)
             printk(KERN_EMERG "[PRINT]File %s from %lld to %lld is in METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name, loop->m_start, loop->m_end);
