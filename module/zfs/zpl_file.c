@@ -1474,9 +1474,11 @@ int add_request(void *data)
             if (*kdata->rot > -1 && *InsNode->read_rot != *kdata->rot)
                 InsNode->read_rot = kdata->rot;
         }
-        down_write(sem);
-        zfs_media_add(InsNode->list_read_rot, offset, len, *kdata->rot, 0);
-        up_write(sem);
+        if (*kdata->rot != -2) {
+            down_write(sem);
+            zfs_media_add(InsNode->list_read_rot, offset, len, *kdata->rot, 0);
+            up_write(sem);
+        }
     }
     else {
         general = InsNode->write_reqs;
