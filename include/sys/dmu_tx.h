@@ -77,6 +77,8 @@ struct dmu_tx {
 	boolean_t tx_wait_dirty;
 
 	int tx_err;
+	int8_t tx_rot;
+    bool tx_print;
 #ifdef DEBUG_DMU_TX
 	uint64_t tx_space_towrite;
 	uint64_t tx_space_tofree;

@@ -282,6 +282,7 @@
 #include <linux/mm_compat.h>
 #endif
 #include <sys/callb.h>
+#include <sys/hetfs.h>
 #include <sys/kstat.h>
 #include <sys/dmu_tx.h>
 #include <zfs_fletcher.h>
@@ -2362,6 +2363,8 @@ arc_buf_alloc_impl(arc_buf_hdr_t *hdr, void *tag, boolean_t compressed,
 	buf->b_data = NULL;
 	buf->b_next = hdr->b_l1hdr.b_buf;
 	buf->b_flags = 0;
+	buf->b_rot = -11;
+	buf->b_print = false;
 
 	add_reference(hdr, tag);
 
@@ -5936,6 +5939,9 @@ arc_write(zio_t *pio, spa_t *spa, uint64_t txg,
 	arc_buf_hdr_t *hdr = buf->b_hdr;
 	arc_write_callback_t *callback;
 	zio_t *zio;
+/*#ifdef _KERNEL
+    bool print =false;
+#endif*/
 
 	ASSERT3P(ready, !=, NULL);
 	ASSERT3P(done, !=, NULL);
@@ -5986,6 +5992,16 @@ arc_write(zio_t *pio, spa_t *spa, uint64_t txg,
 	    (children_ready != NULL) ? arc_write_children_ready : NULL,
 	    arc_write_physdone, arc_write_done, callback,
 	    priority, zio_flags, zb);
+/*#ifdef _KERNEL
+    if (pio != NULL && pio->io_dn != NULL && pio->io_dn->cadmus != NULL && pio->io_dn->cadmus->dentry != NULL \
+        && pio->io_dn->cadmus->dentry->d_name.name != NULL \
+        && strstr(pio->io_dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL)
+        print = true;
+    if (print && zio->rot != NULL)
+        printk(KERN_EMERG "[ARC_WRITE] buf->b_rot %d *zio->rot %d\n", buf->b_rot, *zio->rot);
+#endif*/
+    if (zio->rot != NULL && *zio->rot != buf->b_rot)
+        *zio->rot = buf->b_rot;
 
 	return (zio);
 }

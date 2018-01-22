@@ -374,20 +374,21 @@ get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend, int *size)
     }
     /*We have dealt with loop == del on switch of start*/
     switch(stop) {
-        case 0:
-        case 1:
-            prev = list_prev_entry(next, list);
-            new->m_start = prev->m_end;
-            new->m_end = pend;
-            new->m_type = -1;
-            list_add_tail(&new->list, ret);
-            ++(*size);
-            break;
         case 2:
         case 3:
             new->m_start = next->m_start;
             new->m_end = pend;
             new->m_type = next->m_type;
+            list_add_tail(&new->list, ret);
+            ++(*size);
+            break;
+        case 0:
+        case 1:
+        default:
+            prev = list_prev_entry(next, list);
+            new->m_start = prev->m_end;
+            new->m_end = pend;
+            new->m_type = -1;
             list_add_tail(&new->list, ret);
             ++(*size);
             break;

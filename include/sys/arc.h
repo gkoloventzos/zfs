@@ -153,6 +153,8 @@ struct arc_buf {
 	kmutex_t		b_evict_lock;
 	void			*b_data;
 	arc_buf_flags_t		b_flags;
+    int8_t          b_rot;
+    bool            b_print;
 };
 
 typedef enum arc_buf_contents {

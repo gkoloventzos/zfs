@@ -50,6 +50,18 @@ int bla = 0;
 char *only_name = NULL;
 static DEFINE_SEMAPHORE(tree_lock);
 
+void my_delete_list(struct list_head *dn)
+{
+    struct list_head *pos, *q;
+    struct medium *tmp;
+
+    list_for_each_safe(pos, q, dn){
+         tmp = list_entry(pos, struct medium, list);
+         list_del(pos);
+         kzfree(tmp);
+    }
+}
+
 int init_tree(void)
 {
 	    hetfs_tree = kmem_zalloc(sizeof(struct rb_root),GFP_KERNEL);
@@ -104,18 +116,6 @@ int init_data(struct data *InsNode, struct dentry *dentry)
     if (bla%100 == 0)
         printk(KERN_EMERG "[INIT_DATA]Tree nodes %d\n", bla);*/
     return 0;
-}
-
-void my_delete_list(struct list_head *dn)
-{
-    struct list_head *pos, *q;
-    struct medium *tmp;
-
-    list_for_each_safe(pos, q, dn){
-         tmp = list_entry(pos, struct medium, list);
-         list_del(pos);
-         kzfree(tmp);
-    }
 }
 
 void fullname(struct dentry *dentry, char *name, int *stop)
@@ -565,7 +565,7 @@ zpl_aio_read(struct kiocb *kiocb, const struct iovec *iovp,
 static ssize_t
 zpl_write_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
     unsigned long nr_segs, loff_t *ppos, uio_seg_t segment, int flags,
-    cred_t *cr, size_t skip, bool rewrite)
+    cred_t *cr, size_t skip, bool rewrite, int8_t rot)
 {
 	ssize_t wrote;
 	uio_t uio;
@@ -583,6 +583,7 @@ zpl_write_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 	uio.uio_limit = MAXOFFSET_T;
 	uio.uio_segflg = segment;
     uio.uio_rewrite = rewrite;
+    uio.uio_rot = rot;
 
 	cookie = spl_fstrans_mark();
 	error = -zfs_write(ip, &uio, flags, cr);
@@ -601,38 +602,40 @@ zpl_write_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
     uio_seg_t segment, int flags, cred_t *cr, bool rewrite, dnode_t *dn)
 {
 	struct iovec iov;
-    ssize_t all_written = 0;
-    ssize_t error = 0;
-    struct list_head *rot;
     struct medium *loop, *nh;
-    loff_t start_pos;
+    struct list_head *list_rot;
+	ssize_t wrote_gen = 0;
+    loff_t start_pos = *ppos;
     int size = 0;
+    ssize_t error = 0;
 
-    loop = NULL;
 	iov.iov_base = (void *)buf;
 	iov.iov_len = len;
 
     if (dn != NULL && dn->cadmus != NULL && !list_empty(dn->cadmus->list_write_rot)) {
         start_pos = *ppos;
-        rot = get_media_storage(dn->cadmus->list_write_rot, start_pos, start_pos+len, &size);
-        if (rot == NULL || list_empty(rot) || size == 1)
-            goto all;
-
-        printk(KERN_EMERG "[LIST]rot %p size %d start %lld end %lld\n", rot, size, start_pos, start_pos+len);
-        list_for_each_entry_safe(loop, nh, rot, list) {
-            printk(KERN_EMERG "[LIST] pointer %p start %lld end %lld rot %d\n", loop, loop->m_start, loop->m_end, loop->m_type);
+        list_rot = get_media_storage(dn->cadmus->list_write_rot, start_pos, start_pos+len, &size);
+        if (list_rot == NULL)
+            goto single;
+//        printk(KERN_EMERG "[LIST]rot %p size %d start %lld end %lld\n", list_rot, size, start_pos, start_pos+len);
+        list_for_each_entry_safe(loop, nh, list_rot, list) {
+            len = loop->m_end-loop->m_start;
+            rewrite = true;
+//            printk(KERN_EMERG "[LIST] pointer %p start %lld end %lld len %ld rot %d\n", loop, loop->m_start, loop->m_end, len, loop->m_type);
             error = zpl_write_common_iovec(ip, &iov, len, 1, ppos, segment,
-                flags, cr, all_written, rewrite);
-            if (error < 0)
+                    flags, cr, wrote_gen, rewrite, loop->m_type);
+            wrote_gen += len;
+            if (error < 0) {
+                my_delete_list(list_rot);
                 return (error);
-            all_written += error;
+            }
         }
-        my_delete_list(rot);
-        return all_written;
+        my_delete_list(list_rot);
+        return wrote_gen;
     }
-all:
+single:
     return (zpl_write_common_iovec(ip, &iov, len, 1, ppos, segment,
-                flags, cr, 0, rewrite));
+                flags, cr, 0, rewrite, -4));
 }
 
 static ssize_t
@@ -651,6 +654,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     loff_t start_ppos = *ppos;
     char *filename = NULL;
     znode_t     *zp = ITOZ(filp->f_mapping->host);
+    bool print = false;
 
     ktime_get_ts(&arrival_time);
 	crhold(cr);
@@ -690,8 +694,13 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         }
         if (strstr(filename, "sample_ssd") != NULL) {
             rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+            print = true;
+            dn->dn_write_rot = -1;
+/*            down_write(&(InsNode->write_sem));
+            zfs_media_add(InsNode->list_write_rot, start_ppos, len, rot, 0);
+            up_write(&(InsNode->write_sem));
             InsNode->write_rot = rot;
-            dn->dn_write_rot = rot;
+            dn->dn_write_rot = rot;*/
         }
         else {
             for (stop = 0; stop <= 195; stop++) {
@@ -703,19 +712,20 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             dn->dn_write_rot = rot;
         }
 
-        down_write(&(InsNode->write_sem));
+/*        down_write(&(InsNode->write_sem));
         zfs_media_add(InsNode->list_write_rot, start_ppos, len, rot, 0);
-        up_write(&(InsNode->write_sem));
+        up_write(&(InsNode->write_sem));*/
     }
 
-    if (strstr(filename, "sample_ssd") != NULL) {
+/*    if (strstr(filename, "sample_ssd") != NULL) {
         printk(KERN_EMERG "[LIST]size %ld start %lld end %lld insnode %p\n", len, *ppos, *ppos+len, dn->cadmus);
-    }
+    }*/
 
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+
 err:
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
-	    UIO_USERSPACE, filp->f_flags, cr, false, dn);
+	    UIO_USERSPACE, filp->f_flags, cr, print, dn);
 	crfree(cr);
 
     if (wrote > 0 && InsNode != NULL) {
@@ -830,7 +840,7 @@ zpl_iter_write_common(struct kiocb *kiocb, const struct iovec *iovp,
 
 	crhold(cr);
 	wrote = zpl_write_common_iovec(filp->f_mapping->host, iovp, count,
-	    nr_segs, &kiocb->ki_pos, seg, filp->f_flags, cr, skip, false);
+	    nr_segs, &kiocb->ki_pos, seg, filp->f_flags, cr, skip, false, -5);
 	crfree(cr);
 
 	return (wrote);

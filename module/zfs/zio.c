@@ -43,6 +43,7 @@
 #include <sys/time.h>
 #include <sys/trace_zio.h>
 #include <sys/abd.h>
+#include <sys/hetfs.h>
 
 /*
  * ==========================================================================
@@ -660,6 +661,16 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 	zio->io_pipeline_trace = ZIO_STAGE_OPEN;
 //#ifdef CONFIG_HETFS
     zio->rot = NULL;
+#ifdef _KERNEL
+    if (type == ZIO_TYPE_WRITE) {
+        zio->rot = kzalloc(sizeof(int8_t), GFP_KERNEL);
+        if (zio->rot == NULL)
+            printk(KERN_EMERG "[ERROR]Cannot alloc zio->rot\n");
+        else {
+            *zio->rot = -12;
+        }
+    }
+#endif
     zio->io_dn = NULL;
 //#endif
 
@@ -2339,7 +2350,7 @@ zio_write_gang_block(zio_t *pio)
 
 	error = metaslab_alloc(spa, mc, SPA_GANGBLOCKSIZE,
 	    bp, gbh_copies, txg, pio == gio ? NULL : gio->io_bp, flags,
-	    &pio->io_alloc_list, pio);
+	    &pio->io_alloc_list, pio, false);
 	if (error) {
 		if (pio->io_flags & ZIO_FLAG_IO_ALLOCATING) {
 			ASSERT(pio->io_priority == ZIO_PRIORITY_ASYNC_WRITE);
@@ -3030,6 +3041,7 @@ zio_dva_allocate(zio_t *zio)
 	blkptr_t *bp = zio->io_bp;
 	int error;
 	int flags = 0;
+    bool print = false;
 
 	if (zio->io_gang_leader == NULL) {
 		ASSERT(zio->io_child_type > ZIO_CHILD_GANG);
@@ -3050,9 +3062,17 @@ zio_dva_allocate(zio_t *zio)
 	if (zio->io_priority == ZIO_PRIORITY_ASYNC_WRITE)
 		flags |= METASLAB_ASYNC_ALLOC;
 
+#ifdef _KERNEL
+    if (zio->io_dn != NULL && zio->io_dn->cadmus != NULL \
+            && zio->io_dn->cadmus->dentry != NULL \
+            && zio->io_dn->cadmus->dentry->d_name.name != NULL \
+            && strstr(zio->io_dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL) {
+        print = true;
+    }
+#endif
 	error = metaslab_alloc(spa, mc, zio->io_size, bp,
 	    zio->io_prop.zp_copies, zio->io_txg, NULL, flags,
-	    &zio->io_alloc_list, zio);
+	    &zio->io_alloc_list, zio, print);
 
 	if (error != 0) {
 		spa_dbgmsg(spa, "%s: metaslab allocation failure: zio %p, "
@@ -3127,13 +3147,13 @@ zio_alloc_zil(spa_t *spa, uint64_t txg, blkptr_t *new_bp, uint64_t size,
 	if (use_slog) {
 		error = metaslab_alloc(spa, spa_log_class(spa), size,
 		    new_bp, 1, txg, NULL, METASLAB_FASTWRITE,
-		    &io_alloc_list, NULL);
+		    &io_alloc_list, NULL, false);
 	}
 
 	if (error) {
 		error = metaslab_alloc(spa, spa_normal_class(spa), size,
 		    new_bp, 1, txg, NULL, METASLAB_FASTWRITE,
-		    &io_alloc_list, NULL);
+		    &io_alloc_list, NULL, false);
 	}
 	metaslab_trace_fini(&io_alloc_list);
 

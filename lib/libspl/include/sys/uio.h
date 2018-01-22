@@ -66,6 +66,7 @@ typedef struct uio {
 	offset_t	uio_limit;	/* u-limit (maximum byte offset) */
 	ssize_t		uio_resid;	/* residual count */
     bool        uio_rewrite;
+    int8_t      uio_rot;
 } uio_t;
 
 typedef enum xuio_type {

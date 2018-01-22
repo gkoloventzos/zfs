@@ -147,8 +147,8 @@ static void change_medium(void)
         printk(KERN_EMERG "[ERROR] Change end to n_end failed\n");
         return ;
     }
-    if (n_end > n_start) {
-        printk(KERN_EMERG "[ERROR] End bigger than start\n");
+    if (n_end < n_start) {
+        printk(KERN_EMERG "[ERROR] End smaller than start\n");
         return;
     }
     ret = kstrtoint(where, 10, &n_where);
@@ -233,6 +233,9 @@ static void print_media(void)
         printk(KERN_EMERG "[ERROR] No node in tree\n");
         kzfree(output);
         return;
+    }
+    else {
+        printk(KERN_EMERG "[PRINT] File %s InsNode %p\n", only_name, tree_entry);
     }
 
     if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)

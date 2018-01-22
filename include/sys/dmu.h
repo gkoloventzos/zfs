@@ -296,6 +296,7 @@ typedef struct dmu_buf {
 	uint64_t db_offset;		/* byte offset in this object */
 	uint64_t db_size;		/* size of buffer in bytes */
 	void *db_data;			/* data in buffer */
+    int8_t db_rot;
 } dmu_buf_t;
 
 /*
@@ -737,7 +738,7 @@ int dmu_read(objset_t *os, uint64_t object, uint64_t offset, uint64_t size,
 int dmu_read_by_dnode(dnode_t *dn, uint64_t offset, uint64_t size, void *buf,
     uint32_t flags);
 void dmu_write(objset_t *os, uint64_t object, uint64_t offset, uint64_t size,
-	const void *buf, dmu_tx_t *tx);
+	const void *buf, dmu_tx_t *tx, int8_t rot);
 void dmu_write_by_dnode(dnode_t *dn, uint64_t offset, uint64_t size,
     const void *buf, dmu_tx_t *tx);
 void dmu_prealloc(objset_t *os, uint64_t object, uint64_t offset, uint64_t size,
@@ -754,7 +755,7 @@ int dmu_write_uio_dbuf(dmu_buf_t *zdb, struct uio *uio, uint64_t size,
 struct arc_buf *dmu_request_arcbuf(dmu_buf_t *handle, int size);
 void dmu_return_arcbuf(struct arc_buf *buf);
 void dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, struct arc_buf *buf,
-    dmu_tx_t *tx);
+    dmu_tx_t *tx, int8_t rot);
 #ifdef HAVE_UIO_ZEROCOPY
 int dmu_xuio_init(struct xuio *uio, int niov);
 void dmu_xuio_fini(struct xuio *uio);

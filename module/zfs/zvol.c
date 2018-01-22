@@ -525,7 +525,7 @@ zvol_replay_write(zvol_state_t *zv, lr_write_t *lr, boolean_t byteswap)
 	if (error) {
 		dmu_tx_abort(tx);
 	} else {
-		dmu_write(os, ZVOL_OBJ, off, len, data, tx);
+		dmu_write(os, ZVOL_OBJ, off, len, data, tx, -9);
 		dmu_tx_commit(tx);
 	}
 

@@ -85,6 +85,8 @@ dmu_tx_create(objset_t *os)
 	dmu_tx_t *tx = dmu_tx_create_dd(os->os_dsl_dataset->ds_dir);
 	tx->tx_objset = os;
 	tx->tx_lastsnap_txg = dsl_dataset_prev_snap_txg(os->os_dsl_dataset);
+    tx->tx_rot = -4;
+    tx->tx_print = false;
 	return (tx);
 }
 

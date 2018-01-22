@@ -77,6 +77,7 @@
 #include <sys/cred.h>
 #include <sys/attr.h>
 #include <sys/zpl.h>
+#include <sys/dmu_tx.h>
 
 /*
  * Programming rules.
@@ -779,6 +780,13 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 			break;
 		}
 
+        tx->tx_print = uio->uio_rewrite;
+/*#ifdef _KERNEL
+        if (uio->uio_rewrite) {
+            printk(KERN_EMERG "tx_rot %d uio_rot %d txg %lld txg_start %lld\n", tx->tx_rot, uio->uio_rot, tx->tx_txg, tx->tx_start);
+        }
+#endif*/
+
 		/*
 		 * If zfs_range_lock() over-locked we grow the blocksize
 		 * and then reduce the lock range.  This will only happen
@@ -812,11 +820,15 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 
 		if (abuf == NULL) {
 			tx_bytes = uio->uio_resid;
+//            if (uio->uio_rewrite)
+//                printk(KERN_EMERG "[ZFS_WRITE] dmu_write_uio_dbuf rot %d\n", uio->uio_rot);
 			error = dmu_write_uio_dbuf(sa_get_db(zp->z_sa_hdl),
 			    uio, nbytes, tx);
 			tx_bytes -= uio->uio_resid;
 		} else {
 			tx_bytes = nbytes;
+            abuf->b_rot = uio->uio_rot;
+            abuf->b_print = uio->uio_rewrite;
 			ASSERT(xuio == NULL || tx_bytes == aiov->iov_len);
 			/*
 			 * If this is not a full block write, but we are
@@ -827,14 +839,18 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 			if (tx_bytes < max_blksz && (!write_eof ||
 			    aiov->iov_base != abuf->b_data)) {
 				ASSERT(xuio);
+//            if (uio->uio_rewrite)
+//                printk(KERN_EMERG "[ZFS_WRITE] dmu_write rot %d\n", uio->uio_rot);
 				dmu_write(zsb->z_os, zp->z_id, woff,
-				    aiov->iov_len, aiov->iov_base, tx);
+				    aiov->iov_len, aiov->iov_base, tx, uio->uio_rot);
 				dmu_return_arcbuf(abuf);
 				xuio_stat_wbuf_copied();
 			} else {
 				ASSERT(xuio || tx_bytes == max_blksz);
+//            if (uio->uio_rewrite)
+//                printk(KERN_EMERG "[ZFS_WRITE] dmu_assign_arcbuf rot %d\n", uio->uio_rot);
 				dmu_assign_arcbuf(sa_get_db(zp->z_sa_hdl),
-				    woff, abuf, tx);
+				    woff, abuf, tx, uio->uio_rot);
 			}
 			ASSERT(tx_bytes <= uio->uio_resid);
 			uioskip(uio, tx_bytes);
@@ -4250,7 +4266,7 @@ zfs_putpage(struct inode *ip, struct page *pp, struct writeback_control *wbc)
 
 	va = kmap(pp);
 	ASSERT3U(pglen, <=, PAGE_SIZE);
-	dmu_write(zsb->z_os, zp->z_id, pgoff, pglen, va, tx);
+	dmu_write(zsb->z_os, zp->z_id, pgoff, pglen, va, tx, -9);
 	kunmap(pp);
 
 	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_MTIME(zsb), NULL, &mtime, 16);

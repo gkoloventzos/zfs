@@ -2728,7 +2728,7 @@ metaslab_sync(metaslab_t *msp, uint64_t txg)
 	if (object != space_map_object(msp->ms_sm)) {
 		object = space_map_object(msp->ms_sm);
 		dmu_write(mos, vd->vdev_ms_array, sizeof (uint64_t) *
-		    msp->ms_id, sizeof (uint64_t), &object, tx);
+		    msp->ms_id, sizeof (uint64_t), &object, tx, -9);
 	}
 	dmu_tx_commit(tx);
 }
@@ -3361,7 +3361,7 @@ int ditto_same_vdev_distance_shift = 3;
 static int
 metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
     dva_t *dva, int d, dva_t *hintdva, uint64_t txg, int flags,
-    zio_alloc_list_t *zal, int alloc_class, int rot)
+    zio_alloc_list_t *zal, int alloc_class, int rot, bool print)
 {
 	metaslab_group_t *mg, *fast_mg, *rotor;
 	vdev_t *vd;
@@ -3390,15 +3390,29 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 		nrot++;
 	}
 
+/*#ifdef _KERNEL
+    if(print)
+        printk(KERN_EMERG "1 nrot %d rot %d\n", nrot, rot);
+#endif*/
     if (rot >= METASLAB_CLASS_ROTORS)
         rot = METASLAB_CLASS_ROTORS-1;
     if (rot > -1 && rot < METASLAB_CLASS_ROTORS)
         nrot = rot;
 
+/*#ifdef _KERNEL
+    if(print)
+        printk(KERN_EMERG "2 nrot %d rot %d\n", nrot, rot);
+#endif*/
 	for (; nrot < METASLAB_CLASS_ROTORS; nrot++)
 		if (mc->mc_rotorv[nrot])
 			break;
 
+/*#ifdef _KERNEL
+    if(print)
+        printk(KERN_EMERG "3 nrot %d rot %d\n", nrot, rot);
+#endif*/
+    if (nrot >= METASLAB_CLASS_ROTORS)
+        nrot = 0;
 	/*
 	 * Start at the rotor and loop through all mgs until we find something.
 	 * Note that there's no locking on mc_rotor or mc_aliquot because
@@ -3840,7 +3854,7 @@ int get_metaslab_class(metaslab_class_t *mc, int rot)
 int
 metaslab_alloc(spa_t *spa, metaslab_class_t *mc, uint64_t psize, blkptr_t *bp,
     int ndvas, uint64_t txg, blkptr_t *hintbp, int flags,
-    zio_alloc_list_t *zal, zio_t *zio)
+    zio_alloc_list_t *zal, zio_t *zio, bool print)
 {
 	dva_t *dva = bp->blk_dva;
 	dva_t *hintdva = hintbp->blk_dva;
@@ -3877,14 +3891,25 @@ has_vdev:
 		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
 
     if (zio != NULL) {
-        if (zio->io_dn != NULL && zio->io_dn->dn_write_rot > -1) {
-            rot = get_metaslab_class(mc, zio->io_dn->dn_write_rot);
+        if (zio->rot != NULL) {
+/*#ifdef _KERNEL
+            if (print)
+            printk(KERN_EMERG "before *zio->rot %d rot %d\n", *zio->rot, rot);
+#endif*/
+            rot = get_metaslab_class(mc, *zio->rot);
+/*#ifdef _KERNEL
+            if (print)
+            printk(KERN_EMERG "after rot %d\n", rot);
+#endif*/
         }
+        if (zio->io_dn != NULL && zio->io_dn->dn_write_rot > -1)
+            rot = get_metaslab_class(mc, zio->io_dn->dn_write_rot);
+//                print = true;
     }
 
 	for (d = 0; d < ndvas; d++) {
 		error = metaslab_alloc_dva(spa, mc, psize, dva, d, hintdva,
-		    txg, flags, zal, alloc_class, rot);
+		    txg, flags, zal, alloc_class, rot, print);
 		if (error != 0) {
 			for (d--; d >= 0; d--) {
 				metaslab_free_dva(spa, &dva[d], txg, B_TRUE);

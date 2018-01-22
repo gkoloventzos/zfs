@@ -66,7 +66,7 @@ uint64_t metaslab_block_maxsize(metaslab_t *);
 #define	METASLAB_FASTWRITE		0x20
 
 int metaslab_alloc(spa_t *, metaslab_class_t *, uint64_t,
-    blkptr_t *, int, uint64_t, blkptr_t *, int, zio_alloc_list_t *, zio_t *);
+    blkptr_t *, int, uint64_t, blkptr_t *, int, zio_alloc_list_t *, zio_t *, bool);
 void metaslab_free(spa_t *, const blkptr_t *, uint64_t, boolean_t);
 int metaslab_claim(spa_t *, const blkptr_t *, uint64_t);
 void metaslab_check_free(spa_t *, const blkptr_t *);
