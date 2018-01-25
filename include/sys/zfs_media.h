@@ -34,6 +34,7 @@ typedef struct medium {
     loff_t m_start;
     loff_t m_end;
     int8_t m_type;
+	ssize_t write_ret;
     struct list_head list;
 } medium_t;
 
