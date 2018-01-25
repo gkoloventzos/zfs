@@ -1243,6 +1243,10 @@ dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, int8_t *rot)
 #endif
 			err = uiomove((char *)db->db_data + bufoff, tocpy,
 			    UIO_READ, uio);
+        if (dn->cadmus != NULL && dn->cadmus->dentry != NULL \
+            && dn->cadmus->dentry->d_name.name != NULL \
+            && strstr(dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL)
+            zfs_media_add(dn->cadmus->list_read_rot, uio->uio_loffset+db->db_offset, tocpy, db->db_rot, 0);
 		if (err)
 			break;
 
