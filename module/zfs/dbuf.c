@@ -3403,6 +3403,9 @@ dbuf_sync_leaf(dbuf_dirty_record_t *dr, dmu_tx_t *tx)
 	}
 	db->db_data_pending = dr;
 
+    if (dr->dt.dl.dr_data->b_rot < 0 && db->db.db_rot > -1)
+        dr->dt.dl.dr_data->b_rot = db->db.db_rot;
+
 	mutex_exit(&db->db_mtx);
 
 	dbuf_write(dr, *datap, tx);
@@ -3941,7 +3944,10 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
         }
 #endif
 	}
-/*#ifdef _KERNEL
+#ifdef _KERNEL
+    dr->dr_zio->io_write_rot = dr->dr_rot;
+#endif
+#ifdef _KERNEL
     if (print && dr->dr_zio != NULL && dr->dr_zio->rot != NULL) {
         printk(KERN_EMERG "[DBUF_WRITE]end dbuf_write sample_ssd dr->dr_zio->rot %d dr->dr_zio %p\n", *dr->dr_zio->rot, dr->dr_zio);
     }

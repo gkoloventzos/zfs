@@ -3892,15 +3892,15 @@ has_vdev:
 
     if (zio != NULL) {
         if (zio->rot != NULL) {
-/*#ifdef _KERNEL
+#ifdef _KERNEL
             if (print)
-            printk(KERN_EMERG "before *zio->rot %d rot %d\n", *zio->rot, rot);
-#endif*/
-            rot = get_metaslab_class(mc, *zio->rot);
-/*#ifdef _KERNEL
+                printk(KERN_EMERG "before zio %p *zio->rot %d rot %d zio->io_write_rot %d\n", zio, *zio->rot, rot, zio->io_write_rot);
+#endif
+            rot = get_metaslab_class(mc, zio->io_write_rot);
+#ifdef _KERNEL
             if (print)
-            printk(KERN_EMERG "after rot %d\n", rot);
-#endif*/
+                printk(KERN_EMERG "after rot %d\n", rot);
+#endif
         }
         if (zio->io_dn != NULL && zio->io_dn->dn_write_rot > -1)
             rot = get_metaslab_class(mc, zio->io_dn->dn_write_rot);

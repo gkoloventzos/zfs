@@ -620,9 +620,10 @@ zpl_write_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
         if (size == 1) {
             /*If only one avoid all those loops*/
             loop = list_first_entry_or_null(list_rot, typeof(*(loop)) ,list);
+            size = loop->m_type;
             my_delete_list(list_rot);
             return (zpl_write_common_iovec(ip, &iov, len, 1, ppos, segment,
-                        flags, cr, 0, rewrite, loop->m_type));
+                        flags, cr, 0, rewrite, size));
         }
 //        printk(KERN_EMERG "[LIST]rot %p size %d start %lld end %lld\n", list_rot, size, start_pos, start_pos+len);
         list_for_each_entry_safe(loop, nh, list_rot, list) {
@@ -743,7 +744,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 
 err:
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
-	    UIO_USERSPACE, filp->f_flags, cr, false, dn);
+	    UIO_USERSPACE, filp->f_flags, cr, print, dn);
 	crfree(cr);
 
     if (wrote > 0 && InsNode != NULL) {
