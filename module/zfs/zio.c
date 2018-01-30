@@ -460,18 +460,6 @@ zio_add_child(zio_t *pio, zio_t *cio)
 
 	pio->io_child_count++;
 	cio->io_parent_count++;
-/*    if (pio->rot != NULL) {
-        if(cio->rot == NULL)
-            cio->rot = pio->rot;
-        else if (*cio->rot > *pio->rot)
-            *pio->rot = *cio->rot;
-        else
-            *cio->rot = *pio->rot;
-    }*/
-    if (pio->rot != NULL)
-        cio->rot = pio->rot;
-    else
-        pio->rot = cio->rot;
 
 /*    if (pio->filp != NULL)
         cio->filp = pio->filp;
@@ -660,19 +648,9 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 	zio->io_orig_pipeline = zio->io_pipeline = pipeline;
 	zio->io_pipeline_trace = ZIO_STAGE_OPEN;
 //#ifdef CONFIG_HETFS
-    zio->rot = NULL;
+    zio->io_read_rot = -20;
     zio->io_write_rot = -20;
     zio->print = false;
-#ifdef _KERNEL
-    if (type == ZIO_TYPE_WRITE) {
-        zio->rot = kzalloc(sizeof(int8_t), GFP_KERNEL);
-        if (zio->rot == NULL)
-            printk(KERN_EMERG "[ERROR]Cannot alloc zio->rot\n");
-        else {
-            *zio->rot = -12;
-        }
-    }
-#endif
     zio->io_dn = NULL;
 //#endif
 
@@ -693,7 +671,6 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 		if (zio->io_child_type == ZIO_CHILD_GANG)
 			zio->io_gang_leader = pio->io_gang_leader;
 
-        zio->rot = pio->rot;
         //zio->filp = pio->filp;
         zio->io_dn = pio->io_dn;
 

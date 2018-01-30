@@ -502,7 +502,6 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
             kdata->type = HET_READ;
             kdata->offset = start_ppos;
             kdata->length = read;
-            kdata->rot = rot;
             kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"readreq");
         }
@@ -713,7 +712,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         }
         if (strstr(filename, "sample_ssd") != NULL) {
             rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
-            print = true;
+//            print = true;
             dn->dn_write_rot = -1;
 /*            down_write(&(InsNode->write_sem));
             zfs_media_add(InsNode->list_write_rot, start_ppos, len, rot, 0);
@@ -756,7 +755,6 @@ err:
             kdata->type = HET_WRITE;
             kdata->offset = start_ppos;
             kdata->length = wrote;
-            kdata->rot = &dn->dn_write_rot;
             kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"writereq");
         }
@@ -816,8 +814,10 @@ zpl_rewrite(struct file *filp)
         return 1;
     }
     for(;;) {
+        //printk(KERN_EMERG "[ERROR]ZPL_REWRITE start_pos %lld npos %lld pos %lld\n", start_pos, npos, pos);
         reread = re_read(filp, buf, len, &pos);
         if (reread > 0) {
+           // printk(KERN_EMERG "[ERROR]ZPL_REWRITE start_pos %lld npos %lld pos %lld\n", start_pos, npos, pos);
             rewrite = re_write(filp, buf, reread, &npos);
             if (reread != rewrite) {
                 printk(KERN_EMERG "[ERROR]ZPL_REWRITE %lld %lld error %zd\n", start_pos, npos, reread);
@@ -825,6 +825,7 @@ zpl_rewrite(struct file *filp)
             }
             start_pos += reread;
             pos = start_pos;
+            npos = start_pos;
             memset(buf, 0, len);
             continue;
         }
@@ -1485,22 +1486,10 @@ int add_request(void *data)
     if (type == HET_READ) {
         general = InsNode->read_reqs;
         sem = &(InsNode->read_sem);
-        if (InsNode->read_rot == NULL)
-            InsNode->read_rot = kdata->rot;
-        else {
-            if (*kdata->rot > -1 && *InsNode->read_rot != *kdata->rot)
-                InsNode->read_rot = kdata->rot;
-        }
-        if (*kdata->rot != -2) {
-            down_write(sem);
-            zfs_media_add(InsNode->list_read_rot, offset, len, *kdata->rot, 0);
-            up_write(sem);
-        }
     }
     else {
         general = InsNode->write_reqs;
         sem = &(InsNode->write_sem);
-        InsNode->write_rot = *kdata->rot;
     }
     InsNode->size = i_size_read(d_inode(dentry));
     InsNode->filp = kdata->filp;

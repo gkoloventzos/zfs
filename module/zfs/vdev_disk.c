@@ -527,28 +527,14 @@ vdev_submit_bio(struct bio *bio, int rw)
 
     if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
         if (rw == READ) {
-            if (zio != NULL && zio->rot != NULL)
-                *zio->rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
-#ifdef _KERNEL
-            if (zio != NULL && zio->rot == NULL && zio->io_dn != NULL \
-                && zio->io_dn->cadmus != NULL && zio->io_dn->cadmus->dentry != NULL \
-                && zio->io_dn->cadmus->dentry->d_name.name != NULL \
-                && strstr(zio->io_dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL)
-                printk(KERN_EMERG "[VDEV_SUBMIT_BIO]rot == NULL\n");
-#endif
+            if (zio != NULL )
+                zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
         }
     }
     else {
         if (rw == READ) {
-            if (zio != NULL && zio->rot != NULL)
-                *zio->rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
-#ifdef _KERNEL
-            if (zio != NULL && zio->rot == NULL && zio->io_dn != NULL \
-                && zio->io_dn->cadmus != NULL && zio->io_dn->cadmus->dentry != NULL \
-                && zio->io_dn->cadmus->dentry->d_name.name != NULL \
-                && strstr(zio->io_dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL)
-                printk(KERN_EMERG "[VDEV_SUBMIT_BIO]rot == NULL\n");
-#endif
+            if (zio != NULL)
+                zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
         }
     }
 	vdev_submit_bio_impl(bio);

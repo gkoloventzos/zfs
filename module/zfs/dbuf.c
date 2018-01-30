@@ -1212,11 +1212,10 @@ dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags, int8_t *rot)
 		if (zio == NULL &&
 		    db->db_blkptr != NULL && !BP_IS_HOLE(db->db_blkptr)) {
 			zio = zio_root(spa, NULL, NULL, ZIO_FLAG_CANFAIL);
-            zio->rot = rot;
         }
 
-        if (zio != NULL && zio->rot == NULL)
-            zio->rot = rot;
+//        if (zio != NULL && zio->rot == NULL)
+//            zio->rot = rot;
 
 		err = dbuf_read_impl(db, zio, flags);
 
@@ -1627,10 +1626,6 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 	    db->db_state == DB_NOFILL);
 
 	mutex_enter(&dn->dn_mtx);
-/*#ifdef _KERNEL
-        if (tx->tx_print)
-            printk(KERN_EMERG "[DBUF_DIRTY] db->db.db_rot %d txg %lld txg_start %lld\n", db->db.db_rot, tx->tx_txg, tx->tx_start);
-#endif*/
 	/*
 	 * Don't set dirtyctx to SYNC if we're just modifying this as we
 	 * initialize the objset.
@@ -1812,10 +1807,6 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 	}
 
 	if (db->db_level == 0) {
-/*#ifdef _KERNEL
-        if (tx->tx_print)
-            printk(KERN_EMERG "[DBUF_DIRTY] dnode_new_blkid db->db.db_rot %d txg %lld txg_start %lld\n", db->db.db_rot, tx->tx_txg, tx->tx_start);
-#endif*/
 		dnode_new_blkid(dn, db->db_blkid, tx, drop_struct_lock);
 		ASSERT(dn->dn_maxblkid >= db->db_blkid);
 	}
@@ -1836,10 +1827,6 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 		if (drop_struct_lock)
 			rw_exit(&dn->dn_struct_rwlock);
 		ASSERT3U(db->db_level+1, ==, parent->db_level);
-/*#ifdef _KERNEL
-        if (tx->tx_print)
-            printk(KERN_EMERG "[DBUF_DIRTY] going to parent db->db.db_rot %d txg %lld txg_start %lld\n", db->db.db_rot, tx->tx_txg, tx->tx_start);
-#endif*/
 		di = dbuf_dirty(parent, tx);
 		if (parent_held)
 			dbuf_rele(parent, FTAG);
@@ -2635,7 +2622,6 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 
 	pio = zio_root(dmu_objset_spa(dn->dn_objset), NULL, NULL,
 	    ZIO_FLAG_CANFAIL);
-    pio->rot = rot;
 /*#ifdef _KERNEL
     if (dn->name != NULL)
         pio->filp = dn->name;
@@ -3813,28 +3799,6 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	ASSERT(zio);
     zio->io_dn = dn;
 
-    if (dn->dn_write_rot > -1 && zio->rot != NULL && *zio->rot != dn->dn_write_rot)
-        *zio->rot = dn->dn_write_rot;
-//The following sequence should be done at the end
-/*    if (dn->dn_write_rot == -1) {
-        mc = spa_normal_class(zio->io_spa);
-	    alloc_class = METASLAB_ROTOR_ALLOC_CLASS_DATA;
-	    if (DMU_OT_IS_METADATA(BP_GET_TYPE(zio->io_bp)))
-		    alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;*/
-	    /* Also include these blocks in metadata (from #5182). */
-/*	    if (BP_GET_LEVEL(zio->io_bp) > 0)
-		    alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
-       	nrot = 0;
-	    while (nrot < mc->mc_max_nrot) {
-		    if (zio->io_size < mc->mc_rotvec_threshold[nrot][alloc_class])
-			    break;*/ /* Size below threshold, accept.*/
-/*		    nrot++;
-	    }
-        dn->dn_write_rot = *zio->rot = 0;
-        dn->dn_write_rot |= mc->mc_rotvec_categories[nrot];
-        *zio->rot |= mc->mc_rotvec_categories[nrot];
-    }*/
-
 	SET_BOOKMARK(&zb, os->os_dsl_dataset ?
 	    os->os_dsl_dataset->ds_object : DMU_META_OBJSET,
 	    db->db.db_object, db->db_level, db->db_blkid);
@@ -3879,17 +3843,8 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 		    dbuf_write_override_done,
 		    dr, ZIO_PRIORITY_ASYNC_WRITE, ZIO_FLAG_MUSTSUCCEED, &zb);
 #ifdef _KERNEL
-        if (dr->dr_zio->rot != NULL) {
-            if (*dr->dr_zio->rot != dr->dr_rot) {
-                *dr->dr_zio->rot = dr->dr_rot;
-            }
-        } else {
-            dr->dr_zio->rot = kzalloc(sizeof(int8_t), GFP_KERNEL);
-            if (dr->dr_zio->rot != NULL)
-                *dr->dr_zio->rot = dr->dr_rot;
-        }
         if (print)
-            printk(KERN_EMERG "[DBUF_WRITE]1sample_ssd dr->dr_zio->rot %d dr->dr_rot %d arc_buf_rot %d\n", *dr->dr_zio->rot, dr->dr_rot, data->b_rot);
+            printk(KERN_EMERG "[DBUF_WRITE]1sample_ssd dr->dr_rot %d arc_buf_rot %d\n", dr->dr_rot, data->b_rot);
 #endif
 		mutex_enter(&db->db_mtx);
 		dr->dt.dl.dr_override_state = DR_NOT_OVERRIDDEN;
@@ -3906,17 +3861,8 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 		    ZIO_PRIORITY_ASYNC_WRITE,
 		    ZIO_FLAG_MUSTSUCCEED | ZIO_FLAG_NODATA, &zb);
 #ifdef _KERNEL
-        if (dr->dr_zio->rot != NULL) {
-            if (*dr->dr_zio->rot != dr->dr_rot) {
-                *dr->dr_zio->rot = dr->dr_rot;
-            }
-        } else {
-            dr->dr_zio->rot = kzalloc(sizeof(int8_t), GFP_KERNEL);
-            if (dr->dr_zio->rot != NULL)
-                *dr->dr_zio->rot = dr->dr_rot;
-        }
         if (print)
-            printk(KERN_EMERG "[DBUF_WRITE]2sample_ssd dr->dr_zio->rot %d dr->dr_rot %d arc_buf_rot %d\n", *dr->dr_zio->rot, dr->dr_rot, data->b_rot);
+            printk(KERN_EMERG "[DBUF_WRITE]2sample_ssd dr->dr_rot %d arc_buf_rot %d\n", dr->dr_rot, data->b_rot);
 #endif
 	} else {
 		arc_done_func_t *children_ready_cb = NULL;
@@ -3937,26 +3883,16 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 		    dbuf_write_done, db, ZIO_PRIORITY_ASYNC_WRITE,
 		    ZIO_FLAG_MUSTSUCCEED, &zb);
 #ifdef _KERNEL
-        if (dr->dr_zio->rot != NULL) {
-            if (*dr->dr_zio->rot != dr->dr_rot)
-                *dr->dr_zio->rot = dr->dr_rot;
-        }
-        else {
-            dr->dr_zio->rot = kzalloc(sizeof(int8_t), GFP_KERNEL);
-            if (dr->dr_zio->rot != NULL)
-                *dr->dr_zio->rot = dr->dr_rot;
-        }
         if (print)
-            printk(KERN_EMERG "[DBUF_WRITE]1sample_ssd dr->dr_zio->rot %d dr->dr_rot %d arc_buf_rot %d\n", *dr->dr_zio->rot, dr->dr_rot, data->b_rot);
+            printk(KERN_EMERG "[DBUF_WRITE]1sample_ssd dr->dr_rot %d arc_buf_rot %d\n", dr->dr_rot, data->b_rot);
 #endif
 	}
 #ifdef _KERNEL
     dr->dr_zio->print = print;
     dr->dr_zio->io_write_rot = dr->dr_rot;
-#endif
-#ifdef _KERNEL
-    if (print && dr->dr_zio != NULL && dr->dr_zio->rot != NULL) {
-        printk(KERN_EMERG "[DBUF_WRITE]end dbuf_write sample_ssd dr->dr_zio->io_write_rot %d dr->dr_zio->rot %d dr->dr_zio %p\n", dr->dr_zio->io_write_rot, *dr->dr_zio->rot, dr->dr_zio);
+
+    if (print && dr->dr_zio != NULL) {
+        printk(KERN_EMERG "[DBUF_WRITE]end dbuf_write sample_ssd dr->dr_zio->io_write_rot %d dr->dr_zio %p\n", dr->dr_zio->io_write_rot, dr->dr_zio);
     }
 #endif
 }

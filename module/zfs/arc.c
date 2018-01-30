@@ -5997,11 +5997,7 @@ arc_write(zio_t *pio, spa_t *spa, uint64_t txg,
         && pio->io_dn->cadmus->dentry->d_name.name != NULL \
         && strstr(pio->io_dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL)
         print = true;
-    if (print && zio->rot != NULL)
-        printk(KERN_EMERG "[ARC_WRITE] buf->b_rot %d *zio->rot %d\n", buf->b_rot, *zio->rot);
 #endif*/
-    if (zio->rot != NULL && *zio->rot != buf->b_rot)
-        *zio->rot = buf->b_rot;
 
 	return (zio);
 }

@@ -446,7 +446,7 @@ struct zio {
 	kmutex_t	io_lock;
 	kcondvar_t	io_cv;
 //#ifdef CONFIG_HTEFS
-    int8_t     *rot;
+    int8_t     io_read_rot;
     int8_t     io_write_rot;
     dnode_t *io_dn;
     bool print;

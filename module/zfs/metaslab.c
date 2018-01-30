@@ -3390,27 +3390,15 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 		nrot++;
 	}
 
-/*#ifdef _KERNEL
-    if(print)
-        printk(KERN_EMERG "1 nrot %d rot %d\n", nrot, rot);
-#endif*/
     if (rot >= METASLAB_CLASS_ROTORS)
         rot = METASLAB_CLASS_ROTORS-1;
     if (rot > -1 && rot < METASLAB_CLASS_ROTORS)
         nrot = rot;
 
-/*#ifdef _KERNEL
-    if(print)
-        printk(KERN_EMERG "2 nrot %d rot %d\n", nrot, rot);
-#endif*/
 	for (; nrot < METASLAB_CLASS_ROTORS; nrot++)
 		if (mc->mc_rotorv[nrot])
 			break;
 
-/*#ifdef _KERNEL
-    if(print)
-        printk(KERN_EMERG "3 nrot %d rot %d\n", nrot, rot);
-#endif*/
     if (nrot >= METASLAB_CLASS_ROTORS)
         nrot = 0;
 #ifdef _KERNEL
@@ -3896,10 +3884,10 @@ has_vdev:
 
     if (zio != NULL) {
         print = zio->print;
-        if (zio->rot != NULL) {
+        if (zio->io_write_rot > -1) {
 #ifdef _KERNEL
             if (print)
-                printk(KERN_EMERG "before zio %p *zio->rot %d rot %d zio->io_write_rot %d\n", zio, *zio->rot, rot, zio->io_write_rot);
+                printk(KERN_EMERG "before zio %p rot %d zio->io_write_rot %d\n", zio, rot, zio->io_write_rot);
 #endif
             rot = get_metaslab_class(mc, zio->io_write_rot);
 #ifdef _KERNEL

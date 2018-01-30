@@ -77,7 +77,6 @@ struct data {
 struct kdata {
     struct dentry *dentry;
     struct file *filp;
-    int8_t *rot;
     struct list_head *list_rot;
     loff_t offset;
     long length;
