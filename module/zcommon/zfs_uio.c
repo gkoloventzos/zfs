@@ -72,8 +72,8 @@ uiomove_iov(void *p, size_t n, enum uio_rw rw, struct uio *uio)
 			/*
 			 * p = kernel data pointer
 			 * iov->iov_base = user data pointer
-			 */
-            if (!uio->uio_rewrite) {
+			 *
+            if (!uio->uio_rewrite) {*/
                 if (rw == UIO_READ) {
                     if (copy_to_user(iov->iov_base+skip, p, cnt)) {
                         printk(KERN_EMERG "[COPY_TO_USER]I am the problem. base %p base+skip %p skip %ld p %p\n", iov->iov_base, iov->iov_base+skip, skip, p);
@@ -83,13 +83,13 @@ uiomove_iov(void *p, size_t n, enum uio_rw rw, struct uio *uio)
                     if (copy_from_user(p, iov->iov_base+skip, cnt))
                         return (EFAULT);
                 }
-            }
+            /*}
             else {
                 if (rw == UIO_READ)
                     bcopy(p, iov->iov_base + skip, cnt);
                 else
                     bcopy(iov->iov_base + skip, p, cnt);
-            }
+            }*/
 			break;
 		case UIO_SYSSPACE:
 			if (rw == UIO_READ)

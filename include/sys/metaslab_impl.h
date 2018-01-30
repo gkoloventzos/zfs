@@ -155,7 +155,7 @@ typedef enum trace_alloc_type {
  * big and less expensive.  Depending on the size of an allocation,
  * a rotor will be chosen.
  */
-#define	METASLAB_CLASS_ROTORS	5
+#define	METASLAB_CLASS_ROTORS	2
 
 /*
  * Number of different categories of allocations.  Currently data and

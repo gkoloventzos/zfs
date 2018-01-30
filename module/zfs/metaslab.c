@@ -3413,6 +3413,10 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 #endif*/
     if (nrot >= METASLAB_CLASS_ROTORS)
         nrot = 0;
+#ifdef _KERNEL
+    if (print && nrot != rot)
+        printk(KERN_EMERG "[METASLAB] nrot %d rot %d size %lld\n", nrot, rot, psize);
+#endif
 	/*
 	 * Start at the rotor and loop through all mgs until we find something.
 	 * Note that there's no locking on mc_rotor or mc_aliquot because
@@ -3891,6 +3895,7 @@ has_vdev:
 		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
 
     if (zio != NULL) {
+        print = zio->print;
         if (zio->rot != NULL) {
 #ifdef _KERNEL
             if (print)

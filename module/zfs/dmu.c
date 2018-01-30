@@ -506,10 +506,10 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 		if (read)
 			(void) dbuf_read(db, zio, dbuf_flags, rot);
         if (rot != NULL && *rot > -1 && db->db.db_rot != *rot) {
-/*#ifdef _KERNEL
+#ifdef _KERNEL
             if (print)
                 printk(KERN_EMERG "sample_ssd rot %d db.db_rot %d\n", *rot, db->db.db_rot);
-#endif*/
+#endif
             db->db.db_rot = *rot;
         }
 		dbp[i] = &db->db;
@@ -575,6 +575,10 @@ dmu_buf_hold_array(objset_t *os, uint64_t object, uint64_t offset,
 	        numbufsp, dbpp, DMU_READ_PREFETCH, NULL, false);
     }
     else {
+#ifdef _KERNEL
+        if (print)
+            printk(KERN_EMERG "[DMU_BUF_HOLD_ARRAY]dmu_buf_hold_array_by_dnode rot %d\n", rot);
+#endif
 	    err = dmu_buf_hold_array_by_dnode(dn, offset, length, read, tag,
             numbufsp, dbpp, DMU_READ_PREFETCH, &rot, print);
     }
@@ -978,7 +982,10 @@ dmu_write(objset_t *os, uint64_t object, uint64_t offset, uint64_t size,
 
 	if (size == 0)
 		return;
-
+#ifdef _KERNEL
+    if (tx->tx_print)
+        printk(KERN_EMERG "[DMU_WRITE]dmu_buf_hold_array rot %d\n", rot);
+#endif
 	VERIFY0(dmu_buf_hold_array(os, object, offset, size,
 	    FALSE, FTAG, &numbufs, &dbp, rot, tx->tx_print));
 	dmu_write_impl(dbp, numbufs, offset, size, buf, tx);
@@ -1317,6 +1324,10 @@ dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx)
 	int err = 0;
 	int i;
 
+#ifdef _KERNEL
+    if (uio->uio_rewrite)
+        printk(KERN_EMERG "[DMU_WRITE_UIO_DNODE]dmu_buf_hold_array_by_dnode uio_rot %d\n", uio->uio_rot);
+#endif
 	err = dmu_buf_hold_array_by_dnode(dn, uio->uio_loffset, size,
 	    FALSE, FTAG, &numbufs, &dbp, DMU_READ_PREFETCH, &(uio->uio_rot), uio->uio_rewrite);
 	if (err)
@@ -1335,17 +1346,17 @@ dmu_write_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, dmu_tx_t *tx)
 		ASSERT(i == 0 || i == numbufs-1 || tocpy == db->db_size);
 
 		if (tocpy == db->db_size) {
-/*#ifdef _KERNEL
+#ifdef _KERNEL
     if (uio->uio_rewrite)
         printk(KERN_EMERG "[DMU_WRITE_UIO_DNODE] dmu_buf_will_fill uio_rot %d db.db_rot %d\n", uio->uio_rot, db->db_rot);
-#endif*/
+#endif
 			dmu_buf_will_fill(db, tx);
         }
 		else {
-/*#ifdef _KERNEL
+#ifdef _KERNEL
     if (uio->uio_rewrite)
         printk(KERN_EMERG "[DMU_WRITE_UIO_DNODE] dmu_buf_will_dirty uio_rot %d db.db_rot %d\n", uio->uio_rot, db->db_rot);
-#endif*/
+#endif
 			dmu_buf_will_dirty(db, tx);
         }
 
@@ -1398,10 +1409,10 @@ dmu_write_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size, dmu_tx_t *tx)
 
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
-/*#ifdef _KERNEL
+#ifdef _KERNEL
     if (uio->uio_rewrite)
         printk(KERN_EMERG "[DMU_WRITE_UIO_DBUF] dmu_write_uio_dnode rot %d\n", uio->uio_rot);
-#endif*/
+#endif
 	err = dmu_write_uio_dnode(dn, uio, size, tx);
 	DB_DNODE_EXIT(db);
 
@@ -1484,10 +1495,10 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
 	 * same size as the dbuf, and the dbuf is not metadata.
 	 */
 	if (offset == db->db.db_offset && blksz == db->db.db_size) {
-/*#ifdef _KERNEL
+#ifdef _KERNEL
         if (tx->tx_print)
             printk(KERN_EMERG "[DMU_ASSIGN_ARCBUF] dbuf_assign_arcbuf rot %d db->db.db_rot %d buf->b_rot %d\n", rot, db->db.db_rot, buf->b_rot);
-#endif*/
+#endif
         db->db.db_rot = rot;
 		dbuf_assign_arcbuf(db, buf, tx);
 		dbuf_rele(db, FTAG);
@@ -1506,10 +1517,10 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
 		DB_DNODE_EXIT(dbuf);
 
 		dbuf_rele(db, FTAG);
-/*#ifdef _KERNEL
+#ifdef _KERNEL
         if (tx->tx_print)
             printk(KERN_EMERG "[DMU_ASSIGN_ARCBUF] dbuf_write rot %d db->db.db_rot %d buf->b_rot %d\n", rot, db->db.db_rot, buf->b_rot);
-#endif*/
+#endif
 		dmu_write(os, object, offset, blksz, buf->b_data, tx, rot);
 		dmu_return_arcbuf(buf);
 		XUIOSTAT_BUMP(xuiostat_wbuf_copied);

@@ -3759,9 +3759,9 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
     //int alloc_class, nrot;
 	int wp_flag = 0;
     //metaslab_class_t *mc;
-/*#ifdef _KERNEL
+#ifdef _KERNEL
     bool print = false;
-#endif*/
+#endif
 	ASSERT(dmu_tx_is_syncing(tx));
 
 	DB_DNODE_ENTER(db);
@@ -3856,13 +3856,13 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	 */
 	dr->dr_bp_copy = *db->db_blkptr;
 
-/*#ifdef _KERNEL
+#ifdef _KERNEL
     if (dn->cadmus != NULL && dn->cadmus->dentry != NULL \
         && dn->cadmus->dentry->d_name.name != NULL \
         && strstr(dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL) {
         print = true;
     }
-#endif*/
+#endif
 
 	if (db->db_level == 0 &&
 	    dr->dt.dl.dr_override_state == DR_OVERRIDDEN) {
@@ -3888,6 +3888,8 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
             if (dr->dr_zio->rot != NULL)
                 *dr->dr_zio->rot = dr->dr_rot;
         }
+        if (print)
+            printk(KERN_EMERG "[DBUF_WRITE]1sample_ssd dr->dr_zio->rot %d dr->dr_rot %d arc_buf_rot %d\n", *dr->dr_zio->rot, dr->dr_rot, data->b_rot);
 #endif
 		mutex_enter(&db->db_mtx);
 		dr->dt.dl.dr_override_state = DR_NOT_OVERRIDDEN;
@@ -3913,6 +3915,8 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
             if (dr->dr_zio->rot != NULL)
                 *dr->dr_zio->rot = dr->dr_rot;
         }
+        if (print)
+            printk(KERN_EMERG "[DBUF_WRITE]2sample_ssd dr->dr_zio->rot %d dr->dr_rot %d arc_buf_rot %d\n", *dr->dr_zio->rot, dr->dr_rot, data->b_rot);
 #endif
 	} else {
 		arc_done_func_t *children_ready_cb = NULL;
@@ -3942,16 +3946,19 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
             if (dr->dr_zio->rot != NULL)
                 *dr->dr_zio->rot = dr->dr_rot;
         }
+        if (print)
+            printk(KERN_EMERG "[DBUF_WRITE]1sample_ssd dr->dr_zio->rot %d dr->dr_rot %d arc_buf_rot %d\n", *dr->dr_zio->rot, dr->dr_rot, data->b_rot);
 #endif
 	}
 #ifdef _KERNEL
+    dr->dr_zio->print = print;
     dr->dr_zio->io_write_rot = dr->dr_rot;
 #endif
 #ifdef _KERNEL
     if (print && dr->dr_zio != NULL && dr->dr_zio->rot != NULL) {
-        printk(KERN_EMERG "[DBUF_WRITE]end dbuf_write sample_ssd dr->dr_zio->rot %d dr->dr_zio %p\n", *dr->dr_zio->rot, dr->dr_zio);
+        printk(KERN_EMERG "[DBUF_WRITE]end dbuf_write sample_ssd dr->dr_zio->io_write_rot %d dr->dr_zio->rot %d dr->dr_zio %p\n", dr->dr_zio->io_write_rot, *dr->dr_zio->rot, dr->dr_zio);
     }
-#endif*/
+#endif
 }
 
 #if defined(_KERNEL) && defined(HAVE_SPL)

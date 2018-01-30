@@ -662,6 +662,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 //#ifdef CONFIG_HETFS
     zio->rot = NULL;
     zio->io_write_rot = -20;
+    zio->print = false;
 #ifdef _KERNEL
     if (type == ZIO_TYPE_WRITE) {
         zio->rot = kzalloc(sizeof(int8_t), GFP_KERNEL);
@@ -1815,7 +1816,6 @@ zio_nowait(zio_t *zio)
 		kpreempt_disable();
 		pio = spa->spa_async_zio_root[CPU_SEQID];
 		kpreempt_enable();
-
 		zio_add_child(pio, zio);
 	}
 

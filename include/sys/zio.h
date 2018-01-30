@@ -449,6 +449,7 @@ struct zio {
     int8_t     *rot;
     int8_t     io_write_rot;
     dnode_t *io_dn;
+    bool print;
 //#endif
 
 	/* FMA state */

@@ -820,8 +820,8 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 
 		if (abuf == NULL) {
 			tx_bytes = uio->uio_resid;
-//            if (uio->uio_rewrite)
-//                printk(KERN_EMERG "[ZFS_WRITE] dmu_write_uio_dbuf rot %d\n", uio->uio_rot);
+            if (uio->uio_rewrite)
+                printk(KERN_EMERG "[ZFS_WRITE] dmu_write_uio_dbuf rot %d\n", uio->uio_rot);
 			error = dmu_write_uio_dbuf(sa_get_db(zp->z_sa_hdl),
 			    uio, nbytes, tx);
 			tx_bytes -= uio->uio_resid;
@@ -839,16 +839,16 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 			if (tx_bytes < max_blksz && (!write_eof ||
 			    aiov->iov_base != abuf->b_data)) {
 				ASSERT(xuio);
-//            if (uio->uio_rewrite)
-//                printk(KERN_EMERG "[ZFS_WRITE] dmu_write rot %d\n", uio->uio_rot);
+            if (uio->uio_rewrite)
+                printk(KERN_EMERG "[ZFS_WRITE] dmu_write rot %d\n", uio->uio_rot);
 				dmu_write(zsb->z_os, zp->z_id, woff,
 				    aiov->iov_len, aiov->iov_base, tx, uio->uio_rot);
 				dmu_return_arcbuf(abuf);
 				xuio_stat_wbuf_copied();
 			} else {
 				ASSERT(xuio || tx_bytes == max_blksz);
-//            if (uio->uio_rewrite)
-//                printk(KERN_EMERG "[ZFS_WRITE] dmu_assign_arcbuf rot %d\n", uio->uio_rot);
+            if (uio->uio_rewrite)
+                printk(KERN_EMERG "[ZFS_WRITE] dmu_assign_arcbuf rot %d\n", uio->uio_rot);
 				dmu_assign_arcbuf(sa_get_db(zp->z_sa_hdl),
 				    woff, abuf, tx, uio->uio_rot);
 			}
