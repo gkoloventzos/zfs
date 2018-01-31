@@ -637,10 +637,11 @@ zpl_write_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
             error = 0;
             wrote_gen = 0;
             list_for_each_entry_safe(loop, nh, list_rot, list) {
+                printk(KERN_EMERG "[LIST] start %lld end %lld len %ld rot %d loop->write_ret %ld\n", loop->m_start, loop->m_end, len, loop->m_type, loop->write_ret);
                 if (loop->write_ret != 0)
                     ++error;
+                wrote_gen += loop->write_ret;
             }
-            wrote_gen += loop->write_ret;
         }
         list_for_each_entry_safe(loop, nh, list_rot, list) {
             if (loop->write_ret < 0) {
