@@ -3885,15 +3885,7 @@ has_vdev:
     if (zio != NULL) {
         print = zio->print;
         if (zio->io_write_rot > -1) {
-#ifdef _KERNEL
-            if (print)
-                printk(KERN_EMERG "before zio %p rot %d zio->io_write_rot %d\n", zio, rot, zio->io_write_rot);
-#endif
             rot = get_metaslab_class(mc, zio->io_write_rot);
-#ifdef _KERNEL
-            if (print)
-                printk(KERN_EMERG "after rot %d\n", rot);
-#endif
         }
         if (zio->io_dn != NULL && zio->io_dn->dn_write_rot > -1)
             rot = get_metaslab_class(mc, zio->io_dn->dn_write_rot);

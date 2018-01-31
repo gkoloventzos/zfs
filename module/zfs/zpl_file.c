@@ -793,7 +793,7 @@ zpl_rewrite(struct file *filp)
     loff_t pos = 0;
     loff_t start_pos = 0;
     loff_t npos = 0;
-    size_t len = 4096;
+    size_t len = 8192;
     char *buf = kzalloc(len, GFP_KERNEL);
 
     if (filp == NULL) {

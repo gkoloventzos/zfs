@@ -3842,10 +3842,6 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 		    &zp, dbuf_write_override_ready, NULL, NULL,
 		    dbuf_write_override_done,
 		    dr, ZIO_PRIORITY_ASYNC_WRITE, ZIO_FLAG_MUSTSUCCEED, &zb);
-#ifdef _KERNEL
-        if (print)
-            printk(KERN_EMERG "[DBUF_WRITE]1sample_ssd dr->dr_rot %d arc_buf_rot %d\n", dr->dr_rot, data->b_rot);
-#endif
 		mutex_enter(&db->db_mtx);
 		dr->dt.dl.dr_override_state = DR_NOT_OVERRIDDEN;
 		zio_write_override(dr->dr_zio, &dr->dt.dl.dr_overridden_by,
@@ -3860,10 +3856,6 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 		    dbuf_write_nofill_done, db,
 		    ZIO_PRIORITY_ASYNC_WRITE,
 		    ZIO_FLAG_MUSTSUCCEED | ZIO_FLAG_NODATA, &zb);
-#ifdef _KERNEL
-        if (print)
-            printk(KERN_EMERG "[DBUF_WRITE]2sample_ssd dr->dr_rot %d arc_buf_rot %d\n", dr->dr_rot, data->b_rot);
-#endif
 	} else {
 		arc_done_func_t *children_ready_cb = NULL;
 		ASSERT(arc_released(data));
@@ -3882,18 +3874,10 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 		    children_ready_cb, dbuf_write_physdone,
 		    dbuf_write_done, db, ZIO_PRIORITY_ASYNC_WRITE,
 		    ZIO_FLAG_MUSTSUCCEED, &zb);
-#ifdef _KERNEL
-        if (print)
-            printk(KERN_EMERG "[DBUF_WRITE]1sample_ssd dr->dr_rot %d arc_buf_rot %d\n", dr->dr_rot, data->b_rot);
-#endif
 	}
 #ifdef _KERNEL
     dr->dr_zio->print = print;
     dr->dr_zio->io_write_rot = dr->dr_rot;
-
-    if (print && dr->dr_zio != NULL) {
-        printk(KERN_EMERG "[DBUF_WRITE]end dbuf_write sample_ssd dr->dr_zio->io_write_rot %d dr->dr_zio %p\n", dr->dr_zio->io_write_rot, dr->dr_zio);
-    }
 #endif
 }
 

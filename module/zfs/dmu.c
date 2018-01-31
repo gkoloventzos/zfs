@@ -493,10 +493,6 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 		if (read)
 			(void) dbuf_read(db, zio, dbuf_flags, rot);
         if (rot != NULL && *rot > -1 && db->db.db_rot != *rot) {
-#ifdef _KERNEL
-            if (print)
-                printk(KERN_EMERG "sample_ssd rot %d db.db_rot %d\n", *rot, db->db.db_rot);
-#endif
             db->db.db_rot = *rot;
         }
 		dbp[i] = &db->db;
@@ -558,10 +554,6 @@ dmu_buf_hold_array(objset_t *os, uint64_t object, uint64_t offset,
 		return (err);
 
     if (read) {
-#ifdef _KERNEL
-        if (print)
-            printk(KERN_EMERG "[DMU_BUF_HOLD_ARRAY]dmu_buf_hold_array_by_dnode rot %d\n", rot);
-#endif
 	    err = dmu_buf_hold_array_by_dnode(dn, offset, length, read, tag,
 	        numbufsp, dbpp, DMU_READ_PREFETCH, NULL, false);
     }
@@ -1364,12 +1356,6 @@ dmu_write_uio_dbuf(dmu_buf_t *zdb, uio_t *uio, uint64_t size, dmu_tx_t *tx)
 	dmu_buf_impl_t *db = (dmu_buf_impl_t *)zdb;
 	dnode_t *dn;
 	int err = 0;
-/*    uint64_t len;
-    struct medium *loop, *nh;
-    struct list_head *list_rot;
-	ssize_t wrote_gen = 0;
-    loff_t start_pos = uio->uio_loffset;
-    int list_size = 0;*/
 
 	if (size == 0)
 		return (0);
