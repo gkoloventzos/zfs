@@ -3402,7 +3402,7 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
     if (nrot >= METASLAB_CLASS_ROTORS)
         nrot = 0;
 #ifdef _KERNEL
-    if (print && nrot != rot)
+    if (print && nrot != rot && rot > -1)
         printk(KERN_EMERG "[METASLAB] nrot %d rot %d size %lld\n", nrot, rot, psize);
 #endif
 	/*
