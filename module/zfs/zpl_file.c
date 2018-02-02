@@ -50,16 +50,23 @@ int bla = 0;
 char *only_name = NULL;
 static DEFINE_SEMAPHORE(tree_lock);
 
-void my_delete_list(struct list_head *dn)
+void my_delete_list(struct list_head *dn, char **buf)
 {
     struct list_head *pos, *q;
     struct medium *tmp;
+    int size = 0;
 
     list_for_each_safe(pos, q, dn){
          tmp = list_entry(pos, struct medium, list);
          list_del(pos);
          kzfree(tmp);
+         if (buf != NULL) {
+            kzfree(buf[size]);
+            ++size;
+         }
     }
+    if (buf != NULL)
+        kzfree(buf);
 }
 
 int init_tree(void)
