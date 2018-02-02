@@ -605,70 +605,22 @@ zpl_write_common_iovec(struct inode *ip, const struct iovec *iovp, size_t count,
 }
 inline ssize_t
 zpl_write_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
-    uio_seg_t segment, int flags, cred_t *cr, bool rewrite, dnode_t *dn)
+    uio_seg_t segment, int flags, cred_t *cr, bool rewrite, int8_t rot)
 {
 	struct iovec iov;
-    struct medium *loop, *nh;
-    struct list_head *list_rot;
-	ssize_t wrote_gen = 0;
-    loff_t start_pos = *ppos;
-    int size = 0;
-    ssize_t error = 0;
 
 	iov.iov_base = (void *)buf;
 	iov.iov_len = len;
 
-    if (dn != NULL && dn->cadmus != NULL && !list_empty(dn->cadmus->list_write_rot)) {
-        start_pos = *ppos;
-        list_rot = get_media_storage(dn->cadmus->list_write_rot, start_pos, start_pos+len, &size);
-        if (list_rot == NULL)
-            goto single;
-        if (size == 1) {
-            /*If only one avoid all those loops*/
-            loop = list_first_entry_or_null(list_rot, typeof(*(loop)) ,list);
-            size = loop->m_type;
-            my_delete_list(list_rot);
-            return (zpl_write_common_iovec(ip, &iov, len, 1, ppos, segment,
-                        flags, cr, 0, rewrite, size));
-        }
-//        printk(KERN_EMERG "[LIST]rot %p size %d start %lld end %lld\n", list_rot, size, start_pos, start_pos+len);
-        list_for_each_entry_safe(loop, nh, list_rot, list) {
-            len = loop->m_end-loop->m_start;
-            rewrite = true;
-            printk(KERN_EMERG "[LIST] pointer %p start %lld end %lld len %ld rot %d\n", loop, loop->m_start, loop->m_end, len, loop->m_type);
-            loop->write_ret = zpl_write_common_iovec(ip, &iov, len, 1, ppos, segment,
-                    flags, cr, wrote_gen, rewrite, loop->m_type);
-            wrote_gen += len;
-        }
-        while(error != size) {
-            error = 0;
-            wrote_gen = 0;
-            list_for_each_entry_safe(loop, nh, list_rot, list) {
-                printk(KERN_EMERG "[LIST] start %lld end %lld len %ld rot %d loop->write_ret %ld\n", loop->m_start, loop->m_end, len, loop->m_type, loop->write_ret);
-                if (loop->write_ret != 0)
-                    ++error;
-                wrote_gen += loop->write_ret;
-            }
-        }
-        list_for_each_entry_safe(loop, nh, list_rot, list) {
-            if (loop->write_ret < 0) {
-                wrote_gen = loop->write_ret;
-                break;
-            }
-        }
-        my_delete_list(list_rot);
-        return wrote_gen;
-    }
-single:
     return (zpl_write_common_iovec(ip, &iov, len, 1, ppos, segment,
-                flags, cr, 0, rewrite, -4));
+                flags, cr, 0, rewrite, rot));
 }
 
 static ssize_t
 zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
-	ssize_t wrote;
+	ssize_t wrote = -1;
     const char *name;
     dnode_t *dn;
     struct task_struct *thread1;
@@ -681,6 +633,13 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     char *filename = NULL;
     znode_t     *zp = ITOZ(filp->f_mapping->host);
     bool print = false;
+    char **split_buf;
+    int split = 0;
+    struct medium *loop, *nh;
+    struct list_head *list_rot;
+    loff_t start_pos = *ppos;
+    int size = 0;
+    ssize_t error = 0;
 
     ktime_get_ts(&arrival_time);
 	crhold(cr);
@@ -737,23 +696,66 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             }
             dn->dn_write_rot = rot;
         }
-
-/*        down_write(&(InsNode->write_sem));
-        zfs_media_add(InsNode->list_write_rot, start_ppos, len, rot, 0);
-        up_write(&(InsNode->write_sem));*/
     }
-
-/*    if (strstr(filename, "sample_ssd") != NULL) {
-        printk(KERN_EMERG "[LIST]size %ld start %lld end %lld insnode %p\n", len, *ppos, *ppos+len, dn->cadmus);
-    }*/
+    rot = -4;
+    if (dn != NULL && dn->cadmus != NULL && !list_empty(dn->cadmus->list_write_rot)) {
+        start_pos = *ppos;
+        list_rot = get_media_storage(dn->cadmus->list_write_rot, start_pos, start_pos+len, &size);
+        if (list_rot == NULL)
+            goto single;
+        if (size == 1) {
+            /*If only one avoid all those loops*/
+            loop = list_first_entry_or_null(list_rot, typeof(*(loop)) ,list);
+            rot = loop->m_type;
+            my_delete_list(list_rot, NULL);
+            goto single;
+        }
+        split_buf = kzalloc(size*sizeof(char *),GFP_KERNEL);
+//        printk(KERN_EMERG "[LIST]rot %p size %d start %lld end %lld\n", list_rot, size, start_pos, start_pos+len);
+        wrote = 0;
+        list_for_each_entry_safe(loop, nh, list_rot, list) {
+            len = loop->m_end-loop->m_start;
+            split_buf[split] = kzalloc(len * sizeof(char *),GFP_KERNEL);
+            memcpy(split_buf[split], buf + wrote, len);
+            print = true;
+            printk(KERN_EMERG "[LIST] ppos %lld wrote %ld start %lld end %lld len %ld rot %d\n",\
+                    *ppos, wrote, loop->m_start, loop->m_end, len, loop->m_type);
+            loop->write_ret = zpl_write_common(filp->f_mapping->host, split_buf[split],
+                                len, ppos, UIO_USERSPACE, filp->f_flags, cr,
+                                print, loop->m_type);
+            ++split;
+            wrote += len;
+        }
+        while(error != size) {
+            error = 0;
+            wrote = 0;
+            list_for_each_entry_safe(loop, nh, list_rot, list) {
+                if (loop->write_ret != 0)
+                    ++error;
+                wrote += loop->write_ret;
+                printk(KERN_EMERG "[LIST] ppos %lld start %lld end %lld len %ld rot %d loop->write_ret %ld wrote_gen %ld\n",\
+                        *ppos, loop->m_start, loop->m_end, loop->m_end-loop->m_start, loop->m_type, loop->write_ret, wrote);
+            }
+        }
+        list_for_each_entry_safe(loop, nh, list_rot, list) {
+            if (loop->write_ret < 0) {
+                wrote = loop->write_ret;
+                break;
+            }
+        }
+        my_delete_list(list_rot, split_buf);
+        goto ins;
+    }
 
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
 err:
+single:
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
-	    UIO_USERSPACE, filp->f_flags, cr, print, dn);
+	    UIO_USERSPACE, filp->f_flags, cr, print, rot);
 	crfree(cr);
 
+ins:
     if (wrote > 0 && InsNode != NULL) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
@@ -787,7 +789,7 @@ re_write(struct file *filp, const char *buf, size_t len, loff_t *ppos)
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
-	    UIO_USERSPACE, filp->f_flags, cr, true, dn);
+	    UIO_USERSPACE, filp->f_flags, cr, true, -5);
 	crfree(cr);
 
 	return (wrote);
