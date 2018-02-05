@@ -752,6 +752,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             }
         }
         my_delete_list(list_rot, split_buf);
+        DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
         goto ins;
     }
 
@@ -761,9 +762,9 @@ err:
 single:
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr, print, rot);
+ins:
 	crfree(cr);
 
-ins:
     if (wrote > 0 && InsNode != NULL) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
