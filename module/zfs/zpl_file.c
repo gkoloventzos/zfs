@@ -711,11 +711,19 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             goto single;
         }
         split_buf = kzalloc(size*sizeof(char *),GFP_KERNEL);
+        if (split_buf == NULL) {
+            printk(KERN_EMERG "[ERROR]split_buf NULL\n");
+            goto single;
+        }
 //        printk(KERN_EMERG "[LIST]rot %p size %d start %lld end %lld\n", list_rot, size, start_pos, start_pos+len);
         wrote = 0;
         list_for_each_entry_safe(loop, nh, list_rot, list) {
             len = loop->m_end-loop->m_start;
             split_buf[split] = kzalloc(len * sizeof(char *),GFP_KERNEL);
+            if (split_buf[split] == NULL) {
+                printk(KERN_EMERG "[ERROR]split_buf[%d] NULL\n", split);
+                return -1;
+            }
             memcpy(split_buf[split], buf + wrote, len);
             print = true;
             printk(KERN_EMERG "[LIST] ppos %lld wrote %ld start %lld end %lld len %ld rot %d\n",\
