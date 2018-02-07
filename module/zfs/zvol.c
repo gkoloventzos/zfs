@@ -801,6 +801,7 @@ zvol_request(struct request_queue *q, struct bio *bio)
 	uio.uio_loffset = BIO_BI_SECTOR(bio) << 9;
 	uio.uio_limit = MAXOFFSET_T;
 	uio.uio_segflg = UIO_BVEC;
+    uio.uio_rewrite = false;
 
 	if (bio_has_data(bio) && uio.uio_loffset + uio.uio_resid >
 	    zv->zv_volsize) {

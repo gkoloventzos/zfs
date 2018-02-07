@@ -604,6 +604,7 @@ zpl_get_link_common(struct dentry *dentry, struct inode *ip, char **link)
 	uio.uio_skip = 0;
 	uio.uio_resid = (MAXPATHLEN - 1);
 	uio.uio_segflg = UIO_SYSSPACE;
+    uio.uio_rewrite = false;
 
 	cookie = spl_fstrans_mark();
 	error = -zfs_readlink(ip, &uio, cr);
