@@ -53,22 +53,91 @@ void print_only_one(int flag) {
     only_one = flag;
 }
 
+void print_one_file(char *name) {
+    unsigned char *output;
+    struct scatterlist sg;
+    struct crypto_hash *tfm;
+    struct hash_desc desc;
+    struct data *entry;
+    struct analyze_request *posh, *nh;
+
+    if (name == NULL) {
+        printk(KERN_EMERG "[ERROR] Empty name\n");
+        return;
+    }
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        return;
+    }
+
+    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+    desc.tfm = tfm;
+    desc.flags = 0;
+    sg_init_one(&sg, only_name, strlen(name));
+    crypto_hash_init(&desc);
+    crypto_hash_update(&desc, &sg, strlen(name));
+    crypto_hash_final(&desc, output);
+    crypto_free_hash(tfm);
+    down_read(&tree_sem);
+    if (RB_EMPTY_ROOT(hetfs_tree)) {
+        printk(KERN_EMERG "[ERROR] Empty root\n");
+        return;
+    }
+    entry = rb_search(hetfs_tree, output);
+    kzfree(output);
+    if (entry == NULL) {
+        printk(KERN_EMERG "[ERROR] No file %s in tree\n", name);
+        return;
+    }
+
+    if (!list_empty(entry->read_reqs))
+        printk(KERN_EMERG "[HETFS] READ req:\n");
+        list_for_each_entry_safe(posh, nh, entry->read_reqs, list) {
+            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset, posh->times);
+    }
+    if (!list_empty(entry->write_reqs))
+        printk(KERN_EMERG "[HETFS] WRITE req:\n");
+        list_for_each_entry_safe(posh, nh, entry->write_reqs, list) {
+            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset, posh->times);
+    }
+//  analyze(entry);
+    up_read(&tree_sem);
+}
+
 void print_tree(int flag) {
     struct rb_node *node;
     struct data *entry;
     struct analyze_request *posh, *nh;
     int all_nodes, all_requests, requests;
+	char *name;
+	int stop = 0;
 
     all_nodes = all_requests = requests = 0;
 
     down_read(&tree_sem);
     if (RB_EMPTY_ROOT(hetfs_tree)) {
         printk(KERN_EMERG "[ERROR] __exact empty root\n");
+        return;
+    }
+    name = kzalloc(PATH_MAX+NAME_MAX * sizeof(char),GFP_KERNEL);
+    if (name == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
+        return;
     }
     for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
+        stop = 0;
         ++all_nodes;
         entry = rb_entry(node, struct data, node);
-        printk(KERN_EMERG "[HETFS] file: %s\n", entry->dentry->d_name.name);
+        if (entry->dentry == NULL) {
+            printk(KERN_EMERG "[HETFS] Error one dentry NULL\n");
+            continue;
+        }
+        fullname(entry->dentry, name, &stop);
+
+        printk(KERN_EMERG "[HETFS] file: %s\n", name);
         if (flag) {
             if (!list_empty(entry->read_reqs) && flag)
                 printk(KERN_EMERG "[HETFS] READ req:\n");
@@ -85,6 +154,7 @@ void print_tree(int flag) {
                             posh->start_offset, posh->end_offset, posh->times);
             }
         }
+        memset(name, 0, PATH_MAX+NAME_MAX);
     }
     if (flag)
         printk(KERN_EMERG "[HETFS]Tree Nodes:%d, requests:%d\n", all_nodes, all_requests);
@@ -92,6 +162,11 @@ void print_tree(int flag) {
         printk(KERN_EMERG "[HETFS]Tree Nodes:%d\n", all_nodes);
 
     up_read(&tree_sem);
+}
+
+static void print_file(void)
+{
+    print_one_file(only_name);
 }
 
 static void print_nodes(void)
@@ -369,6 +444,7 @@ struct zfs_syscalls available_syscalls[] = {
 	{ "stop_print_list",		stop_print_list	},
 	{ "change_medium",	change_medium	},
 	{ "print_media",	print_media	},
+	{ "print_file",	    print_file	},
 };
 
 static void run_syscall(struct zfs_syscalls *syscall)
