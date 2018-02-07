@@ -113,7 +113,7 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int onl
     if (len == 0)
         return NULL;
     if (only)
-        printk(KERN_EMERG "[LIST] in start %lld end %lld rot %d\n", ppos, end, rot);
+        printk(KERN_EMERG "[LIST] in start %llu end %llu rot %d\n", ppos, end, rot);
     new = kzalloc(sizeof(medium_t), GFP_KERNEL);
     if (new == NULL) {
         printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate for new medium\n");
@@ -124,7 +124,7 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int onl
     new->m_type = rot;
     if (list_empty(dn)) {
         if (only)
-            printk(KERN_EMERG "[LIST] list empty start %lld end %lld rot %d\n", ppos, end, rot);
+            printk(KERN_EMERG "[LIST] list empty start %llu end %llu rot %d\n", ppos, end, rot);
         list_add_tail(&new->list, dn);
         return new;
     }
@@ -270,8 +270,8 @@ get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend, int *size)
 {
     struct medium *nh, *new, *loop, *del, *next, *prev;
     int start, stop;
-
     struct list_head *ret = NULL;
+
     loop = find_in(dn, list_first_entry(dn, typeof(*new), list), false, ppos, &start);
     if (loop == NULL || start < 0)
         return NULL;
@@ -281,7 +281,7 @@ get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend, int *size)
         return NULL;
     ret = kzalloc(sizeof(struct list_head), GFP_KERNEL);
     if (ret == NULL) {
-        printk(KERN_EMERG "[ERROR][ZFS_MEDIA_ADD]Cannot allocate list\n");
+        printk(KERN_EMERG "[ERROR][GET_MEDIA]Cannot allocate list\n");
         return NULL;
     }
     INIT_LIST_HEAD(ret);

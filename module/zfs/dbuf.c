@@ -3820,13 +3820,13 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	 */
 	dr->dr_bp_copy = *db->db_blkptr;
 
-#ifdef _KERNEL
+/*#ifdef _KERNEL
     if (dn->cadmus != NULL && dn->cadmus->dentry != NULL \
         && dn->cadmus->dentry->d_name.name != NULL \
         && strstr(dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL) {
         print = true;
     }
-#endif
+#endif*/
 
 	if (db->db_level == 0 &&
 	    dr->dt.dl.dr_override_state == DR_OVERRIDDEN) {

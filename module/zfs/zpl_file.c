@@ -703,19 +703,18 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             printk(KERN_EMERG "[ERROR]split_buf NULL\n");
             goto single;
         }
-//        printk(KERN_EMERG "[LIST]rot %p size %d start %lld end %lld\n", list_rot, size, start_pos, start_pos+len);
         wrote = 0;
         list_for_each_entry_safe(loop, nh, list_rot, list) {
             len = loop->m_end-loop->m_start;
+//            printk(KERN_EMERG "[LIST] ppos %lld wrote %ld start %lld end %lld len %ld rot %d dn->dn_datablksz %d split %d size %d\n",\
+//                    *ppos, wrote, loop->m_start, loop->m_end, len, loop->m_type,\
+//                    dn->dn_datablksz, split, size);
             split_buf[split] = kzalloc(len * sizeof(char *),GFP_KERNEL);
             if (split_buf[split] == NULL) {
                 printk(KERN_EMERG "[ERROR]split_buf[%d] NULL\n", split);
                 return -1;
             }
             memcpy(split_buf[split], buf + wrote, len);
-            print = true;
-            printk(KERN_EMERG "[LIST] ppos %lld wrote %ld start %lld end %lld len %ld rot %d\n",\
-                    *ppos, wrote, loop->m_start, loop->m_end, len, loop->m_type);
             loop->write_ret = zpl_write_common(filp->f_mapping->host, split_buf[split],
                                 len, ppos, UIO_USERSPACE, filp->f_flags, cr,
                                 print, loop->m_type);
@@ -729,8 +728,8 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
                 if (loop->write_ret != 0)
                     ++error;
                 wrote += loop->write_ret;
-                printk(KERN_EMERG "[LIST] ppos %lld start %lld end %lld len %ld rot %d loop->write_ret %ld wrote_gen %ld\n",\
-                        *ppos, loop->m_start, loop->m_end, loop->m_end-loop->m_start, loop->m_type, loop->write_ret, wrote);
+//                printk(KERN_EMERG "[LIST] ppos %lld start %lld end %lld len %lld rot %d loop->write_ret %ld wrote %ld\n",\
+//                        *ppos, loop->m_start, loop->m_end, loop->m_end-loop->m_start, loop->m_type, loop->write_ret, wrote);
             }
         }
         list_for_each_entry_safe(loop, nh, list_rot, list) {
@@ -1478,7 +1477,7 @@ int add_request(void *data)
         return 1;
     }
 
-	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+	name = kzalloc(PATH_MAX+NAME_MAX * sizeof(char),GFP_KERNEL);
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
         kzfree(kdata);
