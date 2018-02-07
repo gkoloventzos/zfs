@@ -663,38 +663,28 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
 
     InsNode = dn->cadmus;
     InsNode->dentry = file_dentry(filp);
-    if (InsNode != NULL) {
-        if (strstr(filename, "/log/") == NULL) {
-            if (InsNode->write_rot > -1 && dn->dn_write_rot != InsNode->write_rot) {
-                dn->dn_write_rot = InsNode->write_rot;
-                rot = InsNode->write_rot;
-            }
-        }
-        else {
-            /* We do not care about logs*/
-            dn = NULL;
+    down_write(&(InsNode->write_sem));
+    if (InsNode != NULL && list_empty(InsNode->list_write_rot)) {
+        if (strstr(filename, "/log/") != NULL) {
+            zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, -1, 0);
+            up_write(&(InsNode->write_sem));
             goto err;
         }
         if (strstr(filename, "sample_ssd") != NULL) {
-            rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
-//            print = true;
-            dn->dn_write_rot = -1;
-/*            down_write(&(InsNode->write_sem));
-            zfs_media_add(InsNode->list_write_rot, start_ppos, len, rot, 0);
-            up_write(&(InsNode->write_sem));
-            InsNode->write_rot = rot;
-            dn->dn_write_rot = rot;*/
+            zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
         }
         else {
             for (stop = 0; stop <= 195; stop++) {
                 if (strstr(filename, boot_files[stop]) != NULL) {
-                    rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+                    zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
                     break;
                 }
             }
-            dn->dn_write_rot = rot;
+            if (list_empty(InsNode->list_write_rot))
+                zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, -1, 0);
         }
     }
+    up_write(&(InsNode->write_sem));
     rot = -4;
     if (dn != NULL && dn->cadmus != NULL && !list_empty(dn->cadmus->list_write_rot)) {
         start_pos = *ppos;
