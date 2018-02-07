@@ -114,9 +114,7 @@ int init_data(struct data *InsNode, struct dentry *dentry)
     INIT_LIST_HEAD(InsNode->write_reqs);
     InsNode->read_all_file = 100;
     InsNode->write_all_file = 0;
-    InsNode->write_rot = -2;
     InsNode->deleted = 0;
-    InsNode->to_rot = -1;
     init_rwsem(&(InsNode->read_sem));
     init_rwsem(&(InsNode->write_sem));
 /*    bla++;

@@ -238,33 +238,12 @@ static void print_media(void)
         printk(KERN_EMERG "[PRINT] File %s InsNode %p\n", only_name, tree_entry);
     }
 
-    if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
-        printk(KERN_EMERG "[PRINT] File %s dn_write_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
-    else if (tree_entry->write_rot == METASLAB_ROTOR_VDEV_TYPE_SSD)
-        printk(KERN_EMERG "[PRINT] File %s dn_write_rot METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name);
-    else if (tree_entry->write_rot == -1)
-        printk(KERN_EMERG "[PRINT] File %s dn_write_rot METASLAB_ROTOR_VDEV_TYPE_HDD with -1\n", only_name);
-    else
-        printk(KERN_EMERG "[PRINT] File %s dn_write_rot %d\n", only_name, tree_entry->write_rot);
-
     if (!list_empty(tree_entry->list_write_rot)) {
         printk(KERN_EMERG "[PRINT] File %s write list rotor\n", only_name);
         list_print(tree_entry->list_write_rot);
     }
     else {
         printk(KERN_EMERG "[PRINT] File %s write list rotor is empty\n", only_name);
-    }
-
-    if (tree_entry->read_rot != NULL) {
-        if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD)
-            printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name);
-        else if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_SSD)
-            printk(KERN_EMERG "[PRINT] File %s dn_read_rot METASLAB_ROTOR_VDEV_TYPE_SSD\n", only_name);
-        else
-            printk(KERN_EMERG "[PRINT] File %s dn_read_rot %d\n", only_name, *tree_entry->read_rot);
-    }
-    else {
-        printk(KERN_EMERG "[PRINT] File %s dn_read_rot is NULL\n", only_name);
     }
 
     if (!list_empty(tree_entry->list_read_rot)) {
@@ -324,7 +303,6 @@ void analyze(struct data* InsNode)
     int mid, all = 0;
     half = InsNode->size >> 1;
     if (!list_empty(InsNode->read_reqs)) {
-        InsNode->to_rot = 0;
         InsNode->read_reqs = zip_list(InsNode->read_reqs);
         printk(KERN_EMERG "[HETFS]File %s\n", InsNode->file);
         list_for_each_safe(pos, n, InsNode->read_reqs) {
@@ -341,11 +319,7 @@ void analyze(struct data* InsNode)
         }
         mid = InsNode->read_all_file >> 1;
         if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid))) {
-            InsNode->to_rot |= METASLAB_ROTOR_VDEV_TYPE_HDD;
             printk(KERN_EMERG "[HETFS] It was read sequentially\n");
-        }
-        else {
-            InsNode->to_rot |= METASLAB_ROTOR_VDEV_TYPE_SSD;
         }
     }
     if (!list_empty(InsNode->write_reqs)) {

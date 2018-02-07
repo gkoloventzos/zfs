@@ -59,9 +59,6 @@ struct data {
     int8_t write_all_file;
     int8_t read_seq;
     int8_t write_seq;
-    int8_t to_rot;
-    int8_t write_rot;
-    int8_t *read_rot;
     unsigned long long int deleted;
     struct list_head *read_reqs;
     struct list_head *write_reqs;
