@@ -3,7 +3,7 @@ obj = @abs_builddir@
 
 MODULE := zfs
 
-EXTRA_CFLAGS = $(ZFS_MODULE_CFLAGS) @KERNELCPPFLAGS@
+EXTRA_CFLAGS = $(ZFS_MODULE_CFLAGS) @KERNELCPPFLAGS@ -g3
 
 obj-$(CONFIG_ZFS) := $(MODULE).o
 
@@ -89,6 +89,8 @@ $(MODULE)-objs += zfs_ctldir.o
 $(MODULE)-objs += zfs_debug.o
 $(MODULE)-objs += zfs_dir.o
 $(MODULE)-objs += zfs_fm.o
+$(MODULE)-objs += zfs_syscalls.o
+$(MODULE)-objs += zfs_media.o
 $(MODULE)-objs += zfs_fuid.o
 $(MODULE)-objs += zfs_ioctl.o
 $(MODULE)-objs += zfs_log.o

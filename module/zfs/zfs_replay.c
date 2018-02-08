@@ -689,7 +689,7 @@ zfs_replay_write(zfsvfs_t *zfsvfs, lr_write_t *lr, boolean_t byteswap)
 	}
 
 	written = zpl_write_common(ZTOI(zp), data, length, &offset,
-	    UIO_SYSSPACE, 0, kcred);
+	    UIO_SYSSPACE, 0, kcred, false, -6);
 	if (written < 0)
 		error = -written;
 	else if (written < length)

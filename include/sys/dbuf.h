@@ -125,6 +125,8 @@ typedef struct dbuf_dirty_record {
 	/* A copy of the bp that points to us */
 	blkptr_t dr_bp_copy;
 
+    uint8_t dr_rot;
+
 	union dirty_types {
 		struct dirty_indirect {
 
@@ -278,15 +280,15 @@ int dbuf_spill_set_blksz(dmu_buf_t *db, uint64_t blksz, dmu_tx_t *tx);
 
 void dbuf_rm_spill(struct dnode *dn, dmu_tx_t *tx);
 
-dmu_buf_impl_t *dbuf_hold(struct dnode *dn, uint64_t blkid, void *tag);
+dmu_buf_impl_t *dbuf_hold(struct dnode *dn, uint64_t blkid, void *tag, int8_t *rot);
 dmu_buf_impl_t *dbuf_hold_level(struct dnode *dn, int level, uint64_t blkid,
-    void *tag);
+    void *tag, int8_t *rot);
 int dbuf_hold_impl(struct dnode *dn, uint8_t level, uint64_t blkid,
     boolean_t fail_sparse, boolean_t fail_uncached,
-    void *tag, dmu_buf_impl_t **dbp);
+    void *tag, dmu_buf_impl_t **dbp, int8_t *rot);
 
 void dbuf_prefetch(struct dnode *dn, int64_t level, uint64_t blkid,
-    zio_priority_t prio, arc_flags_t aflags);
+    zio_priority_t prio, arc_flags_t aflags, int8_t *rot);
 
 void dbuf_add_ref(dmu_buf_impl_t *db, void *tag);
 boolean_t dbuf_try_add_ref(dmu_buf_t *db, objset_t *os, uint64_t obj,
@@ -299,7 +301,7 @@ void dbuf_rele_and_unlock(dmu_buf_impl_t *db, void *tag);
 dmu_buf_impl_t *dbuf_find(struct objset *os, uint64_t object, uint8_t level,
     uint64_t blkid);
 
-int dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags);
+int dbuf_read(dmu_buf_impl_t *db, zio_t *zio, uint32_t flags, int8_t *rot);
 void dmu_buf_will_not_fill(dmu_buf_t *db, dmu_tx_t *tx);
 void dmu_buf_will_fill(dmu_buf_t *db, dmu_tx_t *tx);
 void dmu_buf_fill_done(dmu_buf_t *db, dmu_tx_t *tx);

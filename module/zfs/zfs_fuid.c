@@ -272,7 +272,7 @@ zfs_fuid_sync(zfsvfs_t *zfsvfs, dmu_tx_t *tx)
 	nvlist_free(nvp);
 	zfsvfs->z_fuid_size = nvsize;
 	dmu_write(zfsvfs->z_os, zfsvfs->z_fuid_obj, 0,
-	    zfsvfs->z_fuid_size, packed, tx);
+	    zfsvfs->z_fuid_size, packed, tx, -9);
 	kmem_free(packed, zfsvfs->z_fuid_size);
 	VERIFY(0 == dmu_bonus_hold(zfsvfs->z_os, zfsvfs->z_fuid_obj,
 	    FTAG, &db));

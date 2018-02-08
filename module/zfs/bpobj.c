@@ -412,7 +412,7 @@ bpobj_enqueue_subobj(bpobj_t *bpo, uint64_t subobj, dmu_tx_t *tx)
 
 	dmu_write(bpo->bpo_os, bpo->bpo_phys->bpo_subobjs,
 	    bpo->bpo_phys->bpo_num_subobjs * sizeof (subobj),
-	    sizeof (subobj), &subobj, tx);
+	    sizeof (subobj), &subobj, tx, -9);
 	bpo->bpo_phys->bpo_num_subobjs++;
 
 	/*
@@ -439,7 +439,7 @@ bpobj_enqueue_subobj(bpobj_t *bpo, uint64_t subobj, dmu_tx_t *tx)
 			    numsubsub * sizeof (subobj));
 			dmu_write(bpo->bpo_os, bpo->bpo_phys->bpo_subobjs,
 			    bpo->bpo_phys->bpo_num_subobjs * sizeof (subobj),
-			    numsubsub * sizeof (subobj), subdb->db_data, tx);
+			    numsubsub * sizeof (subobj), subdb->db_data, tx, -9);
 			dmu_buf_rele(subdb, FTAG);
 			bpo->bpo_phys->bpo_num_subobjs += numsubsub;
 
