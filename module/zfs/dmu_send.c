@@ -2321,7 +2321,7 @@ receive_write(struct receive_writer_arg *rwa, struct drr_write *drrw,
 	/* use the bonus buf to look up the dnode in dmu_assign_arcbuf */
 	if (dmu_bonus_hold(rwa->os, drrw->drr_object, FTAG, &bonus) != 0)
 		return (SET_ERROR(EINVAL));
-	dmu_assign_arcbuf(bonus, drrw->drr_offset, abuf, tx);
+	dmu_assign_arcbuf(bonus, drrw->drr_offset, abuf, tx, -8);
 
 	/*
 	 * Note: If the receive fails, we want the resume stream to start
@@ -2392,7 +2392,7 @@ receive_write_byref(struct receive_writer_arg *rwa,
 		return (err);
 	}
 	dmu_write(rwa->os, drrwbr->drr_object,
-	    drrwbr->drr_offset, drrwbr->drr_length, dbp->db_data, tx);
+	    drrwbr->drr_offset, drrwbr->drr_length, dbp->db_data, tx, -9);
 	dmu_buf_rele(dbp, FTAG);
 
 	/* See comment in restore_write. */

@@ -457,6 +457,10 @@ struct zio {
 	void		*io_waiter;
 	kmutex_t	io_lock;
 	kcondvar_t	io_cv;
+    int8_t     io_read_rot;
+    int8_t     io_write_rot;
+    dnode_t *io_dn;
+    bool print;
 
 	/* FMA state */
 	zio_cksum_report_t *io_cksum_report;

@@ -34,6 +34,8 @@
 #include <sys/fs/zfs.h>
 #include <sys/zio.h>
 #include <sys/sunldi.h>
+#include <sys/dnode.h>
+#include <sys/hetfs.h>
 
 char *zfs_vdev_scheduler = VDEV_SCHEDULER;
 static void *zfs_vdev_holder = VDEV_HOLDER;
@@ -321,6 +323,7 @@ skip_open:
 
 	/* Inform the ZIO pipeline that we are non-rotational */
 	v->vdev_nonrot = blk_queue_nonrot(bdev_get_queue(vd->vd_bdev));
+	v->vdev_nonrot_mix = B_FALSE;
 
 	/* Physical volume size in bytes */
 	*psize = bdev_capacity(vd->vd_bdev);
@@ -507,8 +510,10 @@ bio_set_dev(struct bio *bio, struct block_device *bdev)
 #endif /* !HAVE_BIO_SET_DEV */
 
 static inline void
-vdev_submit_bio(struct bio *bio)
+vdev_submit_bio(struct bio *bio, int rw)
 {
+    dio_request_t *dr = NULL;
+    zio_t *zio = NULL;
 #ifdef HAVE_CURRENT_BIO_TAIL
 	struct bio **bio_tail = current->bio_tail;
 	current->bio_tail = NULL;
@@ -517,6 +522,26 @@ vdev_submit_bio(struct bio *bio)
 #else
 	struct bio_list *bio_list = current->bio_list;
 	current->bio_list = NULL;
+    if (rw == -1) {
+        zio = (zio_t *)bio->bi_private;
+    }
+    else {
+        dr = (dio_request_t *)bio->bi_private;
+        zio = dr->dr_zio;
+    }
+
+    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
+        if (rw == READ) {
+            if (zio != NULL )
+                zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+        }
+    }
+    else {
+        if (rw == READ) {
+            if (zio != NULL)
+                zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
+        }
+    }
 	vdev_submit_bio_impl(bio);
 	current->bio_list = bio_list;
 #endif
@@ -614,7 +639,7 @@ retry:
 	/* Submit all bio's associated with this dio */
 	for (i = 0; i < dr->dr_bio_count; i++)
 		if (dr->dr_bio[i])
-			vdev_submit_bio(dr->dr_bio[i]);
+			vdev_submit_bio(dr->dr_bio[i], rw);
 
 #if defined(HAVE_BLK_QUEUE_HAVE_BLK_PLUG)
 	if (dr->dr_bio_count > 1)
@@ -664,7 +689,7 @@ vdev_disk_io_flush(struct block_device *bdev, zio_t *zio)
 	bio->bi_private = zio;
 	bio_set_dev(bio, bdev);
 	bio_set_flush(bio);
-	vdev_submit_bio(bio);
+	vdev_submit_bio(bio, -1);
 	invalidate_bdev(bdev);
 
 	return (0);

@@ -43,6 +43,7 @@
 #include <sys/time.h>
 #include <sys/trace_zio.h>
 #include <sys/abd.h>
+#include <sys/hetfs.h>
 
 /*
  * ==========================================================================
@@ -466,6 +467,16 @@ zio_add_child(zio_t *pio, zio_t *cio)
 	pio->io_child_count++;
 	cio->io_parent_count++;
 
+/*    if (pio->filp != NULL)
+        cio->filp = pio->filp;
+    else
+        pio->filp = cio->filp;*/
+
+    if (pio->io_dn != NULL)
+        cio->io_dn = pio->io_dn;
+    else
+        pio->io_dn = cio->io_dn;
+
 	mutex_exit(&pio->io_lock);
 	mutex_exit(&cio->io_lock);
 }
@@ -642,6 +653,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 			pipeline |= ZIO_GANG_STAGES;
 	}
 
+    zio->io_timestamp = gethrtime();
 	zio->io_spa = spa;
 	zio->io_txg = txg;
 	zio->io_done = done;
@@ -657,9 +669,20 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 	zio->io_orig_stage = zio->io_stage = stage;
 	zio->io_orig_pipeline = zio->io_pipeline = pipeline;
 	zio->io_pipeline_trace = ZIO_STAGE_OPEN;
+//#ifdef CONFIG_HETFS
+    zio->io_read_rot = -20;
+    zio->io_write_rot = -20;
+    zio->print = false;
+    zio->io_dn = NULL;
+//#endif
 
 	zio->io_state[ZIO_WAIT_READY] = (stage >= ZIO_STAGE_READY);
 	zio->io_state[ZIO_WAIT_DONE] = (stage >= ZIO_STAGE_DONE);
+
+/*    if (pio == NULL && private != NULL && !(flags & ZIO_FLAG_CONFIG_WRITER)) {
+        zio->io_dn = (dnode_t *)private;
+        printk(KERN_EMERG "dn->dn_write_rot %d\n", zio->io_dn->dn_write_rot);
+    }*/
 
 	if (zb != NULL)
 		zio->io_bookmark = *zb;
@@ -669,6 +692,10 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 			zio->io_logical = pio->io_logical;
 		if (zio->io_child_type == ZIO_CHILD_GANG)
 			zio->io_gang_leader = pio->io_gang_leader;
+
+        //zio->filp = pio->filp;
+        zio->io_dn = pio->io_dn;
+
 		zio_add_child(pio, zio);
 	}
 
@@ -2324,7 +2351,7 @@ zio_write_gang_block(zio_t *pio)
 
 	error = metaslab_alloc(spa, mc, SPA_GANGBLOCKSIZE,
 	    bp, gbh_copies, txg, pio == gio ? NULL : gio->io_bp, flags,
-	    &pio->io_alloc_list, pio);
+	    &pio->io_alloc_list, pio, false);
 	if (error) {
 		if (pio->io_flags & ZIO_FLAG_IO_ALLOCATING) {
 			ASSERT(pio->io_priority == ZIO_PRIORITY_ASYNC_WRITE);
@@ -3013,6 +3040,7 @@ zio_dva_allocate(zio_t *zio)
 	blkptr_t *bp = zio->io_bp;
 	int error;
 	int flags = 0;
+    bool print = false;
 
 	if (zio->io_gang_leader == NULL) {
 		ASSERT(zio->io_child_type > ZIO_CHILD_GANG);
@@ -3033,9 +3061,17 @@ zio_dva_allocate(zio_t *zio)
 	if (zio->io_priority == ZIO_PRIORITY_ASYNC_WRITE)
 		flags |= METASLAB_ASYNC_ALLOC;
 
+/*#ifdef _KERNEL
+    if (zio->io_dn != NULL && zio->io_dn->cadmus != NULL \
+            && zio->io_dn->cadmus->dentry != NULL \
+            && zio->io_dn->cadmus->dentry->d_name.name != NULL \
+            && strstr(zio->io_dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL) {
+        print = true;
+    }
+#endif*/
 	error = metaslab_alloc(spa, mc, zio->io_size, bp,
 	    zio->io_prop.zp_copies, zio->io_txg, NULL, flags,
-	    &zio->io_alloc_list, zio);
+	    &zio->io_alloc_list, zio, print);
 
 	if (error != 0) {
 		spa_dbgmsg(spa, "%s: metaslab allocation failure: zio %p, "
@@ -3107,13 +3143,13 @@ zio_alloc_zil(spa_t *spa, uint64_t txg, blkptr_t *new_bp, uint64_t size,
 
 	metaslab_trace_init(&io_alloc_list);
 	error = metaslab_alloc(spa, spa_log_class(spa), size, new_bp, 1,
-	    txg, NULL, METASLAB_FASTWRITE, &io_alloc_list, NULL);
+	    txg, NULL, METASLAB_FASTWRITE, &io_alloc_list, NULL, false);
 	if (error == 0) {
 		*slog = TRUE;
 	} else {
 		error = metaslab_alloc(spa, spa_normal_class(spa), size,
 		    new_bp, 1, txg, NULL, METASLAB_FASTWRITE,
-		    &io_alloc_list, NULL);
+		    &io_alloc_list, NULL, false);
 		if (error == 0)
 			*slog = FALSE;
 	}

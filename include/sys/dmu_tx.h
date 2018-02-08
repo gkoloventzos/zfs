@@ -80,6 +80,8 @@ struct dmu_tx {
 	boolean_t tx_wait_dirty;
 
 	int tx_err;
+    int8_t tx_rot;
+    bool tx_print;
 };
 
 enum dmu_tx_hold_type {

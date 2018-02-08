@@ -41,6 +41,7 @@
 #define	_LIBSPL_SYS_UIO_H
 
 #include_next <sys/uio.h>
+#include <stdbool.h>
 
 typedef struct iovec iovec_t;
 
@@ -64,6 +65,8 @@ typedef struct uio {
 	uint16_t	uio_extflg;	/* extended flags */
 	offset_t	uio_limit;	/* u-limit (maximum byte offset) */
 	ssize_t		uio_resid;	/* residual count */
+    bool        uio_rewrite;
+    int8_t      uio_rot;
 } uio_t;
 
 typedef enum xuio_type {

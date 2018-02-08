@@ -625,7 +625,7 @@ zvol_replay_write(zvol_state_t *zv, lr_write_t *lr, boolean_t byteswap)
 	if (error) {
 		dmu_tx_abort(tx);
 	} else {
-		dmu_write(os, ZVOL_OBJ, offset, length, data, tx);
+		dmu_write(os, ZVOL_OBJ, offset, length, data, tx, -9);
 		dmu_tx_commit(tx);
 	}
 
@@ -916,7 +916,7 @@ zvol_read(void *arg)
 		if (bytes > volsize - uio.uio_loffset)
 			bytes = volsize - uio.uio_loffset;
 
-		error = dmu_read_uio_dnode(zv->zv_dn, &uio, bytes);
+		error = dmu_read_uio_dnode(zv->zv_dn, &uio, bytes, NULL);
 		if (error) {
 			/* convert checksum errors into IO errors */
 			if (error == ECKSUM)

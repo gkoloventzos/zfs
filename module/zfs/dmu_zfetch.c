@@ -207,7 +207,7 @@ dmu_zfetch_stream_create(zfetch_t *zf, uint64_t blkid)
  *   TRUE -- prefetch predicted data blocks plus following indirect blocks.
  */
 void
-dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks, boolean_t fetch_data)
+dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks, boolean_t fetch_data, int8_t *rot)
 {
 	zstream_t *zs;
 	int64_t pf_start, ipf_start, ipf_istart, ipf_iend;
@@ -340,11 +340,11 @@ dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks, boolean_t fetch_data)
 
 	for (i = 0; i < pf_nblks; i++) {
 		dbuf_prefetch(zf->zf_dnode, 0, pf_start + i,
-		    ZIO_PRIORITY_ASYNC_READ, ARC_FLAG_PREDICTIVE_PREFETCH);
+		    ZIO_PRIORITY_ASYNC_READ, ARC_FLAG_PREDICTIVE_PREFETCH, rot);
 	}
 	for (iblk = ipf_istart; iblk < ipf_iend; iblk++) {
 		dbuf_prefetch(zf->zf_dnode, 1, iblk,
-		    ZIO_PRIORITY_ASYNC_READ, ARC_FLAG_PREDICTIVE_PREFETCH);
+		    ZIO_PRIORITY_ASYNC_READ, ARC_FLAG_PREDICTIVE_PREFETCH, rot);
 	}
 	ZFETCHSTAT_BUMP(zfetchstat_hits);
 }

@@ -1016,6 +1016,20 @@ make_vdev_root(char *path, char *aux, char *pool, size_t size, uint64_t ashift,
 	return (root);
 }
 
+boolean_t ztest_vdev_nonrot(void);
+
+boolean_t
+ztest_vdev_nonrot()
+{
+	boolean_t nonrot;
+
+	nonrot = ztest_random(2) == 1 ? B_TRUE : B_FALSE;
+
+	printf("NONROT: %d\n", nonrot);
+
+	return (nonrot);
+}
+
 /*
  * Find a random spa version. Returns back a random spa version in the
  * range [initial_version, SPA_VERSION_FEATURES].
@@ -1918,10 +1932,10 @@ ztest_replay_write(ztest_ds_t *zd, lr_write_t *lr, boolean_t byteswap)
 	}
 
 	if (abuf == NULL) {
-		dmu_write(os, lr->lr_foid, offset, length, data, tx);
+		dmu_write(os, lr->lr_foid, offset, length, data, tx, -9);
 	} else {
 		bcopy(data, abuf->b_data, length);
-		dmu_assign_arcbuf(db, offset, abuf, tx);
+		dmu_assign_arcbuf(db, offset, abuf, tx, -8);
 	}
 
 	(void) ztest_log_write(zd, tx, lr);
@@ -2826,13 +2840,12 @@ ztest_vdev_add_remove(ztest_ds_t *zd, uint64_t id)
 {
 	ztest_shared_t *zs = ztest_shared;
 	spa_t *spa = ztest_spa;
+	metaslab_class_t *mc;
 	uint64_t leaves;
 	uint64_t guid;
 	nvlist_t *nvroot;
 	int error;
-
-	if (ztest_opts.zo_mmp_test)
-		return;
+	int i;
 
 	mutex_enter(&ztest_vdev_lock);
 	leaves = MAX(zs->zs_mirrors + zs->zs_splits, 1) * ztest_opts.zo_raidz;
@@ -2848,7 +2861,15 @@ ztest_vdev_add_remove(ztest_ds_t *zd, uint64_t id)
 		/*
 		 * Grab the guid from the head of the log class rotor.
 		 */
-		guid = spa_log_class(spa)->mc_rotor->mg_vd->vdev_guid;
+		/* Dummy, loop will find a guid, or VERIFY fails after loop. */
+		guid = 0;
+		mc = spa_log_class(spa);
+		for (i = 0; i < METASLAB_CLASS_ROTORS; i++)
+			if (mc->mc_rotorv[i] != NULL) {
+				guid = mc->mc_rotorv[i]->mg_vd->vdev_guid;
+				break;
+			}
+		VERIFY(i < METASLAB_CLASS_ROTORS);
 
 		spa_config_exit(spa, SCL_VDEV, FTAG);
 
@@ -4119,7 +4140,7 @@ ztest_dmu_read_write(ztest_ds_t *zd, uint64_t id)
 	 * We've verified all the old bufwads, and made new ones.
 	 * Now write them out.
 	 */
-	dmu_write(os, packobj, packoff, packsize, packbuf, tx);
+	dmu_write(os, packobj, packoff, packsize, packbuf, tx, -9);
 
 	if (freeit) {
 		if (ztest_opts.zo_verbose >= 7) {
@@ -4138,7 +4159,7 @@ ztest_dmu_read_write(ztest_ds_t *zd, uint64_t id)
 			    (u_longlong_t)bigsize,
 			    (u_longlong_t)txg);
 		}
-		dmu_write(os, bigobj, bigoff, bigsize, bigbuf, tx);
+		dmu_write(os, bigobj, bigoff, bigsize, bigbuf, tx, -9);
 	}
 
 	dmu_tx_commit(tx);
@@ -4382,7 +4403,7 @@ ztest_dmu_read_write_zcopy(ztest_ds_t *zd, uint64_t id)
 		 * We've verified all the old bufwads, and made new ones.
 		 * Now write them out.
 		 */
-		dmu_write(os, packobj, packoff, packsize, packbuf, tx);
+		dmu_write(os, packobj, packoff, packsize, packbuf, tx, -9);
 		if (ztest_opts.zo_verbose >= 7) {
 			(void) printf("writing offset %llx size %llx"
 			    " txg %llx\n",
@@ -4411,13 +4432,13 @@ ztest_dmu_read_write_zcopy(ztest_ds_t *zd, uint64_t id)
 			}
 			if (i != 5 || chunksize < (SPA_MINBLOCKSIZE * 2)) {
 				dmu_assign_arcbuf(bonus_db, off,
-				    bigbuf_arcbufs[j], tx);
+				    bigbuf_arcbufs[j], tx, -8);
 			} else {
 				dmu_assign_arcbuf(bonus_db, off,
-				    bigbuf_arcbufs[2 * j], tx);
+				    bigbuf_arcbufs[2 * j], tx, -8);
 				dmu_assign_arcbuf(bonus_db,
 				    off + chunksize / 2,
-				    bigbuf_arcbufs[2 * j + 1], tx);
+				    bigbuf_arcbufs[2 * j + 1], tx, -8);
 			}
 			if (i == 1) {
 				dmu_buf_rele(dbt, FTAG);
@@ -4988,7 +5009,7 @@ ztest_dmu_commit_callbacks(ztest_ds_t *zd, uint64_t id)
 		fatal(0, "future leak: got %" PRIu64 ", open txg is %" PRIu64,
 		    old_txg, txg);
 
-	dmu_write(os, od->od_object, 0, sizeof (uint64_t), &txg, tx);
+	dmu_write(os, od->od_object, 0, sizeof (uint64_t), &txg, tx, -9);
 
 	(void) mutex_enter(&zcl.zcl_callbacks_lock);
 
@@ -6718,6 +6739,14 @@ ztest_init(ztest_shared_t *zs)
 		VERIFY3S(-1, !=, asprintf(&buf, "feature@%s",
 		    spa_feature_table[i].fi_uname));
 		VERIFY3U(0, ==, nvlist_add_uint64(props, buf, 0));
+		free(buf);
+	}
+	{
+		char *buf;
+		VERIFY3S(-1, !=, asprintf(&buf, "ssd<=meta:%d,%d;mixed<=%d;hdd",
+		    32, 4, 64));
+		VERIFY3U(0, ==, nvlist_add_string(props,
+		    ZPOOL_CONFIG_ROTORVECTOR, buf));
 		free(buf);
 	}
 	VERIFY3U(0, ==, spa_create(ztest_opts.zo_pool, nvroot, props, NULL));

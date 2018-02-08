@@ -113,7 +113,7 @@
 .Cm iostat
 .Op Oo Oo Fl c Ar SCRIPT Oc Oo Fl lq Oc Oc Ns | Ns Fl rw
 .Op Fl T Sy u Ns | Ns Sy d
-.Op Fl ghHLpPvy
+.Op Fl ghHLMpPvy
 .Oo Oo Ar pool Ns ... Oc Ns | Ns Oo Ar pool vdev Ns ... Oc Ns | Ns Oo Ar vdev Ns ... Oc Oc
 .Op Ar interval Op Ar count
 .Nm
@@ -168,7 +168,7 @@
 .Nm
 .Cm status
 .Oo Fl c Ar SCRIPT Oc
-.Op Fl gLPvxD
+.Op Fl gLMPvxD
 .Op Fl T Sy u Ns | Ns Sy d
 .Oo Ar pool Oc Ns ...
 .Op Ar interval Op Ar count
@@ -745,6 +745,38 @@ command, though this property can be used when a specific version is needed for
 backwards compatibility.
 Once feature flags are enabled on a pool this property will no longer have a
 value.
+.It Sy rotorvector Ns = Ns Ar configuration
+Controls to which 
+.Nm vdev
+each written block is allocated.  The primary use
+of this property is to allocate meta-data on faster devices (such as SSDs),
+while allocating all other (bulk) data on cheaper devices (HDDs).  It can also
+be used to allocate small data blocks on faster devices. With this option set,
+all 
+.Nm vdev
+s are assigned to an allocaton category (= given a rotor vector
+index).  The categories should be ordered from fast to slow, which would
+(presumably) also correspond to an ordering from expensive to
+cheap.  Associated with each category is a description of what kind of data
+blocks it accepts.  (Kind is currently 
+.Nm data
+or 
+.Nm metadata
+, and its size.)  Each written block is allocated to a 
+.Nm vdev
+of the first (fastest) category that accepts it.
+If a category is completely full, a slower category will be used.  And as a last
+resort, faster categories are used.  Note however that generally the entire pool
+will be reported as full and not           allow further user writes before any
+category becomes completely full.  The rationale is that rather than filling up
+expensive fast 
+.Nm vdev
+s with some last bulk data when a pool is close to full, the pool shall act as 
+full when the cheaper categories are full. Likewise, this strategy avoids 
+storing metadata on slow 
+.Nm vdev 
+s, which would hamper performance for this metadata even after the full 
+condition of the faster categories has been resolved.
 .El
 .Ss Subcommands
 All subcommands that modify state are logged persistently to the pool in their
@@ -1532,6 +1564,11 @@ Display real paths for vdevs resolving all symbolic links. This can
 be used to look up the current block device name regardless of the
 .Pa /dev/disk/
 path used to open it.
+.It Fl M
+Display the media type of device a pool or vdev is based on: ssd, hdd or file.
+Mixed mirror vdevs that have both ssd (or file) and hdd members are marked
+"mix".  A pool is considered mixed if all members are at least mixed, i.e. no
+pure hdd.
 .It Fl p
 Display numbers in parsable (exact) values. Time values are in
 nanoseconds.
@@ -1651,6 +1688,11 @@ The default list is
 Display real paths for vdevs resolving all symbolic links. This can
 be used to look up the current block device name regardless of the
 /dev/disk/ path used to open it.
+.It Fl M
+Display the media type of device a pool or vdev is based on: ssd, hdd or file.
+Mixed mirror vdevs that have both ssd (or file) and hdd members are marked
+"mix".  A pool is considered mixed if all members are at least mixed, i.e. no
+pure hdd.
 .It Fl p
 Display numbers in parsable
 .Pq exact

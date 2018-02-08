@@ -78,6 +78,7 @@
 #include <sys/cred.h>
 #include <sys/attr.h>
 #include <sys/zpl.h>
+#include <sys/dmu_tx.h>
 
 /*
  * Programming rules.
@@ -379,7 +380,7 @@ update_pages(struct inode *ip, int64_t start, int len,
  *	 the file is memory mapped.
  */
 static int
-mappedread(struct inode *ip, int nbytes, uio_t *uio)
+mappedread(struct inode *ip, int nbytes, uio_t *uio, int8_t *rot)
 {
 	struct address_space *mp = ip->i_mapping;
 	struct page *pp;
@@ -411,7 +412,7 @@ mappedread(struct inode *ip, int nbytes, uio_t *uio)
 			put_page(pp);
 		} else {
 			error = dmu_read_uio_dbuf(sa_get_db(zp->z_sa_hdl),
-			    uio, bytes);
+			    uio, bytes, rot);
 		}
 
 		len -= bytes;
@@ -445,7 +446,7 @@ unsigned long zfs_delete_blocks = DMU_MAX_DELETEBLKCNT;
  */
 /* ARGSUSED */
 int
-zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
+zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr, int8_t *rot)
 {
 	znode_t		*zp = ITOZ(ip);
 	zfsvfs_t	*zfsvfs = ITOZSB(ip);
@@ -542,10 +543,10 @@ zfs_read(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 		    P2PHASE(uio->uio_loffset, zfs_read_chunk_size));
 
 		if (zp->z_is_mapped && !(ioflag & O_DIRECT)) {
-			error = mappedread(ip, nbytes, uio);
+			error = mappedread(ip, nbytes, uio, rot);
 		} else {
 			error = dmu_read_uio_dbuf(sa_get_db(zp->z_sa_hdl),
-			    uio, nbytes);
+			    uio, nbytes, rot);
 		}
 
 		if (error) {
@@ -787,6 +788,7 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 			break;
 		}
 
+        tx->tx_print = uio->uio_rewrite;
 		/*
 		 * If zfs_range_lock() over-locked we grow the blocksize
 		 * and then reduce the lock range.  This will only happen
@@ -825,6 +827,8 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 			tx_bytes -= uio->uio_resid;
 		} else {
 			tx_bytes = nbytes;
+            abuf->b_rot = uio->uio_rot;
+            abuf->b_print = uio->uio_rewrite;
 			ASSERT(xuio == NULL || tx_bytes == aiov->iov_len);
 			/*
 			 * If this is not a full block write, but we are
@@ -837,13 +841,13 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 				ASSERT(xuio);
 				dmu_write(zfsvfs->z_os, zp->z_id, woff,
 				    /* cppcheck-suppress nullPointer */
-				    aiov->iov_len, aiov->iov_base, tx);
+				    aiov->iov_len, aiov->iov_base, tx, uio->uio_rot);
 				dmu_return_arcbuf(abuf);
 				xuio_stat_wbuf_copied();
 			} else {
 				ASSERT(xuio || tx_bytes == max_blksz);
 				dmu_assign_arcbuf(sa_get_db(zp->z_sa_hdl),
-				    woff, abuf, tx);
+				    woff, abuf, tx, uio->uio_rot);
 			}
 			ASSERT(tx_bytes <= uio->uio_resid);
 			uioskip(uio, tx_bytes);
@@ -4258,7 +4262,7 @@ zfs_putpage(struct inode *ip, struct page *pp, struct writeback_control *wbc)
 
 	va = kmap(pp);
 	ASSERT3U(pglen, <=, PAGE_SIZE);
-	dmu_write(zfsvfs->z_os, zp->z_id, pgoff, pglen, va, tx);
+	dmu_write(zfsvfs->z_os, zp->z_id, pgoff, pglen, va, tx, -9);
 	kunmap(pp);
 
 	SA_ADD_BULK_ATTR(bulk, cnt, SA_ZPL_MTIME(zfsvfs), NULL, &mtime, 16);
