@@ -85,42 +85,70 @@ int init_data(struct data *InsNode, struct dentry *dentry)
     InsNode->read_reqs = kmem_zalloc(sizeof(struct list_head), GFP_KERNEL);
     if (InsNode->read_reqs == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
-        return 1;
+        goto read;
     }
     InsNode->write_reqs = kmem_zalloc(sizeof(struct list_head), GFP_KERNEL);
     if (InsNode->write_reqs == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode write null after malloc\n");
-        kzfree(InsNode->read_reqs);
-        return 1;
+        goto write;
     }
     InsNode->list_read_rot = kmem_zalloc(sizeof(struct list_head), GFP_KERNEL);
     if (InsNode->list_read_rot == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
-        kzfree(InsNode->read_reqs);
-        kzfree(InsNode->write_reqs);
-        return 1;
+        goto list_read;
     }
     InsNode->list_write_rot = kmem_zalloc(sizeof(struct list_head), GFP_KERNEL);
     if (InsNode->list_write_rot == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
-        kzfree(InsNode->read_reqs);
-        kzfree(InsNode->write_reqs);
-        kzfree(InsNode->list_read_rot);
-        return 1;
+        goto list_write;
+    }
+    InsNode->mmap_reqs = kmem_zalloc(sizeof(struct list_head), GFP_KERNEL);
+    if (InsNode->mmap_reqs == NULL) {
+        printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
+        goto mmap;
+    }
+    InsNode->rmap_reqs = kmem_zalloc(sizeof(struct list_head), GFP_KERNEL);
+    if (InsNode->rmap_reqs == NULL) {
+        printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
+        goto rmap;
+    }
+    InsNode->wmap_reqs = kmem_zalloc(sizeof(struct list_head), GFP_KERNEL);
+    if (InsNode->wmap_reqs == NULL) {
+        printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
+        goto wmap;
     }
     INIT_LIST_HEAD(InsNode->list_read_rot);
     INIT_LIST_HEAD(InsNode->list_write_rot);
     INIT_LIST_HEAD(InsNode->read_reqs);
     INIT_LIST_HEAD(InsNode->write_reqs);
+    INIT_LIST_HEAD(InsNode->mmap_reqs);
+    INIT_LIST_HEAD(InsNode->wmap_reqs);
+    INIT_LIST_HEAD(InsNode->rmap_reqs);
     InsNode->read_all_file = 100;
     InsNode->write_all_file = 0;
     InsNode->deleted = 0;
     init_rwsem(&(InsNode->read_sem));
     init_rwsem(&(InsNode->write_sem));
+    InsNode->dentry = dentry;
 /*    bla++;
     if (bla%100 == 0)
         printk(KERN_EMERG "[INIT_DATA]Tree nodes %d\n", bla);*/
     return 0;
+
+wmap:
+    kzfree(InsNode->mmap_reqs);
+rmap:
+    kzfree(InsNode->mmap_reqs);
+mmap:
+    kzfree(InsNode->list_write_rot);
+list_write:
+    kzfree(InsNode->list_read_rot);
+list_read:
+    kzfree(InsNode->write_reqs);
+write:
+    kzfree(InsNode->read_reqs);
+read:
+    return 1;
 }
 
 void fullname(struct dentry *dentry, char *name, int *stop)
@@ -997,6 +1025,13 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
 	znode_t *zp = ITOZ(ip);
 	int error;
 	fstrans_cookie_t cookie;
+    char *filename = NULL;
+    dnode_t *dn;
+    struct task_struct *thread1;
+    struct kdata *kdata;
+    struct timespec arrival_time;
+
+    ktime_get_ts(&arrival_time);
 
 	cookie = spl_fstrans_mark();
 	error = -zfs_map(ip, vma->vm_pgoff, (caddr_t *)vma->vm_start,
@@ -1013,6 +1048,26 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
 	zp->z_is_mapped = 1;
 	mutex_exit(&zp->z_lock);
 
+    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    if (dn->cadmus == NULL)
+        dn->cadmus = tree_insearch(file_dentry(filp), filename);
+    kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
+    if (kdata != NULL && dn->cadmus != NULL) {
+        kdata->InsNode = dn->cadmus;
+        kdata->filp = filp;
+        kdata->dentry = file_dentry(filp);
+        kdata->type = HET_MMAP;
+        kdata->offset = vma->vm_pgoff << PAGE_SHIFT;
+        kdata->length = (size_t)(vma->vm_end - vma->vm_start);
+        kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+        thread1 = kthread_run(add_request, (void *) kdata,"mmapreq");
+    }
+    if (dn->cadmus == NULL)
+        kzfree(kdata);
+    if (filename != NULL)
+        kzfree(filename);
+    DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 	return (error);
 }
 
@@ -1031,13 +1086,30 @@ zpl_readpage(struct file *filp, struct page *pp)
 	struct inode *ip;
 	struct page *pl[1];
 	int error = 0;
+	znode_t *zp = ITOZ(pp->mapping->host);
 	fstrans_cookie_t cookie;
+	u_offset_t io_off;
+	size_t io_len;
+	loff_t i_size;
+    char *filename = NULL;
+    dnode_t *dn;
+    struct task_struct *thread1;
+    struct kdata *kdata;
+    struct timespec arrival_time;
+
+    ktime_get_ts(&arrival_time);
 
 	ASSERT(PageLocked(pp));
 	ip = pp->mapping->host;
 	pl[0] = pp;
 
 	cookie = spl_fstrans_mark();
+	io_len = 1 << PAGE_SHIFT;
+	i_size = i_size_read(ip);
+	io_off = page_offset(pl[0]);
+
+	if (io_off + io_len > i_size)
+		io_len = i_size - io_off;
 	error = -zfs_getpage(ip, pl, 1);
 	spl_fstrans_unmark(cookie);
 
@@ -1048,6 +1120,29 @@ zpl_readpage(struct file *filp, struct page *pp)
 		ClearPageError(pp);
 		SetPageUptodate(pp);
 		flush_dcache_page(pp);
+        DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+        dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+        filename = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
+        if (filename != NULL) {
+            if (dn->cadmus == NULL)
+                dn->cadmus = tree_insearch(file_dentry(filp), filename);
+            kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
+            if (kdata != NULL && dn->cadmus != NULL) {
+                kdata->InsNode = dn->cadmus;
+                kdata->filp = filp;
+                kdata->dentry = file_dentry(filp);
+                kdata->type = HET_RMAP;
+                kdata->offset = io_off;
+                kdata->length = io_len;
+                kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+                thread1 = kthread_run(add_request, (void *) kdata,"rmapreq");
+            }
+            if (dn->cadmus == NULL)
+                kzfree(kdata);
+            kzfree(filename);
+        } else
+            printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
+        DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 	}
 
 	unlock_page(pp);
@@ -1490,8 +1585,8 @@ void print_lists(struct data *entry) {
 int add_request(void *data)
 {
     struct analyze_request *a_r;
-	char *name;
-	int stop = 0;
+//	char *name;
+//	int stop = 0;
     struct list_head *general, *pos, *n;
     struct rw_semaphore *sem;
     struct kdata *kdata = (struct kdata *)data;
@@ -1502,17 +1597,17 @@ int add_request(void *data)
     unsigned long long int time = kdata->time;
     struct data *InsNode = kdata->InsNode;
 
-    if (dentry == NULL) {
+/*    if (dentry == NULL) {
         printk(KERN_EMERG "[ERROR] either dentry %p is NULL\n", dentry);
         return 1;
-    }
+    }*/
 
-    if (d_really_is_negative(dentry)) {
+    if (dentry != NULL && d_really_is_negative(dentry)) {
         printk(KERN_EMERG "[ERROR] dentry is negative offset %lld len %ld\n", offset, len);
         return 1;
     }
 
-	name = kzalloc(PATH_MAX+NAME_MAX * sizeof(char),GFP_KERNEL);
+/*	name = kzalloc(PATH_MAX+NAME_MAX * sizeof(char),GFP_KERNEL);
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
         kzfree(kdata);
@@ -1522,22 +1617,39 @@ int add_request(void *data)
 	fullname(dentry, name, &stop);
     if (strstr(name, "/log/") != NULL) {
         return 1;
-    }
+    }*/
 
     if (type == HET_READ) {
         general = InsNode->read_reqs;
         sem = &(InsNode->read_sem);
     }
-    else {
+    else if (type == HET_WRITE) {
         general = InsNode->write_reqs;
         sem = &(InsNode->write_sem);
     }
-    InsNode->size = i_size_read(d_inode(dentry));
-    InsNode->filp = kdata->filp;
+    else if (type == HET_MMAP) {
+        general = InsNode->mmap_reqs;
+        sem = &(InsNode->write_sem);
+    }
+    else if (type == HET_RMAP) {
+        general = InsNode->rmap_reqs;
+        sem = &(InsNode->read_sem);
+    }
+    else {
+        general = InsNode->wmap_reqs;
+        sem = &(InsNode->write_sem);
+    }
+
+    if (dentry != NULL) {
+        InsNode->size = i_size_read(d_inode(dentry));
+        InsNode->dentry = dentry;
+    }
+    if (kdata->filp != NULL)
+        InsNode->filp = kdata->filp;
 
 sema:
     if (InsNode->read_all_file != 100) {
-        printk(KERN_EMERG "[ERROR] Should not be here name %s\n", name);
+       // printk(KERN_EMERG "[ERROR] Should not be here name %s\n", name);
         goto sema;
     }
     down_write(sem);
@@ -1553,7 +1665,7 @@ sema:
                 a_r->end_time = time;
                 kzfree(kdata);
                 up_write(sem);
-                kzfree(name);
+//                kzfree(name);
                 return 0;
             }
         }
@@ -1563,7 +1675,7 @@ sema:
     if (a_r == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot allocate request\n");
         up_write(sem);
-        kzfree(name);
+//        kzfree(name);
         kzfree(kdata);
         return 1;
     }
@@ -1575,7 +1687,7 @@ sema:
     list_add_tail(&a_r->list, general);
     up_write(sem);
 
-    kzfree(name);
+//    kzfree(name);
     kzfree(kdata);
     return 0;
 }

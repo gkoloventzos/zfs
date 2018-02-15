@@ -103,6 +103,24 @@ void print_one_file(char *name) {
             printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
                     posh->start_offset, posh->end_offset, posh->times);
     }
+    if (!list_empty(entry->mmap_reqs))
+        printk(KERN_EMERG "[HETFS] MMAP req:\n");
+        list_for_each_entry_safe(posh, nh, entry->mmap_reqs, list) {
+            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset, posh->times);
+    }
+    if (!list_empty(entry->rmap_reqs))
+        printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
+        list_for_each_entry_safe(posh, nh, entry->rmap_reqs, list) {
+            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset, posh->times);
+    }
+    if (!list_empty(entry->wmap_reqs))
+        printk(KERN_EMERG "[HETFS] WRITE MMAP req:\n");
+        list_for_each_entry_safe(posh, nh, entry->wmap_reqs, list) {
+            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset, posh->times);
+    }
 //  analyze(entry);
     up_read(&tree_sem);
 }
@@ -137,7 +155,7 @@ void print_tree(int flag) {
         }
         fullname(entry->dentry, name, &stop);
 
-        printk(KERN_EMERG "[HETFS] file: %s\n", name);
+        printk(KERN_EMERG "[HETFS] file: %s size %llu\n", name, entry->size);
         if (flag) {
             if (!list_empty(entry->read_reqs) && flag)
                 printk(KERN_EMERG "[HETFS] READ req:\n");
@@ -149,6 +167,27 @@ void print_tree(int flag) {
             if (!list_empty(entry->write_reqs))
                 printk(KERN_EMERG "[HETFS] WRITE req:\n");
             list_for_each_entry_safe(posh, nh, entry->write_reqs, list) {
+                all_requests += posh->times;
+                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
+                            posh->start_offset, posh->end_offset, posh->times);
+            }
+            if (!list_empty(entry->mmap_reqs))
+                printk(KERN_EMERG "[HETFS] MMAP req:\n");
+            list_for_each_entry_safe(posh, nh, entry->mmap_reqs, list) {
+                all_requests += posh->times;
+                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
+                            posh->start_offset, posh->end_offset, posh->times);
+            }
+            if (!list_empty(entry->rmap_reqs))
+                printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
+            list_for_each_entry_safe(posh, nh, entry->rmap_reqs, list) {
+                all_requests += posh->times;
+                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
+                            posh->start_offset, posh->end_offset, posh->times);
+            }
+            if (!list_empty(entry->wmap_reqs))
+                printk(KERN_EMERG "[HETFS] WRITE MAP req:\n");
+            list_for_each_entry_safe(posh, nh, entry->wmap_reqs, list) {
                 all_requests += posh->times;
                 printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
                             posh->start_offset, posh->end_offset, posh->times);

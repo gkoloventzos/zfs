@@ -14,6 +14,10 @@
 #define MAX_NAME 255
 #define HET_READ 0
 #define HET_WRITE 1
+#define HET_MMAP 2
+#define HET_RMAP 3
+#define HET_WMAP 4
+
 
 /*
  * Five categories, from faster to slower:
@@ -62,6 +66,9 @@ struct data {
     unsigned long long int deleted;
     struct list_head *read_reqs;
     struct list_head *write_reqs;
+    struct list_head *mmap_reqs;
+    struct list_head *rmap_reqs;
+    struct list_head *wmap_reqs;
     struct list_head *list_write_rot;
     struct list_head *list_read_rot;
     struct rw_semaphore read_sem;
