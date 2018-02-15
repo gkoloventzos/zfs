@@ -45,7 +45,7 @@
 
 struct rb_root *hetfs_tree = NULL;
 EXPORT_SYMBOL(hetfs_tree);
-int only_one = 0;
+extern int only_one;
 int bla = 0;
 char *only_name = NULL;
 static DEFINE_SEMAPHORE(tree_lock);

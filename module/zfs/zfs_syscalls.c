@@ -22,7 +22,7 @@
 
 extern struct rb_root *hetfs_tree;
 extern int media_tree;
-extern int only_one;
+int only_one = 0;
 //extern int bla;
 //extern int media_list;
 extern char *only_name;
@@ -201,6 +201,7 @@ void print_tree(int flag) {
         printk(KERN_EMERG "[HETFS]Tree Nodes:%d\n", all_nodes);
 
     up_read(&tree_sem);
+    kzfree(name);
 }
 
 static void print_file(void)
