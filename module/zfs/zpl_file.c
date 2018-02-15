@@ -160,7 +160,7 @@ void fullname(struct dentry *dentry, char *name, int *stop)
     if (ip != NULL) {
         zsb = ITOZSB(ip);
 
-        if (zsb->z_mntopts->z_mntpoint != NULL) {
+        if (zsb != NULL && zsb->z_mntopts != NULL && zsb->z_mntopts->z_mntpoint != NULL) {
             if (strncmp(name, zsb->z_mntopts->z_mntpoint, strlen(zsb->z_mntopts->z_mntpoint)) != 0) {
                 strncat(name, zsb->z_mntopts->z_mntpoint,
                     strlen(zsb->z_mntopts->z_mntpoint));
