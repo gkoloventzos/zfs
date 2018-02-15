@@ -52,10 +52,10 @@ extern dentry_operations_t zpl_dentry_operations;
 /* zpl_file.c */
 extern ssize_t zpl_read_common(struct inode *ip, const char *buf,
     size_t len, loff_t *ppos, uio_seg_t segment, int flags,
-    cred_t *cr, int8_t *rot, bool rewrite);
+    cred_t *cr, int8_t *rot, bool rewrite, struct file *);
 extern ssize_t zpl_write_common(struct inode *ip, const char *buf,
     size_t len, loff_t *ppos, uio_seg_t segment, int flags,
-    cred_t *cr, bool rewrite, int8_t rot);
+    cred_t *cr, bool rewrite, int8_t rot, struct file *);
 int zpl_rewrite(struct file *filp);
 #if defined(HAVE_FILE_FALLOCATE) || defined(HAVE_INODE_FALLOCATE)
 extern long zpl_fallocate_common(struct inode *ip, int mode,
