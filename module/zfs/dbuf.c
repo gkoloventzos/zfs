@@ -2622,10 +2622,10 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 
 	pio = zio_root(dmu_objset_spa(dn->dn_objset), NULL, NULL,
 	    ZIO_FLAG_CANFAIL);
-/*#ifdef _KERNEL
-    if (dn->name != NULL)
-        pio->filp = dn->name;
-#endif*/
+#ifdef _KERNEL
+    if (pio->io_dn == NULL)
+        pio->io_dn = dn;
+#endif
 
 	dpa = kmem_zalloc(sizeof (*dpa), KM_SLEEP);
 	ds = dn->dn_objset->os_dsl_dataset;

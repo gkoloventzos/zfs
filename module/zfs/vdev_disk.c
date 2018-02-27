@@ -506,8 +506,9 @@ vdev_submit_bio(struct bio *bio, int rw)
 {
     dio_request_t *dr = NULL;
     zio_t *zio = NULL;
-/*    const char *name = NULL;
-    char *meta = NULL;
+    char *name = NULL;
+    int stop = 0;
+/*    char *meta = NULL;
     blkptr_t * bp = NULL;*/
 #ifdef HAVE_CURRENT_BIO_TAIL
 	struct bio **bio_tail = current->bio_tail;
@@ -535,6 +536,21 @@ vdev_submit_bio(struct bio *bio, int rw)
         if (rw == READ) {
             if (zio != NULL)
                 zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
+        }
+    }
+    if (rw == READ) {
+        if (zio != NULL) {
+            if (zio->io_dn != NULL) {
+                if (zio->io_dn->cadmus != NULL && zio->io_dn->cadmus->dentry != NULL) {
+                    name = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
+                    if (name != NULL) {
+                        fullname(zio->io_dn->cadmus->dentry, name, &stop);
+                        if ((strstr(name, "/log") == NULL) && (strstr(name, "/apache2") != NULL || strstr(name, ".html") != NULL || strstr(name, "/nginx") != NULL))
+                            printk(KERN_EMERG "[BIO]name %s bio->bi_io_vec->bv_len %u bio->bi_io_vec->bv_offset %u\n", name, bio->bi_io_vec->bv_len, bio->bi_io_vec->bv_offset);
+                        kzfree(name);
+                    }
+                }
+            }
         }
     }
 	vdev_submit_bio_impl(bio);

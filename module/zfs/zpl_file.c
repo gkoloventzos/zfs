@@ -146,7 +146,7 @@ int init_data(struct data *InsNode, struct dentry *dentry)
 
 void fullname(struct dentry *dentry, char *name, int *stop)
 {
-    zfs_sb_t *zsb = NULL;
+/*    zfs_sb_t *zsb = NULL;
     struct inode *ip = NULL;
 
     ip = d_inode(dentry);
@@ -159,7 +159,7 @@ void fullname(struct dentry *dentry, char *name, int *stop)
                     strlen(zsb->z_mntopts->z_mntpoint));
             }
         }
-    }
+    }*/
     if (dentry == dentry->d_parent)
         *stop =-1;
     while((void *)dentry != (void *)dentry->d_parent && *stop >= 0) {
