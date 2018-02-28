@@ -484,15 +484,17 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 
 	blkid = dbuf_whichblock(dn, 0, offset);
 #ifdef _KERNEL
-    if (read && dn != NULL && dn->cadmus != NULL && dn->cadmus->dentry != NULL) {
+    mutex_enter(&dn->dn_mtx);
+    if (read && dn != NULL && dn->cadmus != NULL && dn->cadmus->dentry != NULL && !d_really_is_negative(dn->cadmus->dentry)) {
         name = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
         if (name != NULL) {
             fullname(dn->cadmus->dentry, name, &stop);
             if ((strstr(name, "/log") == NULL) && (strstr(name, "/apache2") != NULL || strstr(name, ".html") != NULL || strstr(name, "/nginx") != NULL))
-                printk(KERN_EMERG "[DMU]name %s len %llu offset %llu blkid %d nblks %d\n", name, (longlong_t)length, (longlong_t)offset, blkid, nblks);
+                printk(KERN_EMERG "[DMU]name %s len %llu offset %llu blkid %llu nblks %llu\n", name, (longlong_t)length, (longlong_t)offset, blkid, nblks);
             kzfree(name);
         }
     }
+    mutex_exit(&dn->dn_mtx);
 #endif
     if (zio->io_dn == NULL)
         zio->io_dn = dn;

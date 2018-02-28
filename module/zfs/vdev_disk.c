@@ -541,7 +541,7 @@ vdev_submit_bio(struct bio *bio, int rw)
     if (rw == READ) {
         if (zio != NULL) {
             if (zio->io_dn != NULL) {
-                if (zio->io_dn->cadmus != NULL && zio->io_dn->cadmus->dentry != NULL) {
+                if (zio->io_dn->cadmus != NULL && zio->io_dn->cadmus->dentry != NULL && !d_really_is_negative(zio->io_dn->cadmus->dentry)) {
                     name = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
                     if (name != NULL) {
                         fullname(zio->io_dn->cadmus->dentry, name, &stop);
