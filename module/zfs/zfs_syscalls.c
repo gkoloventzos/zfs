@@ -55,10 +55,10 @@ void print_only_one(int flag) {
 
 struct list_head *tight_list(struct list_head *general)
 {
-    struct list_head *pos, *n, *f, *pos1, *new, *recurse;
+    struct list_head *pos, *n, *f, *pos1, *new;
     struct analyze_request *areq, *areq1;
     int found;
-    struct analyze_request *posh, *nh, *test;
+    struct analyze_request *posh, *nh;
 
 start:
     new = kzalloc(sizeof(struct list_head), GFP_KERNEL);
@@ -320,6 +320,10 @@ static void change_medium(void)
     struct data *tree_entry = NULL;
     ssize_t n_start, n_end;
     int ret, n_where;
+    unsigned char *output;
+    struct scatterlist sg;
+    struct crypto_hash *tfm;
+    struct hash_desc desc;
 
     if (start == NULL || end == NULL || where == NULL) {
         printk(KERN_EMERG "[ERROR] Start, end and where should be mentioned\n");
@@ -345,8 +349,29 @@ static void change_medium(void)
         printk(KERN_EMERG "[ERROR] Change where to n_where failed\n");
         return ;
     }
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        return;
+    }
 
-    tree_entry = tree_insearch(NULL, only_name);
+    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+    desc.tfm = tfm;
+    desc.flags = 0;
+    sg_init_one(&sg, only_name, strlen(only_name));
+    crypto_hash_init(&desc);
+    crypto_hash_update(&desc, &sg, strlen(only_name));
+    crypto_hash_final(&desc, output);
+    crypto_free_hash(tfm);
+    down_read(&tree_sem);
+    if (RB_EMPTY_ROOT(hetfs_tree)) {
+        printk(KERN_EMERG "[ERROR] Empty root\n");
+        return;
+    }
+    tree_entry = rb_search(hetfs_tree, output);
+    up_read(&tree_sem);
+    kzfree(output);
+
     if (tree_entry == NULL) {
         printk(KERN_EMERG "[ERROR] No node in tree\n");
         return;

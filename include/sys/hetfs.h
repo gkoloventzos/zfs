@@ -93,6 +93,6 @@ int add_request(void *);
 void fullname(struct dentry *, char *, int *);
 int delete_node(unsigned char *, loff_t);
 struct rb_node *rename_node(unsigned char *, unsigned char *, struct dentry *, char *, char *);
-struct data *tree_insearch(struct dentry *dentry, char *filename);
+struct data *tree_insearch(struct dentry *dentry);
 #endif
 #endif

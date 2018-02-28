@@ -178,12 +178,13 @@ void fullname(struct dentry *dentry, char *name, int *stop)
     }
 }
 
-struct data *tree_insearch(struct dentry *dentry, char *filename)
+struct data *tree_insearch(struct dentry *dentry)
 {
     struct scatterlist sg;
     struct crypto_hash *tfm;
     struct hash_desc desc;
     unsigned char *output;
+    char *filename = NULL;
     struct data *InsNode, *OutNode;
     int stop = 0;
 
@@ -493,7 +494,6 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     loff_t start_ppos = *ppos;
     int8_t *rot;
     dnode_t *dn;
-    char *filename = NULL;
     znode_t     *zp = ITOZ(filp->f_mapping->host);
 
     ktime_get_ts(&arrival_time);
@@ -509,7 +509,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     mutex_enter(&dn->dn_mtx);
     if (dn->cadmus == NULL)
-        dn->cadmus = tree_insearch(file_dentry(filp), filename);
+        dn->cadmus = tree_insearch(file_dentry(filp));
     mutex_exit(&dn->dn_mtx);
 
     dn->cadmus->dentry = file_dentry(filp);
@@ -538,7 +538,6 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     else
         kzfree(rot);
 
-    kzfree(filename);
 	file_accessed(filp);
 	return (read);
 }
@@ -588,7 +587,7 @@ zpl_iter_read(struct kiocb *kiocb, struct iov_iter *to)
         dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
         mutex_enter(&dn->dn_mtx);
         if (dn->cadmus == NULL)
-            dn->cadmus = tree_insearch(file_dentry(kiocb->ki_filp), filename);
+            dn->cadmus = tree_insearch(file_dentry(kiocb->ki_filp));
         mutex_exit(&dn->dn_mtx);
         DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
         printk(KERN_EMERG "[ZPL_ITER_READ] one name %s \n", filename);
@@ -627,7 +626,7 @@ zpl_aio_read(struct kiocb *kiocb, const struct iovec *iovp,
     filename = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
     if (filename != NULL) {
         fullname(file_dentry(kiocb->ki_filp), filename, &stop);
-        tree_insearch(file_dentry(kiocb->ki_filp), filename);
+        tree_insearch(file_dentry(kiocb->ki_filp));
 //        path = dentry_path_raw(kiocb->ki_filp->f_path.dentry, filename, PATH_MAX+NAME_MAX);
         printk(KERN_EMERG "[ZPL_AIO_READ] one name %s \n", filename);
         kzfree(filename);
@@ -729,7 +728,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     fullname(file_dentry(filp), filename, &stop);
     mutex_enter(&dn->dn_mtx);
     if (dn->cadmus == NULL)
-        dn->cadmus = tree_insearch(file_dentry(filp), filename);
+        dn->cadmus = tree_insearch(file_dentry(filp));
     mutex_exit(&dn->dn_mtx);
 
     InsNode = dn->cadmus;
@@ -946,8 +945,7 @@ zpl_iter_write(struct kiocb *kiocb, struct iov_iter *from)
     filename = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
     if (filename != NULL) {
         fullname(file_dentry(kiocb->ki_filp), filename, &stop);
-        tree_insearch(file_dentry(kiocb->ki_filp), filename);
-//        path = dentry_path_raw(kiocb->ki_filp->f_path.dentry, filename, PATH_MAX+NAME_MAX);
+        tree_insearch(file_dentry(kiocb->ki_filp));
         printk(KERN_EMERG "[ZPL_ITER_WRITE] one name %s \n", filename);
         kzfree(filename);
     } else {
@@ -983,8 +981,7 @@ zpl_aio_write(struct kiocb *kiocb, const struct iovec *iovp,
     filename = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
     if (filename != NULL) {
         fullname(file_dentry(kiocb->ki_filp), filename, &stop);
-        tree_insearch(file_dentry(kiocb->ki_filp), filename);
-//        path = dentry_path_raw(kiocb->ki_filp->f_path.dentry, filename, PATH_MAX+NAME_MAX);
+        tree_insearch(file_dentry(kiocb->ki_filp));
         printk(KERN_EMERG "[ZPL_AIO_WRITE] one %s \n", filename);
         kzfree(filename);
     } else {
@@ -1075,7 +1072,6 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
     struct timespec arrival_time;
     struct kdata *kdata = NULL;
     dnode_t *dn;
-    char *filename = NULL;
 
     ktime_get_ts(&arrival_time);
 
@@ -1097,7 +1093,7 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
     DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     if (dn->cadmus == NULL)
-        dn->cadmus = tree_insearch(file_dentry(filp), filename);
+        dn->cadmus = tree_insearch(file_dentry(filp));
     kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
     if (kdata != NULL && dn->cadmus != NULL) {
         kdata->InsNode = dn->cadmus;
@@ -1112,8 +1108,6 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
     }
     if (dn->cadmus == NULL)
         kzfree(kdata);
-    if (filename != NULL)
-        kzfree(filename);
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
 	return (error);
@@ -1139,7 +1133,6 @@ zpl_readpage(struct file *filp, struct page *pp)
     struct timespec arrival_time;
     struct kdata *kdata = NULL;
     dnode_t *dn;
-    char *filename = NULL;
     znode_t     *zp = ITOZ(filp->f_mapping->host);
     u_offset_t io_off;
     size_t io_len;
@@ -1170,7 +1163,7 @@ zpl_readpage(struct file *filp, struct page *pp)
         DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
         dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
         if (dn->cadmus == NULL)
-            dn->cadmus = tree_insearch(file_dentry(filp), filename);
+            dn->cadmus = tree_insearch(file_dentry(filp));
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL && dn->cadmus != NULL) {
             kdata->InsNode = dn->cadmus;
@@ -1185,8 +1178,6 @@ zpl_readpage(struct file *filp, struct page *pp)
         }
         if (dn->cadmus == NULL)
             kzfree(kdata);
-        if (filename != NULL)
-            kzfree(filename);
         DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 	}
 
@@ -1664,7 +1655,7 @@ int add_request(void *data)
         return 1;
     }
     if (InsNode == NULL)
-        InsNode = tree_insearch(dentry, name);
+        InsNode = tree_insearch(dentry);
 
     if (type == HET_READ) {
         general = InsNode->read_reqs;
