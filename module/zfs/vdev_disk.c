@@ -507,7 +507,8 @@ vdev_submit_bio(struct bio *bio, int rw)
     dio_request_t *dr = NULL;
     zio_t *zio = NULL;
     char *name = NULL;
-    int stop = 0;
+    char *path = NULL;
+//    int stop = 0;
 /*    char *meta = NULL;
     blkptr_t * bp = NULL;*/
 #ifdef HAVE_CURRENT_BIO_TAIL
@@ -544,9 +545,10 @@ vdev_submit_bio(struct bio *bio, int rw)
                 if (zio->io_dn->cadmus != NULL && zio->io_dn->cadmus->dentry != NULL && !d_really_is_negative(zio->io_dn->cadmus->dentry)) {
                     name = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
                     if (name != NULL) {
-                        fullname(zio->io_dn->cadmus->dentry, name, &stop);
-                        if ((strstr(name, "/log") == NULL) && (strstr(name, "/apache2") != NULL || strstr(name, ".html") != NULL || strstr(name, "/nginx") != NULL))
-                            printk(KERN_EMERG "[BIO]name %s bio->bi_io_vec->bv_len %u bio->bi_io_vec->bv_offset %u\n", name, bio->bi_io_vec->bv_len, bio->bi_io_vec->bv_offset);
+                        path = dentry_path_raw(zio->io_dn->cadmus->dentry, name, PATH_MAX+NAME_MAX);
+//                        fullname(zio->io_dn->cadmus->dentry, name, &stop);
+                        if (!IS_ERR(path) && (strstr(path, "/log") == NULL) && (strstr(path, "/apache2") != NULL || strstr(path, ".html") != NULL || strstr(path, "/nginx") != NULL))
+                            printk(KERN_EMERG "[BIO]name %s bio->bi_io_vec->bv_len %u bio->bi_io_vec->bv_offset %u\n", path, bio->bi_io_vec->bv_len, bio->bi_io_vec->bv_offset);
                         kzfree(name);
                     }
                 }

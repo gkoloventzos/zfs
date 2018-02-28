@@ -55,10 +55,10 @@ void print_only_one(int flag) {
 
 struct list_head *tight_list(struct list_head *general)
 {
-    struct list_head *pos, *n, *f, *pos1, *new, *recurse;
+    struct list_head *pos, *n, *f, *pos1, *new;
     struct analyze_request *areq, *areq1;
     int found;
-    struct analyze_request *posh, *nh, *test;
+    struct analyze_request *posh, *nh;
 
 start:
     new = kzalloc(sizeof(struct list_head), GFP_KERNEL);
@@ -281,13 +281,13 @@ void print_tree(int flag) {
                 printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
                             posh->start_offset, posh->end_offset, posh->times);
             }
-            if (!list_empty(entry->wmap_reqs))
+/*            if (!list_empty(entry->wmap_reqs))
                 printk(KERN_EMERG "[HETFS] WRITE MAP req:\n");
             list_for_each_entry_safe(posh, nh, entry->wmap_reqs, list) {
                 all_requests += posh->times;
                 printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
                             posh->start_offset, posh->end_offset, posh->times);
-            }
+            }*/
         }
         memset(name, 0, PATH_MAX+NAME_MAX);
     }
@@ -504,61 +504,6 @@ struct list_head *zip_list(struct list_head *general)
     }
     kzfree(general);
     return new;
-}
-
-struct list_head *tight_list(struct list_head *general)
-{
-    struct list_head *pos, *n, *pos1, *new, *recurse;
-    struct analyze_request *areq, *areq1;
-    int found;
-
-    new = kzalloc(sizeof(struct list_head), GFP_KERNEL);
-    if (new == NULL)
-        return NULL;
-    INIT_LIST_HEAD(new);
-
-    list_for_each_safe(pos, n, general) {
-        found = 0;
-        areq = list_entry(pos, struct analyze_request, list);
-        printk(KERN_EMERG "[TIGHT] start: %lld - end:%lld start time %llu end time %llu times:%d\n",
-                areq->start_offset, areq->end_offset, areq->start_time, areq->end_time, areq->times);
-        list_for_each(pos1, new){
-            areq1 = list_entry(pos1, struct analyze_request, list);
-            if (areq->start_offset == areq1->end_offset &&
-                abs(areq->start_time - areq1->end_time) <= MAX_DIFF*10) {
-                areq1->end_offset = areq->end_offset;
-                areq1->end_time = areq->end_time;
-                found = 1;
-                break;
-            }
-            if (areq->end_offset == areq1->start_offset &&
-                abs(areq1->start_time - areq->end_time) <= MAX_DIFF*10) {
-                areq1->start_offset = areq->start_offset;
-                areq1->start_time = areq->start_time;
-                found = 1;
-                break;
-            }
-        }
-        if (!found) {
-            __list_del_entry(pos);
-            list_add_tail(pos, new);
-        }
-    }
-    if (list_empty(general)) {
-        kzfree(general);
-        return new;
-    }
-
-    recurse = tight_list(new);
-    list_for_each_safe(pos, n, general) {
-        areq = list_entry(pos, struct analyze_request, list);
-        printk(KERN_EMERG "[TIGHT-REMOVE] start: %lld - end:%lld start time %llu end time %llu times:%d\n",
-                areq->start_offset, areq->end_offset, areq->start_time, areq->end_time, areq->times);
-        list_del(pos);
-        kzfree(pos);
-        kzfree(areq);
-    }
-    return recurse;
 }
 
 void analyze(struct data* InsNode)

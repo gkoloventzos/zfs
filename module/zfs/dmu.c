@@ -446,8 +446,8 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	uint32_t dbuf_flags;
 	int err;
 #ifdef _KERNEL
-    char *name;
-    int stop = 0;
+    char *name, *path;
+//    int stop = 0;
 #endif
 	zio_t *zio;
 
@@ -488,9 +488,10 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
     if (read && dn != NULL && dn->cadmus != NULL && dn->cadmus->dentry != NULL && !d_really_is_negative(dn->cadmus->dentry)) {
         name = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
         if (name != NULL) {
-            fullname(dn->cadmus->dentry, name, &stop);
-            if ((strstr(name, "/log") == NULL) && (strstr(name, "/apache2") != NULL || strstr(name, ".html") != NULL || strstr(name, "/nginx") != NULL))
-                printk(KERN_EMERG "[DMU]name %s len %llu offset %llu blkid %llu nblks %llu\n", name, (longlong_t)length, (longlong_t)offset, blkid, nblks);
+//            fullname(dn->cadmus->dentry, name, &stop);
+            path = dentry_path_raw(dn->cadmus->dentry, name, PATH_MAX+NAME_MAX);
+            if (!IS_ERR(path) && (strstr(path, "/log") == NULL) && (strstr(path, "/apache2") != NULL || strstr(path, ".html") != NULL || strstr(path, "/nginx") != NULL))
+                printk(KERN_EMERG "[DMU]name %s len %llu offset %llu blkid %llu nblks %llu\n", path, (longlong_t)length, (longlong_t)offset, blkid, nblks);
             kzfree(name);
         }
     }

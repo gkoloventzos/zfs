@@ -4139,12 +4139,12 @@ zfs_putpage(struct inode *ip, struct page *pp, struct writeback_control *wbc)
 	sa_bulk_attr_t	bulk[3];
 	int		cnt = 0;
 	struct address_space *mapping;
-    dnode_t *dn;
+/*    dnode_t *dn;
     struct task_struct *thread1;
     struct kdata *kdata;
     struct timespec arrival_time;
 
-    ktime_get_ts(&arrival_time);
+    ktime_get_ts(&arrival_time);*/
 	ZFS_ENTER(zsb);
 	ZFS_VERIFY_ZP(zp);
 
@@ -4295,7 +4295,7 @@ zfs_putpage(struct inode *ip, struct page *pp, struct writeback_control *wbc)
 		zil_commit(zsb->z_log, zp->z_id);
 	}
 
-    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+/*    DB_DNODE_ENTER((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
     if (dn->cadmus != NULL) {
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
@@ -4310,7 +4310,7 @@ zfs_putpage(struct inode *ip, struct page *pp, struct writeback_control *wbc)
             thread1 = kthread_run(add_request, (void *) kdata,"wmapreq");
         }
     }
-    DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+    DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));*/
 
 	ZFS_EXIT(zsb);
 	return (err);
