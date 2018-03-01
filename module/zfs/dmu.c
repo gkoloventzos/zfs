@@ -460,6 +460,10 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	uint64_t blkid, nblks, i;
 	uint32_t dbuf_flags;
 	int err;
+#ifdef _KERNEL
+    char *name;
+    int stop = 0;
+#endif
 	zio_t *zio;
 
 	ASSERT(length <= DMU_MAX_ACCESS);
@@ -491,10 +495,22 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 		nblks = 1;
 	}
 	dbp = kmem_zalloc(sizeof (dmu_buf_t *) * nblks, KM_SLEEP);
-
 	zio = zio_root(dn->dn_objset->os_spa, NULL, NULL, ZIO_FLAG_CANFAIL);
 
 	blkid = dbuf_whichblock(dn, 0, offset);
+#ifdef _KERNEL
+    if (read && dn != NULL && dn->cadmus != NULL && dn->cadmus->dentry != NULL) {
+        name = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
+        if (name != NULL) {
+            fullname(dn->cadmus->dentry, name, &stop);
+            if ((strstr(name, "/log") == NULL) && (strstr(name, "/apache2") != NULL || strstr(name, ".html") != NULL || strstr(name, "/nginx") != NULL))
+                printk(KERN_EMERG "[DMU]name %s len %llu offset %llu blkid %llu nblks %llu\n", name, length, offset, blkid, nblks);
+            kzfree(name);
+        }
+    }
+#endif
+    if (zio->io_dn == NULL)
+        zio->io_dn = dn;
 	for (i = 0; i < nblks; i++) {
 		dmu_buf_impl_t *db = dbuf_hold(dn, blkid + i, tag, rot);
 		if (db == NULL) {
@@ -1292,6 +1308,10 @@ dmu_read_uio_dnode(dnode_t *dn, uio_t *uio, uint64_t size, int8_t *rot)
 #endif
 			err = uiomove((char *)db->db_data + bufoff, tocpy,
 			    UIO_READ, uio);
+        if (dn->cadmus != NULL && dn->cadmus->dentry != NULL \
+            && dn->cadmus->dentry->d_name.name != NULL \
+            && strstr(dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL)
+            zfs_media_add(dn->cadmus->list_read_rot, uio->uio_loffset+db->db_offset, tocpy, db->db_rot, 0);
 		if (err)
 			break;
 

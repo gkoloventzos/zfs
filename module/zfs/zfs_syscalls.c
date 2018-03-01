@@ -53,6 +53,71 @@ void print_only_one(int flag) {
     only_one = flag;
 }
 
+struct list_head *tight_list(struct list_head *general)
+{
+    struct list_head *pos, *n, *f, *pos1, *new;
+    struct analyze_request *areq, *areq1;
+    int found;
+    struct analyze_request *posh, *nh;
+
+start:
+    new = kzalloc(sizeof(struct list_head), GFP_KERNEL);
+    if (new == NULL)
+        return NULL;
+    INIT_LIST_HEAD(new);
+
+    list_for_each_safe(pos, n, general) {
+        found = 0;
+        areq = list_entry(pos, struct analyze_request, list);
+        list_for_each_safe(pos1, f, new) {
+            areq1 = list_entry(pos1, struct analyze_request, list);
+            if (areq->start_offset == areq1->end_offset &&
+                abs(areq->start_time - areq1->end_time) <= MAX_DIFF) {
+                areq1->end_offset = areq->end_offset;
+                areq1->end_time = areq->start_time < areq1->end_time? areq1->end_time: areq->start_time;
+                found = 1;
+                break;
+            }
+            if (areq->end_offset == areq1->start_offset &&
+                abs(areq1->start_time - areq->end_time) <= MAX_DIFF) {
+                areq1->start_offset = areq->start_offset;
+                areq1->start_time = areq1->start_time < areq->end_time? areq1->start_time: areq->end_time;
+                found = 1;
+                break;
+            }
+        }
+        if (!found) {
+            list_del(pos);
+            list_add_tail(pos, new);
+        }
+        printk(KERN_EMERG "[START-IN]\n");
+        list_for_each_entry_safe(posh, nh, new, list) {
+            printk(KERN_EMERG "[TIGHT-IN] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                        posh->start_offset, posh->end_offset,
+                        posh->start_time, posh->end_time, posh->times);
+        }
+        printk(KERN_EMERG "[END-IN]\n");
+    }
+    if (list_empty(general)) {
+        kzfree(general);
+        return new;
+    }
+
+/*    list_for_each_safe(pos, n, general) {
+        areq = list_entry(pos, struct analyze_request, list);
+        list_del(pos);
+        kzfree(areq);
+        kzfree(pos);
+    }*/
+
+    if (only_one) {
+        general = new;
+        goto start;
+    }
+    return new;
+}
+
+
 void print_one_file(char *name) {
     unsigned char *output;
     struct scatterlist sg;
@@ -85,26 +150,57 @@ void print_one_file(char *name) {
         return;
     }
     entry = rb_search(hetfs_tree, output);
+    up_read(&tree_sem);
     kzfree(output);
     if (entry == NULL) {
         printk(KERN_EMERG "[ERROR] No file %s in tree\n", name);
         return;
     }
 
+    printk(KERN_EMERG "[HETFS] file: %s size %llu\n", name, entry->size);
+    down_read(&entry->read_sem);
     if (!list_empty(entry->read_reqs))
         printk(KERN_EMERG "[HETFS] READ req:\n");
         list_for_each_entry_safe(posh, nh, entry->read_reqs, list) {
-            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
-                    posh->start_offset, posh->end_offset, posh->times);
+            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset,
+                    posh->start_time, posh->end_time, posh->times);
     }
+    up_read(&entry->read_sem);
+    down_read(&entry->write_sem);
     if (!list_empty(entry->write_reqs))
         printk(KERN_EMERG "[HETFS] WRITE req:\n");
         list_for_each_entry_safe(posh, nh, entry->write_reqs, list) {
-            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
-                    posh->start_offset, posh->end_offset, posh->times);
+            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset,
+                    posh->start_time, posh->end_time, posh->times);
     }
+    up_read(&entry->write_sem);
+    down_read(&entry->read_sem);
+    if (!list_empty(entry->mmap_reqs))
+        printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
+    list_for_each_entry_safe(posh, nh, entry->mmap_reqs, list) {
+            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset,
+                    posh->start_time, posh->end_time, posh->times);
+    }
+    if (!list_empty(entry->rmap_reqs))
+        printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
+    list_for_each_entry_safe(posh, nh, entry->rmap_reqs, list) {
+            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset,
+                    posh->start_time, posh->end_time, posh->times);
+    }
+    /*printk(KERN_EMERG "[END-FIRST]\n");
+    entry->rmap_reqs = tight_list(entry->rmap_reqs);
+    list_for_each_entry_safe(posh, nh, entry->rmap_reqs, list) {
+        printk(KERN_EMERG "[HETFS-AFTER] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset,
+                    posh->start_time, posh->end_time, posh->times);
+    }
+    printk(KERN_EMERG "[END-SECOND]\n");*/
+    up_read(&entry->read_sem);
 //  analyze(entry);
-    up_read(&tree_sem);
 }
 
 void print_tree(int flag) {
@@ -136,22 +232,40 @@ void print_tree(int flag) {
             continue;
         }
         fullname(entry->dentry, name, &stop);
+//       path = dentry_path_raw(entry->dentry, name, PATH_MAX+NAME_MAX);
 
-        printk(KERN_EMERG "[HETFS] file: %s\n", name);
+        printk(KERN_EMERG "[HETFS] file: %s size %llu\n", name, entry->size);
         if (flag) {
             if (!list_empty(entry->read_reqs) && flag)
                 printk(KERN_EMERG "[HETFS] READ req:\n");
             list_for_each_entry_safe(posh, nh, entry->read_reqs, list) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
-                            posh->start_offset, posh->end_offset, posh->times);
+                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                            posh->start_offset, posh->end_offset,
+                            posh->start_time, posh->end_time, posh->times);
             }
             if (!list_empty(entry->write_reqs))
                 printk(KERN_EMERG "[HETFS] WRITE req:\n");
             list_for_each_entry_safe(posh, nh, entry->write_reqs, list) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
-                            posh->start_offset, posh->end_offset, posh->times);
+                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                            posh->start_offset, posh->end_offset,
+                            posh->start_time, posh->end_time, posh->times);
+            }
+            if (!list_empty(entry->mmap_reqs))
+                printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
+            list_for_each_entry_safe(posh, nh, entry->mmap_reqs, list) {
+                    printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                            posh->start_offset, posh->end_offset,
+                            posh->start_time, posh->end_time, posh->times);
+            }
+            if (!list_empty(entry->rmap_reqs))
+                printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
+            list_for_each_entry_safe(posh, nh, entry->rmap_reqs, list) {
+                all_requests += posh->times;
+                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                            posh->start_offset, posh->end_offset,
+                            posh->start_time, posh->end_time, posh->times);
             }
         }
         memset(name, 0, PATH_MAX+NAME_MAX);
@@ -160,7 +274,7 @@ void print_tree(int flag) {
         printk(KERN_EMERG "[HETFS]Tree Nodes:%d, requests:%d\n", all_nodes, all_requests);
     else
         printk(KERN_EMERG "[HETFS]Tree Nodes:%d\n", all_nodes);
-
+    kzfree(name);
     up_read(&tree_sem);
 }
 
@@ -206,6 +320,10 @@ static void change_medium(void)
     struct data *tree_entry = NULL;
     ssize_t n_start, n_end;
     int ret, n_where;
+    unsigned char *output;
+    struct scatterlist sg;
+    struct crypto_hash *tfm;
+    struct hash_desc desc;
 
     if (start == NULL || end == NULL || where == NULL) {
         printk(KERN_EMERG "[ERROR] Start, end and where should be mentioned\n");
@@ -231,8 +349,29 @@ static void change_medium(void)
         printk(KERN_EMERG "[ERROR] Change where to n_where failed\n");
         return ;
     }
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        return;
+    }
 
-    tree_entry = tree_insearch(NULL, only_name);
+    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+    desc.tfm = tfm;
+    desc.flags = 0;
+    sg_init_one(&sg, only_name, strlen(only_name));
+    crypto_hash_init(&desc);
+    crypto_hash_update(&desc, &sg, strlen(only_name));
+    crypto_hash_final(&desc, output);
+    crypto_free_hash(tfm);
+    down_read(&tree_sem);
+    if (RB_EMPTY_ROOT(hetfs_tree)) {
+        printk(KERN_EMERG "[ERROR] Empty root\n");
+        return;
+    }
+    tree_entry = rb_search(hetfs_tree, output);
+    up_read(&tree_sem);
+    kzfree(output);
+
     if (tree_entry == NULL) {
         printk(KERN_EMERG "[ERROR] No node in tree\n");
         return;
@@ -533,7 +672,7 @@ static const struct file_operations zfs_syscalls_proc_fops = {
 
 static int __init zfs_syscalls_init(void)
 {
-    init_rwsem(&tree_sem);
+
 	proc_create("zfs_syscalls", 0, NULL, &zfs_syscalls_proc_fops);
 	pr_info("&zfs_syscalls_proc_fops successfully initialized\n");
 	return 0;

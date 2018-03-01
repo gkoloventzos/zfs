@@ -14,6 +14,8 @@
 #define MAX_NAME 255
 #define HET_READ 0
 #define HET_WRITE 1
+#define HET_MMAP 2
+#define HET_RMAP 3
 
 /*
  * Five categories, from faster to slower:
@@ -62,6 +64,8 @@ struct data {
     unsigned long long int deleted;
     struct list_head *read_reqs;
     struct list_head *write_reqs;
+    struct list_head *mmap_reqs;
+    struct list_head *rmap_reqs;
     struct list_head *list_write_rot;
     struct list_head *list_read_rot;
     struct rw_semaphore read_sem;
@@ -78,6 +82,7 @@ struct kdata {
     loff_t offset;
     long length;
     int type;
+	loff_t size;
     unsigned long long int time;
     struct data *InsNode;
 };
@@ -88,6 +93,6 @@ int add_request(void *);
 void fullname(struct dentry *, char *, int *);
 int delete_node(unsigned char *, loff_t);
 struct rb_node *rename_node(unsigned char *, unsigned char *, struct dentry *, char *, char *);
-struct data *tree_insearch(struct dentry *dentry, char *filename);
+struct data *tree_insearch(struct dentry *dentry);
 #endif
 #endif
