@@ -545,7 +545,7 @@ vdev_submit_bio(struct bio *bio, int rw)
                     name = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
                     if (name != NULL) {
                         fullname(zio->io_dn->cadmus->dentry, name, &stop);
-                        if ((strstr(name, "/log") == NULL) && (strstr(name, "/apache2") != NULL || strstr(name, ".html") != NULL || strstr(name, "/nginx") != NULL))
+                        if (file_check(name))
                             printk(KERN_EMERG "[BIO]name %s bio->bi_io_vec->bv_len %u bio->bi_io_vec->bv_offset %u\n", name, bio->bi_io_vec->bv_len, bio->bi_io_vec->bv_offset);
                         kzfree(name);
                     }

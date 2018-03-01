@@ -35,6 +35,10 @@
 
 #define filp2name(filp) filp->f_path.dentry->d_name.name
 
+#define file_check(x) (strstr(x, "/log") == NULL) &&\
+        (strstr(x, "/apache2") != NULL || strstr(x, ".html") != NULL ||\
+         strstr(x, "/nginx") != NULL || strstr(x, "mysql") != NULL)
+
 #ifdef _KERNEL
 
 struct storage_media {

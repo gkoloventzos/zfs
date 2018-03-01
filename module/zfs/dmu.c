@@ -488,7 +488,7 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
         name = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
         if (name != NULL) {
             fullname(dn->cadmus->dentry, name, &stop);
-            if ((strstr(name, "/log") == NULL) && (strstr(name, "/apache2") != NULL || strstr(name, ".html") != NULL || strstr(name, "/nginx") != NULL))
+            if (file_check(name))
                 printk(KERN_EMERG "[DMU]name %s len %llu offset %llu blkid %llu nblks %llu\n", name, length, offset, blkid, nblks);
             kzfree(name);
         }
