@@ -13,6 +13,9 @@
 #include <sys/zpl.h>
 #include <asm/uaccess.h>
 #include <linux/list.h>
+#include <sys/zfs_znode.h>
+#include <sys/dnode.h>
+#include <sys/dbuf.h>
 
 #include <linux/crypto.h>
 #include <crypto/sha.h>
@@ -157,7 +160,7 @@ void print_one_file(char *name) {
         return;
     }
 
-    printk(KERN_EMERG "[HETFS] file: %s size %llu\n", name, entry->size);
+    printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", name, entry->size, entry->dn_datablksz);
     down_read(&entry->read_sem);
     if (!list_empty(entry->read_reqs))
         printk(KERN_EMERG "[HETFS] READ req:\n");
@@ -232,9 +235,8 @@ void print_tree(int flag) {
             continue;
         }
         fullname(entry->dentry, name, &stop);
-//       path = dentry_path_raw(entry->dentry, name, PATH_MAX+NAME_MAX);
 
-        printk(KERN_EMERG "[HETFS] file: %s size %llu\n", name, entry->size);
+        printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", name, entry->size, entry->dn_datablksz);
         if (flag) {
             if (!list_empty(entry->read_reqs) && flag)
                 printk(KERN_EMERG "[HETFS] READ req:\n");
@@ -278,6 +280,110 @@ void print_tree(int flag) {
     up_read(&tree_sem);
 }
 
+
+struct list_head *list_stuff(struct list_head *general, char* name, char *list) {
+    struct list_head *pos, *n, *posh, *new;
+    struct analyze_request *areq, *areq1;
+    int found;
+
+    if (!list_empty(general)) {
+        new = kzalloc(sizeof(struct list_head), GFP_KERNEL);
+        if (new == NULL)
+            return NULL;
+        INIT_LIST_HEAD(new);
+
+        list_for_each_safe(pos, n, general) {
+            found = 0;
+            areq = list_entry(pos, struct analyze_request, list);
+            list_for_each(posh, new) {
+                areq1 = list_entry(posh, struct analyze_request, list);
+                if (areq->start_offset == areq1->end_offset &&
+                    abs(areq->start_time - areq1->end_time) <= MAX_DIFF) {
+                    areq1->end_offset = areq->end_offset;
+                    areq1->start_time = (areq->start_time < areq1->start_time)?areq->start_time:areq1->start_time;
+                    areq1->end_time = (areq->end_time > areq1->end_time)?areq->end_time:areq1->end_time;
+                    found = 1;
+                    break;
+                }
+                if (areq->end_offset == areq1->start_offset &&
+                    abs(areq->end_time - areq1->start_time) <= MAX_DIFF) {
+                    areq1->start_offset = areq->start_offset;
+                    areq1->end_time = (areq->end_time > areq1->end_time)?areq->end_time:areq1->end_time;
+                    areq1->start_time = (areq->start_time < areq1->start_time)?areq->start_time:areq1->start_time;
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found) {
+                list_del(pos);
+                list_add_tail(pos, new);
+            }
+        }
+
+        if (list_empty(general)) {
+            printk(KERN_EMERG "[STOP] File's %s %s list had enough nodes\n", name, list);
+            kzfree(general);
+            return new;
+        }
+        list_for_each_safe(pos, n, general) {
+            areq = list_entry(pos, struct analyze_request, list);
+            list_del(pos);
+            kzfree(areq);
+        }
+        kzfree(general);
+        return new;
+    }
+    return general;
+}
+
+
+void check_list(char *name) {
+    unsigned char *output;
+    struct scatterlist sg;
+    struct crypto_hash *tfm;
+    struct hash_desc desc;
+    struct data *entry;
+
+    if (name == NULL) {
+        printk(KERN_EMERG "[ERROR] Empty name\n");
+        return;
+    }
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        return;
+    }
+
+    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+    desc.tfm = tfm;
+    desc.flags = 0;
+    sg_init_one(&sg, only_name, strlen(name));
+    crypto_hash_init(&desc);
+    crypto_hash_update(&desc, &sg, strlen(name));
+    crypto_hash_final(&desc, output);
+    crypto_free_hash(tfm);
+    down_read(&tree_sem);
+    if (RB_EMPTY_ROOT(hetfs_tree)) {
+        printk(KERN_EMERG "[ERROR] Empty root\n");
+        return;
+    }
+    entry = rb_search(hetfs_tree, output);
+    up_read(&tree_sem);
+    kzfree(output);
+    if (entry == NULL) {
+        printk(KERN_EMERG "[ERROR] No file %s in tree\n", name);
+        return;
+    }
+    down_read(&entry->write_sem);
+    entry->write_reqs = list_stuff(entry->write_reqs, name, "write");
+    up_read(&entry->write_sem);
+    down_read(&entry->read_sem);
+    entry->read_reqs = list_stuff(entry->read_reqs, name, "read");
+    entry->mmap_reqs = list_stuff(entry->mmap_reqs, name, "mmap");
+    entry->rmap_reqs = list_stuff(entry->rmap_reqs, name, "rmap");
+    up_read(&entry->read_sem);
+}
+
 static void print_file(void)
 {
     print_one_file(only_name);
@@ -293,15 +399,20 @@ static void print_all(void)
     print_tree(true);
 }
 
-static void print_medium(void)
+/*static void print_medium(void)
 {
     print_media_tree(true);
-}
+}*/
 
 static void print_list(void)
 {
-//    bla=1;
     print_only_one(1);
+}
+
+static void small_list(void)
+{
+    check_list(only_name);
+    print_one_file(only_name);
 }
 
 static void stop_print_list(void) {
@@ -320,10 +431,10 @@ static void change_medium(void)
     struct data *tree_entry = NULL;
     ssize_t n_start, n_end;
     int ret, n_where;
-    unsigned char *output;
+/*    unsigned char *output;
     struct scatterlist sg;
     struct crypto_hash *tfm;
-    struct hash_desc desc;
+    struct hash_desc desc;*/
 
     if (start == NULL || end == NULL || where == NULL) {
         printk(KERN_EMERG "[ERROR] Start, end and where should be mentioned\n");
@@ -349,7 +460,7 @@ static void change_medium(void)
         printk(KERN_EMERG "[ERROR] Change where to n_where failed\n");
         return ;
     }
-    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+/*    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
     if (output == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
         return;
@@ -362,15 +473,14 @@ static void change_medium(void)
     crypto_hash_init(&desc);
     crypto_hash_update(&desc, &sg, strlen(only_name));
     crypto_hash_final(&desc, output);
-    crypto_free_hash(tfm);
-    down_read(&tree_sem);
+    crypto_free_hash(tfm);*/
+    down_write(&tree_sem);
     if (RB_EMPTY_ROOT(hetfs_tree)) {
         printk(KERN_EMERG "[ERROR] Empty root\n");
         return;
     }
-    tree_entry = rb_search(hetfs_tree, output);
-    up_read(&tree_sem);
-    kzfree(output);
+    tree_entry = tree_insearch(NULL, only_name);
+    up_write(&tree_sem);
 
     if (tree_entry == NULL) {
         printk(KERN_EMERG "[ERROR] No node in tree\n");
@@ -380,7 +490,7 @@ static void change_medium(void)
     if (n_end != n_start)
         zfs_media_add(tree_entry->list_write_rot, n_start, n_end-n_start, available_media[n_where].bit, 1);
     else
-        zfs_media_add(tree_entry->list_write_rot, n_start, UINT64_MAX, available_media[n_where].bit, 1);
+        zfs_media_add(tree_entry->list_write_rot, n_start, INT64_MAX, available_media[n_where].bit, 1);
 
 
     if (tree_entry->filp != NULL)
@@ -474,39 +584,42 @@ static void print_media(void)
 
 struct list_head *zip_list(struct list_head *general)
 {
-    struct list_head *pos, *n, *pos1, *new;
+    struct list_head *pos, *n;
     struct analyze_request *areq, *areq1;
-    int found;
+/*    int found;
 
     new = kzalloc(sizeof(struct list_head), GFP_KERNEL);
     if (new == NULL)
         return NULL;
-    INIT_LIST_HEAD(new);
+    INIT_LIST_HEAD(new);*/
 
     list_for_each_safe(pos, n, general) {
-        found = 0;
+//        found = 0;
         areq = list_entry(pos, struct analyze_request, list);
-        list_for_each(pos1, new){
-            areq1 = list_entry(pos1, struct analyze_request, list);
+        areq1 = areq;
+        list_for_each_entry_continue(areq1, general, list){
+//            areq1 = list_entry(pos1, struct analyze_request, list);
             if (areq->start_offset == areq1->start_offset &&
                 areq->end_offset == areq1->end_offset) {
                 areq1->times += areq->times;
-                found = 1;
+                list_del(pos);
+                kzfree(areq);
                 break;
             }
         }
-        if (!found) {
+/*        if (!found) {
             __list_del_entry(pos);
             list_add_tail(pos,new);
-        }
+        }*/
     }
-    list_for_each_safe(pos, n, general) {
+    return general;
+/*    list_for_each_safe(pos, n, general) {
         areq = list_entry(pos, struct analyze_request, list);
         list_del(pos);
         kzfree(areq);
     }
     kzfree(general);
-    return new;
+    return new;*/
 }
 
 void analyze(struct data* InsNode)
@@ -577,7 +690,7 @@ struct zfs_syscalls available_syscalls[] = {
 	{ "print_nodes",	print_nodes	},
 	{ "print_all",		print_all	},
 	{ "analyze_tree",	analyze_tree	},
-	{ "print_medium",	print_medium	},
+	{ "ziping_lists",	small_list	},
 	{ "stop_print_medium",		stop_print_medium	},
 	{ "print_list",	    print_list	},
 	{ "stop_print_list",		stop_print_list	},
