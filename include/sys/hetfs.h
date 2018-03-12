@@ -35,9 +35,11 @@
 
 #define filp2name(filp) filp->f_path.dentry->d_name.name
 
-#define file_check(x) (strstr(x, "/log") == NULL) &&\
+/*#define file_check(x) (strstr(x, "/log") == NULL) &&\
         (strstr(x, "/apache2") != NULL || strstr(x, ".html") != NULL ||\
-         strstr(x, "/nginx") != NULL || strstr(x, "mysql") != NULL)
+         strstr(x, "/nginx") != NULL || strstr(x, "mysql") != NULL)*/
+#define file_check(x) (strstr(x, "/ibdata") != NULL ||\
+        strstr(x, "ib_logfile") != NULL || strstr(x, "sbtest.ibd") != NULL)
 
 #ifdef _KERNEL
 
@@ -61,6 +63,7 @@ struct data {
 	char *hash;             //Should NEVER be NULL
     char *file;
 	loff_t size;
+    bool print;
     int8_t read_all_file;
     int8_t write_all_file;
     int8_t read_seq;

@@ -506,9 +506,9 @@ vdev_submit_bio(struct bio *bio, int rw)
 {
     dio_request_t *dr = NULL;
     zio_t *zio = NULL;
-    char *name = NULL;
+/*    char *name = NULL;
     int stop = 0;
-/*    char *meta = NULL;
+    char *meta = NULL;
     blkptr_t * bp = NULL;*/
 #ifdef HAVE_CURRENT_BIO_TAIL
 	struct bio **bio_tail = current->bio_tail;
@@ -539,17 +539,11 @@ vdev_submit_bio(struct bio *bio, int rw)
         }
     }
     if (rw == READ) {
-        if (zio != NULL) {
-            if (zio->io_dn != NULL) {
-                if (zio->io_dn->cadmus != NULL && zio->io_dn->cadmus->dentry != NULL) {
-                    name = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
-                    if (name != NULL) {
-                        fullname(zio->io_dn->cadmus->dentry, name, &stop);
-                        if (file_check(name))
-                            printk(KERN_EMERG "[BIO]name %s bio->bi_io_vec->bv_len %u bio->bi_io_vec->bv_offset %u\n", name, bio->bi_io_vec->bv_len, bio->bi_io_vec->bv_offset);
-                        kzfree(name);
-                    }
-                }
+        if (zio != NULL && zio->io_dn != NULL) {
+            if (zio->io_dn->cadmus != NULL && zio->io_dn->cadmus->print) {
+                printk(KERN_EMERG "[BIO]name %s bv_len %u bv_offset %u\n",
+                        zio->io_dn->cadmus->file, bio->bi_io_vec->bv_len,
+                        bio->bi_io_vec->bv_offset);
             }
         }
     }

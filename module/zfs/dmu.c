@@ -484,14 +484,8 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 
 	blkid = dbuf_whichblock(dn, 0, offset);
 #ifdef _KERNEL
-    if (read && dn != NULL && dn->cadmus != NULL && dn->cadmus->dentry != NULL) {
-        name = kzalloc((PATH_MAX+NAME_MAX)*sizeof(char),GFP_KERNEL);
-        if (name != NULL) {
-            fullname(dn->cadmus->dentry, name, &stop);
-            if (file_check(name))
-                printk(KERN_EMERG "[DMU]name %s len %llu offset %llu blkid %llu nblks %llu\n", name, length, offset, blkid, nblks);
-            kzfree(name);
-        }
+    if (dn != NULL && dn->cadmus != NULL && dn->cadmus->print) {
+        printk(KERN_EMERG "[DMU]name %s %s len %llu offset %llu blkid %llu nblks %llu\n", dn->cadmus->file, read?"read":"write",length, offset, blkid, nblks);
     }
 #endif
     if (zio->io_dn == NULL)
