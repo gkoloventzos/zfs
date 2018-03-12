@@ -105,6 +105,8 @@ COMMON_H = \
 	$(top_srcdir)/include/sys/zfs_vnops.h \
 	$(top_srcdir)/include/sys/zfs_znode.h \
 	$(top_srcdir)/include/sys/zfs_media.h \
+	$(top_srcdir)/include/sys/zfs_syscalls.h \
+	$(top_srcdir)/include/sys/disk.h \
 	$(top_srcdir)/include/sys/zil.h \
 	$(top_srcdir)/include/sys/zil_impl.h \
 	$(top_srcdir)/include/sys/zio_checksum.h \

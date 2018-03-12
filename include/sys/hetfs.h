@@ -10,7 +10,7 @@
 //#include <sys/zfs_media.h>
 #endif
 
-#define MAX_DIFF 200000000
+#define MAX_DIFF 4000000000
 #define MAX_NAME 255
 #define HET_READ 0
 #define HET_WRITE 1

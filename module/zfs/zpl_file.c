@@ -511,7 +511,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     loff_t start_ppos = *ppos;
     int8_t *rot;
     dnode_t *dn;
-    znode_t     *zp = ITOZ(filp->f_mapping->host);
+    znode_t *zp = ITOZ(filp->f_mapping->host);
 
     ktime_get_ts(&arrival_time);
     rot = kzalloc(sizeof(int), GFP_KERNEL);
@@ -823,15 +823,15 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         my_delete_list(list_rot, split_buf);
         DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
         goto ins;
-    }
+    }*/
 
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
 err:
-single:
+//single:
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr, print, rot);
-ins:
+//ins:
 	crfree(cr);
 
     if (wrote > 0 && InsNode != NULL) {
@@ -1716,7 +1716,7 @@ int add_request(void *data)
             list_for_each_prev_safe(pos, n, general) {
                 a_r = list_entry(pos, struct analyze_request, list);
                 if (offset == a_r->end_offset &&
-                    abs(time - a_r->end_time) <= MAX_DIFF*10) {
+                    abs(time - a_r->end_time) <= MAX_DIFF) {
                     a_r->end_offset += len;
                     a_r->end_time = (time < a_r->end_time )?a_r->start_time:time;
                     kzfree(kdata);
@@ -1724,7 +1724,7 @@ int add_request(void *data)
                     return 0;
                 }
                 if (offset + len == a_r->start_offset &&
-                    abs(time - a_r->start_time) <= MAX_DIFF*10) {
+                    abs(time - a_r->start_time) <= MAX_DIFF) {
                     a_r->start_offset = offset;
                     a_r->start_time = (time < a_r->start_time)?time:a_r->start_time;
                     kzfree(kdata);
