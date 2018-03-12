@@ -741,42 +741,46 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     fullname(file_dentry(filp), filename, &stop);
     mutex_enter(&dn->dn_mtx);
     if (dn->cadmus == NULL)
-        dn->cadmus = tree_insearch(file_dentry(filp));
+        dn->cadmus = tree_insearch(file_dentry(filp), NULL);
+    if (dn->cadmus != NULL && only_one)
+        printk(KERN_EMERG "[ZPL_WRITE] one name %s \n", filename);
     mutex_exit(&dn->dn_mtx);
 
-    InsNode = dn->cadmus;
-    InsNode->dentry = file_dentry(filp);
-    down_write(&(InsNode->write_sem));
-    if (InsNode != NULL && list_empty(InsNode->list_write_rot)) {
-        if (strstr(filename, "/log/") != NULL) {
-            zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, -1, 0);
-            up_write(&(InsNode->write_sem));
-            goto err;
-        }
-        if (strstr(filename, "sample_ssd") != NULL) {
-            zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
-        }
-        else {
-            for (stop = 0; stop <= 195; stop++) {
-                if (strstr(filename, boot_files[stop]) != NULL) {
-                    zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
-                    break;
-                }
-            }
-            if (list_empty(InsNode->list_write_rot))
+    if (dn->cadmus != NULL) {
+        InsNode = dn->cadmus;
+        down_write(&(InsNode->write_sem));
+        InsNode->dentry = file_dentry(filp);
+        if (list_empty(InsNode->list_write_rot)) {
+            if (strstr(filename, "/log/") != NULL) {
                 zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, -1, 0);
+                up_write(&(InsNode->write_sem));
+                goto err;
+            }
+            if (strstr(filename, "sample_ssd") != NULL) {
+                zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
+            }
+            else {
+                for (stop = 0; stop <= 195; stop++) {
+                    if (strstr(filename, boot_files[stop]) != NULL) {
+                        zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
+                        break;
+                    }
+                }
+                if (list_empty(InsNode->list_write_rot))
+                    zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, -1, 0);
+            }
         }
+        up_write(&(InsNode->write_sem));
     }
-    up_write(&(InsNode->write_sem));
-    rot = -4;
+/*    rot = -4;
     if (dn != NULL && dn->cadmus != NULL && !list_empty(dn->cadmus->list_write_rot)) {
         start_pos = *ppos;
         list_rot = get_media_storage(dn->cadmus->list_write_rot, start_pos, start_pos+len, &size);
         if (list_rot == NULL)
             goto single;
-        if (size == 1) {
+        if (size == 1) {*/
             /*If only one avoid all those loops*/
-            loop = list_first_entry_or_null(list_rot, typeof(*(loop)) ,list);
+/*            loop = list_first_entry_or_null(list_rot, typeof(*(loop)) ,list);
             rot = loop->m_type;
             my_delete_list(list_rot, NULL);
             goto single;
@@ -791,7 +795,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             len = loop->m_end-loop->m_start;
             split_buf[split] = kzalloc(len * sizeof(char *),GFP_KERNEL);
             if (split_buf[split] == NULL) {
-                printk(KERN_EMERG "[ERROR]split_buf[%d] NULL\n", split);
+                printk(KERN_EMERG "[ERROR]split_buf[%d] size %d len %zd loop->m_start %lld loop->m_end %lld NULL\n", split, size, len, loop->m_start, loop->m_end);
                 return -1;
             }
             memcpy(split_buf[split], buf + wrote, len);

@@ -53,6 +53,7 @@
 #include <sys/zfs_media.h>
 #include <sys/vmsystm.h>
 #include <sys/zfs_znode.h>
+#include <linux/list.h>
 #endif
 
 /*
@@ -446,8 +447,10 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	uint32_t dbuf_flags;
 	int err;
 #ifdef _KERNEL
-    char *name;
-    int stop = 0;
+    struct medium *loop;
+    struct list_head *list_rot;
+    int size = 0;
+//    char *name;
 #endif
 	zio_t *zio;
 
@@ -505,6 +508,20 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
         if (rot != NULL && *rot > -1 && db->db.db_rot != *rot) {
             db->db.db_rot = *rot;
         }
+#ifdef _KERNEL
+        if (dn != NULL && dn->cadmus != NULL && dn->cadmus->file != NULL && list_first_entry_or_null(dn->cadmus->list_write_rot, typeof(*loop),list) != NULL) {
+            list_rot = get_media_storage(dn->cadmus->list_write_rot, blkid*dn->dn_datablksz, (blkid*dn->dn_datablksz)+dn->dn_datablksz-1, &size);
+//            printk(KERN_EMERG "[DMU]name %s %s len %u offset %llu blkid %llu i %lld\n", dn->cadmus->file, read?"read":"write", dn->dn_datablksz, (blkid*dn->dn_datablksz), blkid, i);
+//            list_for_each_entry_safe(loop, nh, list_rot, list)
+            loop = NULL;
+            if (size ==1)
+                loop = list_first_entry_or_null(list_rot, typeof(*loop), list);
+            if (loop != NULL && loop->m_type > -1 && db->db.db_rot != loop->m_type) {
+//                    dump_stack();
+                db->db.db_rot = loop->m_type;
+            }
+        }
+#endif
 		dbp[i] = &db->db;
 	}
 
