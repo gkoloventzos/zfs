@@ -68,6 +68,8 @@ struct data {
     int8_t write_all_file;
     int8_t read_seq;
     int8_t write_seq;
+	uint32_t dn_datablksz;		/* in bytes */
+    uint8_t dn_datablkshift;
     unsigned long long int deleted;
     struct list_head *read_reqs;
     struct list_head *write_reqs;
@@ -100,6 +102,6 @@ int add_request(void *);
 void fullname(struct dentry *, char *, int *);
 int delete_node(unsigned char *, loff_t);
 struct rb_node *rename_node(unsigned char *, unsigned char *, struct dentry *, char *, char *);
-struct data *tree_insearch(struct dentry *dentry);
+struct data *tree_insearch(struct dentry *dentry, char *);
 #endif
 #endif
