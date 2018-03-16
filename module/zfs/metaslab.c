@@ -41,6 +41,7 @@
 #define	GANG_ALLOCATION(flags) \
 	((flags) & (METASLAB_GANG_CHILD | METASLAB_GANG_HEADER))
 
+int get_metaslab_class(metaslab_class_t *mc, int rot);
 /*
  * Metaslab granularity, in bytes. This is roughly similar to what would be
  * referred to as the "stripe size" in traditional RAID arrays. In normal
@@ -3399,10 +3400,14 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 		if (mc->mc_rotorv[nrot])
 			break;
 
-    if (nrot >= METASLAB_CLASS_ROTORS)
-        nrot = 0;
+    if (nrot >= METASLAB_CLASS_ROTORS) {
 #ifdef _KERNEL
-    if (print && nrot != rot && rot > -1)
+        printk(KERN_EMERG "[METASLAB] nrot %d rot %d size %lld\n", nrot, rot, psize);
+#endif
+        nrot = get_metaslab_class(mc, METASLAB_ROTOR_VDEV_TYPE_HDD);
+    }
+#ifdef _KERNEL
+    if (print && rot > -1)
         printk(KERN_EMERG "[METASLAB] nrot %d rot %d size %lld\n", nrot, rot, psize);
 #endif
 	/*
@@ -3883,13 +3888,13 @@ has_vdev:
 		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
 
     if (zio != NULL) {
-        print = zio->print;
         if (zio->io_write_rot > -1) {
             rot = get_metaslab_class(mc, zio->io_write_rot);
         }
-        if (zio->io_dn != NULL && zio->io_dn->dn_write_rot > -1)
-            rot = get_metaslab_class(mc, zio->io_dn->dn_write_rot);
-//                print = true;
+#ifdef _KERNEL
+        if(zio->io_dn != NULL && zio->io_dn->cadmus != NULL)
+            print = zio->io_dn->cadmus->print;
+#endif
     }
 
 	for (d = 0; d < ndvas; d++) {

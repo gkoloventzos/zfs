@@ -3040,14 +3040,11 @@ zio_dva_allocate(zio_t *zio)
 	if (zio->io_priority == ZIO_PRIORITY_ASYNC_WRITE)
 		flags |= METASLAB_ASYNC_ALLOC;
 
-/*#ifdef _KERNEL
-    if (zio->io_dn != NULL && zio->io_dn->cadmus != NULL \
-            && zio->io_dn->cadmus->dentry != NULL \
-            && zio->io_dn->cadmus->dentry->d_name.name != NULL \
-            && strstr(zio->io_dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL) {
-        print = true;
+#ifdef _KERNEL
+    if (zio->io_dn != NULL && zio->io_dn->cadmus != NULL) {
+        print = zio->io_dn->cadmus->print;
     }
-#endif*/
+#endif
 	error = metaslab_alloc(spa, mc, zio->io_size, bp,
 	    zio->io_prop.zp_copies, zio->io_txg, NULL, flags,
 	    &zio->io_alloc_list, zio, print);

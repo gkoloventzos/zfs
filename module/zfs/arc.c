@@ -4987,6 +4987,8 @@ arc_read_done(zio_t *zio)
 		freeable = refcount_is_zero(&hdr->b_l1hdr.b_refcnt);
 	}
 
+    if (hdr->b_l1hdr.b_buf != NULL)
+        hdr->b_l1hdr.b_buf->b_rot = zio->io_read_rot;
 	/*
 	 * Broadcast before we drop the hash_lock to avoid the possibility
 	 * that the hdr (and hence the cv) might be freed before we get to

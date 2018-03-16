@@ -881,12 +881,22 @@ dbuf_clear_data(dmu_buf_impl_t *db)
 static void
 dbuf_set_data(dmu_buf_impl_t *db, arc_buf_t *buf)
 {
+//    dnode_t *dn;
 	ASSERT(MUTEX_HELD(&db->db_mtx));
 	ASSERT(buf != NULL);
 
 	db->db_buf = buf;
 	ASSERT(buf->b_data != NULL);
 	db->db.db_data = buf->b_data;
+/*#ifdef _KERNEL
+    if (db->db_level == 0 && db->db_dnode_handle->dnh_dnode != NULL) {
+        dn = db->db_dnode_handle->dnh_dnode;
+        if (dn->cadmus != NULL)
+            zfs_media_add(dn->cadmus->list_read_rot,
+                    db->db_blkid*dn->dn_datablkshift, dn->dn_datablkshift,
+                    buf->b_rot, -1);
+    }
+#endif*/
 }
 
 /*
@@ -2764,6 +2774,7 @@ __dbuf_hold_impl(struct dbuf_hold_impl_data *dh, int8_t *rot)
 	ASSERT3P(DB_DNODE(dh->dh_db), ==, dh->dh_dn);
 	ASSERT3U(dh->dh_db->db_blkid, ==, dh->dh_blkid);
 	ASSERT3U(dh->dh_db->db_level, ==, dh->dh_level);
+    dh->dh_db->db.db_rot = -1;
 	*(dh->dh_dbp) = dh->dh_db;
 
 	return (0);

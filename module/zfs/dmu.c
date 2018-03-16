@@ -446,10 +446,10 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	uint64_t blkid, nblks, i;
 	uint32_t dbuf_flags;
 	int err;
+    int size = 0;
 #ifdef _KERNEL
     struct medium *loop;
     struct list_head *list_rot;
-    int size = 0;
 //    char *name;
 #endif
 	zio_t *zio;
@@ -486,15 +486,16 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	zio = zio_root(dn->dn_objset->os_spa, NULL, NULL, ZIO_FLAG_CANFAIL);
 
 	blkid = dbuf_whichblock(dn, 0, offset);
-#ifdef _KERNEL
+/*#ifdef _KERNEL
     if (dn != NULL && dn->cadmus != NULL && dn->cadmus->print) {
         printk(KERN_EMERG "[DMU]name %s %s len %llu offset %llu blkid %llu nblks %llu\n", dn->cadmus->file, read?"read":"write",length, offset, blkid, nblks);
     }
-#endif
+#endif*/
     if (zio->io_dn == NULL)
         zio->io_dn = dn;
 	for (i = 0; i < nblks; i++) {
 		dmu_buf_impl_t *db = dbuf_hold(dn, blkid + i, tag, rot);
+        size = 0;
 		if (db == NULL) {
 			rw_exit(&dn->dn_struct_rwlock);
 			dmu_buf_rele_array(dbp, nblks, tag);
@@ -505,21 +506,22 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 		/* initiate async i/o */
 		if (read)
 			(void) dbuf_read(db, zio, dbuf_flags, rot);
-        if (rot != NULL && *rot > -1 && db->db.db_rot != *rot) {
+/*        if (rot != NULL && *rot > -1 && db->db.db_rot != *rot) {
             db->db.db_rot = *rot;
-        }
+        }*/
 #ifdef _KERNEL
         if (dn != NULL && dn->cadmus != NULL && dn->cadmus->file != NULL && list_first_entry_or_null(dn->cadmus->list_write_rot, typeof(*loop),list) != NULL) {
-            list_rot = get_media_storage(dn->cadmus->list_write_rot, blkid*dn->dn_datablksz, (blkid*dn->dn_datablksz)+dn->dn_datablksz-1, &size);
-//            printk(KERN_EMERG "[DMU]name %s %s len %u offset %llu blkid %llu i %lld\n", dn->cadmus->file, read?"read":"write", dn->dn_datablksz, (blkid*dn->dn_datablksz), blkid, i);
-//            list_for_each_entry_safe(loop, nh, list_rot, list)
+            list_rot = get_media_storage(dn->cadmus->list_write_rot, (blkid+i)*dn->dn_datablksz, ((blkid+i+1)*dn->dn_datablksz)-1, &size);
             loop = NULL;
-            if (size ==1)
+            if (size == 1)
                 loop = list_first_entry_or_null(list_rot, typeof(*loop), list);
             if (loop != NULL && loop->m_type > -1 && db->db.db_rot != loop->m_type) {
-//                    dump_stack();
                 db->db.db_rot = loop->m_type;
             }
+            if (dn->cadmus->print && loop != NULL)
+                printk(KERN_EMERG "[DMU]name %s %s len %llu offset %llu blkid %llu nblks %llu db.rot %d looptype %d size %d\n", 
+                    dn->cadmus->file, read?"read":"write",length, offset, blkid, 
+                    nblks, db->db.db_rot, loop->m_type, size);
         }
 #endif
 		dbp[i] = &db->db;
@@ -1457,6 +1459,12 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
 	dmu_buf_impl_t *db;
 	uint32_t blksz = (uint32_t)arc_buf_lsize(buf);
 	uint64_t blkid;
+#ifdef _KERNEL
+    struct medium *loop;
+    struct list_head *list_rot;
+    int size = 0;
+//    char *name;
+#endif
 
 	DB_DNODE_ENTER(dbuf);
 	dn = DB_DNODE(dbuf);
@@ -1471,7 +1479,20 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
 	 * same size as the dbuf, and the dbuf is not metadata.
 	 */
 	if (offset == db->db.db_offset && blksz == db->db.db_size) {
-        db->db.db_rot = rot;
+#ifdef _KERNEL
+        if (dn != NULL && dn->cadmus != NULL && dn->cadmus->file != NULL && list_first_entry_or_null(dn->cadmus->list_write_rot, typeof(*loop),list) != NULL) {
+            list_rot = get_media_storage(dn->cadmus->list_write_rot, blkid*dn->dn_datablksz, ((blkid+1)*dn->dn_datablksz)-1, &size);
+            loop = NULL;
+            if (size == 1)
+                loop = list_first_entry_or_null(list_rot, typeof(*loop), list);
+            if (loop != NULL && loop->m_type > -1 && db->db.db_rot != loop->m_type) {
+                db->db.db_rot = loop->m_type;
+            }
+            if (dn->cadmus->print && loop != NULL)
+                printk(KERN_EMERG "[DMU_ASSIGN]name %s write len %llu offset %llu blkid %llu db.rot %d looptype %d size %d\n", 
+                    dn->cadmus->file, db->db.db_size, offset, blkid ,db->db.db_rot, loop->m_type, size);
+        }
+#endif
 		dbuf_assign_arcbuf(db, buf, tx);
 		dbuf_rele(db, FTAG);
 	} else {
