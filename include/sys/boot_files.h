@@ -196,4 +196,7 @@ char *boot_files[196] =
 "/boot/initrd.img-4.4.0-21-generic",
 "/boot/vmlinuz-4.4.0-21-generic",
 "/boot/grub/i386-pc/zfs.mod",
+/*"/var/lib/mysql/ib_logfile",
+"/var/lib/mysql/ibdata1",
+"/var/lib/mysql/sbtest/sbtest.ibd",*/
 };

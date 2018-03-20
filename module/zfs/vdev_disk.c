@@ -534,13 +534,13 @@ vdev_submit_bio(struct bio *bio, int rw)
             if (zio != NULL)
                 zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
     }
-    if (zio != NULL && zio->io_dn != NULL) {
+    if (zio != NULL && zio->io_bp != NULL && BP_GET_LEVEL(zio->io_bp) == 0 &&
+            !DMU_OT_IS_METADATA(BP_GET_TYPE(zio->io_bp)) && zio->io_dn != NULL) {
             if (zio->io_dn->cadmus != NULL && zio->io_dn->cadmus->print) {
-                printk(KERN_EMERG "[BIO]name %s %s bv_len %u bv_offset %u from %s\n",
+                printk(KERN_EMERG "[BIO]name %s %s bv_len %u bv_offset %u zio_size %llu zio_lsize %llu zio_offset %llu from %s\n",
                         zio->io_dn->cadmus->file, rw == READ?"read":"write",bio->bi_io_vec->bv_len,
-                        bio->bi_io_vec->bv_offset, 
+                        bio->bi_io_vec->bv_offset, zio->io_size, zio->io_lsize, zio->io_offset,
                         zio->io_read_rot == METASLAB_ROTOR_VDEV_TYPE_SSD?"METASLAB_ROTOR_VDEV_TYPE_SSD":"METASLAB_ROTOR_VDEV_TYPE_HDD");
-                dump_stack();
             }
     }
 	vdev_submit_bio_impl(bio);

@@ -272,6 +272,7 @@ get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend, int *size)
     int start, stop;
     struct list_head *ret = NULL;
 
+    *size = 0;
     loop = find_in(dn, list_first_entry(dn, typeof(*new), list), false, ppos, &start);
     if (loop == NULL || start < 0)
         return NULL;

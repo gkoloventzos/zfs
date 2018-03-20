@@ -3888,7 +3888,7 @@ has_vdev:
 		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
 
     if (zio != NULL) {
-        if (zio->io_write_rot > -1) {
+        if (zio->io_write_rot > -1 && alloc_class != METASLAB_ROTOR_ALLOC_CLASS_METADATA) {
             rot = get_metaslab_class(mc, zio->io_write_rot);
         }
 #ifdef _KERNEL
