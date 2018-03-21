@@ -1662,7 +1662,12 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 		drp = &dr->dr_next;
 	if (dr && dr->dr_txg == tx->tx_txg) {
 		DB_DNODE_EXIT(db);
-
+#ifdef _KERNEL
+        if (db != NULL && db->db_buf != NULL && db->db_buf->b_print && db->db_level == 0) {
+            printk(KERN_EMERG "[DBUF_DIRTY]already dirty write len %llu blkid %llu db.rot %d db->db_buf->b_rot %d dr->rot %d\n", 
+                db->db.db_size, db->db_blkid ,db->db.db_rot, db->db_buf->b_rot, dr->dr_rot);
+        }
+#endif
 		dbuf_redirty(dr);
 		mutex_exit(&db->db_mtx);
 		return (dr);
@@ -1786,6 +1791,12 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 		mutex_exit(&dn->dn_mtx);
 		dnode_setdirty(dn, tx);
 		DB_DNODE_EXIT(db);
+#ifdef _KERNEL
+        if (db != NULL && db->db_buf != NULL && db->db_buf->b_print && db->db_level == 0) {
+            printk(KERN_EMERG "[DBUF_DIRTY]DMU_BONUS_BLKID write len %llu blkid %llu db.rot %d db->db_buf->b_rot %d dr->rot %d\n", 
+                db->db.db_size, db->db_blkid ,db->db.db_rot, db->db_buf->b_rot, dr->dr_rot);
+        }
+#endif
 		return (dr);
 	}
 
@@ -1868,6 +1879,12 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 			rw_exit(&dn->dn_struct_rwlock);
 	}
 
+#ifdef _KERNEL
+    if (db != NULL && db->db_buf != NULL && db->db_buf->b_print && db->db_level == 0) {
+        printk(KERN_EMERG "[DBUF_DIRTY]last write len %llu blkid %llu db.rot %d db->db_buf->b_rot %d dr->rot %d\n", 
+            db->db.db_size, db->db_blkid ,db->db.db_rot, db->db_buf->b_rot, dr->dr_rot);
+    }
+#endif
 	dnode_setdirty(dn, tx);
 	DB_DNODE_EXIT(db);
 	return (dr);
@@ -2120,6 +2137,12 @@ dbuf_assign_arcbuf(dmu_buf_impl_t *db, arc_buf_t *buf, dmu_tx_t *tx)
 	if (db->db_state == DB_CACHED &&
 	    refcount_count(&db->db_holds) - 1 > db->db_dirtycnt) {
 		mutex_exit(&db->db_mtx);
+#ifdef _KERNEL
+        if (buf->b_print && db->db_level == 0) {
+            printk(KERN_EMERG "[DBUF_ASSIGN]DB_CACHED and more write len %llu blkid %llu db.rot %d buf.b_rot %d\n", 
+                db->db.db_size, db->db_blkid ,db->db.db_rot, buf->b_rot);
+        }
+#endif
 		(void) dbuf_dirty(db, tx);
 		bcopy(buf->b_data, db->db.db_data, db->db.db_size);
 		arc_buf_destroy(buf, db);
@@ -2151,6 +2174,12 @@ dbuf_assign_arcbuf(dmu_buf_impl_t *db, arc_buf_t *buf, dmu_tx_t *tx)
 	dbuf_set_data(db, buf);
 	db->db_state = DB_FILL;
 	mutex_exit(&db->db_mtx);
+#ifdef _KERNEL
+    if (buf->b_print && db->db_level == 0) {
+        printk(KERN_EMERG "[DBUF_ASSIGN]DB_CACHED and more write len %llu blkid %llu db.rot %d buf.b_rot %d\n", 
+            db->db.db_size, db->db_blkid ,db->db.db_rot, buf->b_rot);
+    }
+#endif
 	(void) dbuf_dirty(db, tx);
 	dmu_buf_fill_done(&db->db, tx);
 }

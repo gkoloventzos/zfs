@@ -3391,9 +3391,13 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 		nrot++;
 	}
 
-    if (rot >= METASLAB_CLASS_ROTORS)
-        rot = METASLAB_CLASS_ROTORS-1;
-    if (rot > -1 && rot < METASLAB_CLASS_ROTORS)
+#ifdef _KERNEL
+    if (print && alloc_class != METASLAB_ROTOR_ALLOC_CLASS_METADATA)
+        printk(KERN_EMERG "[METASLAB] 1 nrot %d rot %d size %lld\n", nrot, rot, psize);
+#endif
+/*    if (rot >= METASLAB_CLASS_ROTORS)
+        rot = METASLAB_CLASS_ROTORS-1;*/
+    if (rot > -1 && rot < METASLAB_CLASS_ROTORS && alloc_class != METASLAB_ROTOR_ALLOC_CLASS_METADATA)
         nrot = rot;
 
 	for (; nrot < METASLAB_CLASS_ROTORS; nrot++)
@@ -3402,13 +3406,13 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 
     if (nrot >= METASLAB_CLASS_ROTORS) {
 #ifdef _KERNEL
-        printk(KERN_EMERG "[METASLAB] nrot %d rot %d size %lld\n", nrot, rot, psize);
+        printk(KERN_EMERG "[METASLAB] - nrot %d rot %d size %lld\n", nrot, rot, psize);
 #endif
         nrot = get_metaslab_class(mc, METASLAB_ROTOR_VDEV_TYPE_HDD);
     }
 #ifdef _KERNEL
-    if (print && rot > -1)
-        printk(KERN_EMERG "[METASLAB] nrot %d rot %d size %lld\n", nrot, rot, psize);
+    if (print && alloc_class != METASLAB_ROTOR_ALLOC_CLASS_METADATA)
+        printk(KERN_EMERG "[METASLAB] 2 nrot %d rot %d size %lld\n", nrot, rot, psize);
 #endif
 	/*
 	 * Start at the rotor and loop through all mgs until we find something.
@@ -3888,12 +3892,17 @@ has_vdev:
 		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
 
     if (zio != NULL) {
-        if (zio->io_write_rot > -1 && alloc_class != METASLAB_ROTOR_ALLOC_CLASS_METADATA) {
+        if (zio->io_write_rot > -1 && !BP_IS_METADATA(bp)) {
             rot = get_metaslab_class(mc, zio->io_write_rot);
         }
 #ifdef _KERNEL
-        if(zio->io_dn != NULL && zio->io_dn->cadmus != NULL)
+        if(zio->io_dn != NULL && zio->io_dn->cadmus != NULL) {
             print = zio->io_dn->cadmus->print;
+            if (print && !BP_IS_METADATA(bp))
+                printk(KERN_EMERG "[METASLAB_ALLOC] io_rot %d rot %d ndvas %d\n",
+                        zio->io_write_rot, rot, ndvas);
+
+        }
 #endif
     }
 

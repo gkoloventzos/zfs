@@ -752,7 +752,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
         InsNode->dentry = file_dentry(filp);
         if (list_empty(InsNode->list_write_rot)) {
             if (strstr(filename, "/log/") != NULL) {
-                zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, -1, 0);
+                zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_HDD, 0);
                 rot = -1;
                 up_write(&(InsNode->write_sem));
                 goto err;
@@ -762,15 +762,15 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
             }
             else {
-                for (stop = 0; stop <= 195; stop++) {
+                /*for (stop = 0; stop <= 195; stop++) {
                     if (strstr(filename, boot_files[stop]) != NULL) {
                         zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
                         rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
                         break;
                     }
-                }
+                }*/
                 if (list_empty(InsNode->list_write_rot)) {
-                    zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, -1, 0);
+                    zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_HDD,  0);
                     rot = -1;
                 }
             }

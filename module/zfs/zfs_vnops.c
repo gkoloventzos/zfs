@@ -602,6 +602,7 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 	sa_bulk_attr_t	bulk[4];
 	uint64_t	mtime[2], ctime[2];
 	uint32_t	uid;
+    dnode_t *dn;
 #ifdef HAVE_UIO_ZEROCOPY
 	int		i_iov = 0;
 	const iovec_t	*iovp = uio->uio_iov;
@@ -817,7 +818,12 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 		 * Perhaps we should use SPA_MAXBLOCKSIZE chunks?
 		 */
 		nbytes = MIN(n, max_blksz - P2PHASE(woff, max_blksz));
-
+        dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
+#ifdef _KERNEL
+        if (dn != NULL && dn->cadmus != NULL && dn->cadmus->print)
+            printk(KERN_EMERG "[ZFS_WRITE]On a while %s, n %lu nbytes %lu offset %lld abuf %p\n",
+                    dn->cadmus->file, n, nbytes, woff, abuf);
+#endif
 		if (abuf == NULL) {
 			tx_bytes = uio->uio_resid;
 			error = dmu_write_uio_dbuf(sa_get_db(zp->z_sa_hdl),
@@ -825,8 +831,6 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 			tx_bytes -= uio->uio_resid;
 		} else {
 			tx_bytes = nbytes;
-            abuf->b_rot = uio->uio_rot;
-            abuf->b_print = uio->uio_rewrite;
 			ASSERT(xuio == NULL || tx_bytes == aiov->iov_len);
 			/*
 			 * If this is not a full block write, but we are

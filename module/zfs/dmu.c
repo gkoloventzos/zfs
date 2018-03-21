@@ -447,8 +447,8 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	uint32_t dbuf_flags;
 	int err;
     int size = 0;
-    int bla = -99;
 #ifdef _KERNEL
+    int bla = -99;
     struct medium *loop = NULL;
     struct list_head *list_rot;
 //    char *name;
@@ -487,11 +487,6 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	zio = zio_root(dn->dn_objset->os_spa, NULL, NULL, ZIO_FLAG_CANFAIL);
 
 	blkid = dbuf_whichblock(dn, 0, offset);
-/*#ifdef _KERNEL
-    if (dn != NULL && dn->cadmus != NULL && dn->cadmus->print) {
-        printk(KERN_EMERG "[DMU]name %s %s len %llu offset %llu blkid %llu nblks %llu\n", dn->cadmus->file, read?"read":"write",length, offset, blkid, nblks);
-    }
-#endif*/
     if (zio->io_dn == NULL)
         zio->io_dn = dn;
 	for (i = 0; i < nblks; i++) {
@@ -507,11 +502,8 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 		/* initiate async i/o */
 		if (read)
 			(void) dbuf_read(db, zio, dbuf_flags, rot);
-/*        if (rot != NULL && *rot > -1 && db->db.db_rot != *rot) {
-            db->db.db_rot = *rot;
-        }*/
 #ifdef _KERNEL
-        if (dn != NULL && dn->cadmus != NULL && dn->cadmus->file != NULL) {
+        if (dn != NULL && dn->cadmus != NULL) {
             if (list_first_entry_or_null(dn->cadmus->list_write_rot, typeof(*loop),list) != NULL) {
                 down_read(&dn->cadmus->write_sem);
                 list_rot = get_media_storage(dn->cadmus->list_write_rot, (blkid+i)*dn->dn_datablksz, ((blkid+i+1)*dn->dn_datablksz)-1, &size);
@@ -537,14 +529,8 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 
 	if ((flags & DMU_READ_NO_PREFETCH) == 0 &&
 	    DNODE_META_IS_CACHEABLE(dn) && length <= zfetch_array_rd_sz) {
-        if (read) {
-		    dmu_zfetch(&dn->dn_zfetch, blkid, nblks,
-		        read && DNODE_IS_CACHEABLE(dn), rot);
-        }
-        else {
 		    dmu_zfetch(&dn->dn_zfetch, blkid, nblks,
 		        read && DNODE_IS_CACHEABLE(dn), NULL);
-        }
 	}
 	rw_exit(&dn->dn_struct_rwlock);
 
@@ -1483,7 +1469,7 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
 	 */
 	if (offset == db->db.db_offset && blksz == db->db.db_size) {
 #ifdef _KERNEL
-        if (dn != NULL && dn->cadmus != NULL && dn->cadmus->file != NULL) {
+        if (dn->cadmus != NULL) {
             if (list_first_entry_or_null(dn->cadmus->list_write_rot, typeof(*loop),list) != NULL) {
                 down_read(&dn->cadmus->write_sem);
                 list_rot = get_media_storage(dn->cadmus->list_write_rot, blkid*dn->dn_datablksz, ((blkid+1)*dn->dn_datablksz)-1, &size);
@@ -1493,12 +1479,16 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
                     loop = list_first_entry_or_null(list_rot, typeof(*loop), list);
                 if (loop != NULL && loop->m_type > -1 && db->db.db_rot != loop->m_type) {
                     db->db.db_rot = loop->m_type;
+                    buf->b_rot = loop->m_type;
                     type = loop->m_type;
                 }
             }
-            if (dn->cadmus->print)
+            if (dn->cadmus->print) {
                 printk(KERN_EMERG "[DMU_ASSIGN]name %s write len %llu offset %llu blkid %llu db.rot %d looptype %d size %d\n", 
                     dn->cadmus->file, db->db.db_size, offset, blkid ,db->db.db_rot, type, size);
+                if (buf != NULL)
+                    buf->b_print = dn->cadmus->print;
+            }
             if (blkid == 0 && offset == 0 && dn->cadmus->print)
                 dump_stack();
         }
@@ -1709,6 +1699,7 @@ dmu_sync(zio_t *pio, uint64_t txg, dmu_sync_cb_t *done, zgd_t *zgd)
 	zbookmark_phys_t zb;
 	zio_prop_t zp;
 	dnode_t *dn;
+    zio_t * zio;
 
 	ASSERT(pio != NULL);
 	ASSERT(txg != 0);
@@ -1817,11 +1808,19 @@ dmu_sync(zio_t *pio, uint64_t txg, dmu_sync_cb_t *done, zgd_t *zgd)
 	dsa->dsa_done = done;
 	dsa->dsa_zgd = zgd;
 	dsa->dsa_tx = NULL;
-
-	zio_nowait(arc_write(pio, os->os_spa, txg,
+#ifdef _KERNEL
+    if (dn != NULL && dn->cadmus != NULL && dn->cadmus->print) {
+        printk(KERN_EMERG "[DMU_SYNC] db->db.db_rot %d dr->dr_rot %d\n", db->db.db_rot, dr->dr_rot);
+        if (db->db.db_rot > -1)
+            dr->dr_rot = db->db.db_rot;
+    }
+#endif
+	zio = arc_write(pio, os->os_spa, txg,
 	    bp, dr->dt.dl.dr_data, DBUF_IS_L2CACHEABLE(db),
 	    &zp, dmu_sync_ready, NULL, NULL, dmu_sync_done, dsa,
-	    ZIO_PRIORITY_SYNC_WRITE, ZIO_FLAG_CANFAIL, &zb));
+	    ZIO_PRIORITY_SYNC_WRITE, ZIO_FLAG_CANFAIL, &zb);
+    zio->io_write_rot = dr->dr_rot;
+    zio_nowait(zio);
 
 	return (0);
 }

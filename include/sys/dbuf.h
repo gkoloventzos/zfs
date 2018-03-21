@@ -125,7 +125,7 @@ typedef struct dbuf_dirty_record {
 	/* A copy of the bp that points to us */
 	blkptr_t dr_bp_copy;
 
-    uint8_t dr_rot;
+    int8_t dr_rot;
 
 	union dirty_types {
 		struct dirty_indirect {
