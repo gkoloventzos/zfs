@@ -325,11 +325,6 @@ dmu_zfetch(zfetch_t *zf, uint64_t blkid, uint64_t nblks, boolean_t fetch_data, i
 	 */
 
 	for (i = 0; i < pf_nblks; i++) {
-#ifdef _KERNEL
-        if (fetch_data && zf->zf_dnode != NULL && zf->zf_dnode->cadmus != NULL && zf->zf_dnode->cadmus->print) {
-            printk(KERN_EMERG "[PREFETCH]name %s blkid %lld nblks %d\n", zf->zf_dnode->cadmus->file, pf_start, pf_nblks);
-        }
-#endif
 		dbuf_prefetch(zf->zf_dnode, 0, pf_start + i,
 		    ZIO_PRIORITY_ASYNC_READ, ARC_FLAG_PREDICTIVE_PREFETCH, rot);
 	}

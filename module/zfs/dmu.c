@@ -1483,14 +1483,6 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
                     type = loop->m_type;
                 }
             }
-            if (dn->cadmus->print) {
-                printk(KERN_EMERG "[DMU_ASSIGN]name %s write len %llu offset %llu blkid %llu db.rot %d looptype %d size %d\n", 
-                    dn->cadmus->file, db->db.db_size, offset, blkid ,db->db.db_rot, type, size);
-                if (buf != NULL)
-                    buf->b_print = dn->cadmus->print;
-            }
-            if (blkid == 0 && offset == 0 && dn->cadmus->print)
-                dump_stack();
         }
 #endif
 		dbuf_assign_arcbuf(db, buf, tx);
@@ -1808,13 +1800,8 @@ dmu_sync(zio_t *pio, uint64_t txg, dmu_sync_cb_t *done, zgd_t *zgd)
 	dsa->dsa_done = done;
 	dsa->dsa_zgd = zgd;
 	dsa->dsa_tx = NULL;
-#ifdef _KERNEL
-    if (dn != NULL && dn->cadmus != NULL && dn->cadmus->print) {
-        printk(KERN_EMERG "[DMU_SYNC] db->db.db_rot %d dr->dr_rot %d\n", db->db.db_rot, dr->dr_rot);
-        if (db->db.db_rot > -1)
-            dr->dr_rot = db->db.db_rot;
-    }
-#endif
+    if (db->db.db_rot > -1)
+        dr->dr_rot = db->db.db_rot;
 	zio = arc_write(pio, os->os_spa, txg,
 	    bp, dr->dt.dl.dr_data, DBUF_IS_L2CACHEABLE(db),
 	    &zp, dmu_sync_ready, NULL, NULL, dmu_sync_done, dsa,

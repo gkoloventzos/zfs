@@ -782,11 +782,6 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 		}
 
         tx->tx_print = uio->uio_rewrite;
-/*#ifdef _KERNEL
-        if (uio->uio_rewrite) {
-            printk(KERN_EMERG "tx_rot %d uio_rot %d txg %lld txg_start %lld\n", tx->tx_rot, uio->uio_rot, tx->tx_txg, tx->tx_start);
-        }
-#endif*/
 
 		/*
 		 * If zfs_range_lock() over-locked we grow the blocksize
@@ -819,11 +814,6 @@ zfs_write(struct inode *ip, uio_t *uio, int ioflag, cred_t *cr)
 		 */
 		nbytes = MIN(n, max_blksz - P2PHASE(woff, max_blksz));
         dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-#ifdef _KERNEL
-        if (dn != NULL && dn->cadmus != NULL && dn->cadmus->print)
-            printk(KERN_EMERG "[ZFS_WRITE]On a while %s, n %lu nbytes %lu offset %lld abuf %p\n",
-                    dn->cadmus->file, n, nbytes, woff, abuf);
-#endif
 		if (abuf == NULL) {
 			tx_bytes = uio->uio_resid;
 			error = dmu_write_uio_dbuf(sa_get_db(zp->z_sa_hdl),
