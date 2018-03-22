@@ -3872,11 +3872,9 @@ has_vdev:
 	ASSERT3P(zal, !=, NULL);
 
 	alloc_class = METASLAB_ROTOR_ALLOC_CLASS_DATA;
-	if (DMU_OT_IS_METADATA(BP_GET_TYPE(bp)))
+    if (BP_IS_METADATA(bp))
 		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
 	/* Also include these blocks in metadata (from #5182). */
-	if (BP_GET_LEVEL(bp) > 0)
-		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
 
     if (zio != NULL) {
         if (zio->io_write_rot > -1 && !BP_IS_METADATA(bp)) {
