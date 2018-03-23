@@ -520,8 +520,6 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
                 printk(KERN_EMERG "[DMU]name %s %s len %llu offset %llu blkid %llu nblks %llu db.rot %d looptype %d size %d\n", 
                     dn->cadmus->file, read?"read":"write",length, offset, blkid, 
                     nblks, db->db.db_rot, bla, size);
-            if (blkid == 0 && offset == 0 && dn->cadmus->print)
-                dump_stack();
         }
 #endif
 		dbp[i] = &db->db;
