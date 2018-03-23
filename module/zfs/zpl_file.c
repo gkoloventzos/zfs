@@ -138,6 +138,7 @@ int init_data(struct data *InsNode, struct dentry *dentry)
     InsNode->write_all_file = 0;
     InsNode->deleted = 0;
     InsNode->dn_datablksz = 0;
+    InsNode->dn_datablkshift = 0;
     init_rwsem(&(InsNode->read_sem));
     init_rwsem(&(InsNode->write_sem));
 /*    bla++;
@@ -539,6 +540,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 
     if (read > 0 && dn->cadmus != NULL) {
         dn->cadmus->dn_datablksz = dn->dn_datablksz;
+        dn->cadmus->dn_datablkshift = dn->dn_datablkshift;
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->InsNode = dn->cadmus;
@@ -610,6 +612,7 @@ zpl_iter_read(struct kiocb *kiocb, struct iov_iter *to)
 	ret = zpl_iter_read_common(kiocb, to->iov, to->nr_segs,
 	    iov_iter_count(to), seg, to->iov_offset);
 	if (ret > 0 && dn->cadmus != NULL) {
+        dn->cadmus->dn_datablkshift = dn->dn_datablkshift;
 		iov_iter_advance(to, ret);
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL && dn->cadmus != NULL) {
@@ -841,6 +844,7 @@ err:
 
     if (wrote > 0 && InsNode != NULL) {
         dn->cadmus->dn_datablksz = dn->dn_datablksz;
+        dn->cadmus->dn_datablkshift = dn->dn_datablkshift;
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->InsNode = InsNode;
@@ -979,6 +983,7 @@ zpl_iter_write(struct kiocb *kiocb, struct iov_iter *from)
 	    iov_iter_count(from), seg, from->iov_offset);
 	if (ret > 0 && dn->cadmus != NULL) {
 		iov_iter_advance(from, ret);
+        dn->cadmus->dn_datablkshift = dn->dn_datablkshift;
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL && dn->cadmus != NULL) {
             dn->cadmus->dn_datablksz = dn->dn_datablksz;
@@ -1122,6 +1127,7 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
     kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
     if (kdata != NULL && dn->cadmus != NULL) {
         dn->cadmus->dn_datablksz = dn->dn_datablksz;
+        dn->cadmus->dn_datablkshift = dn->dn_datablkshift;
         kdata->InsNode = dn->cadmus;
         kdata->filp = filp;
         kdata->dentry = file_dentry(filp);
@@ -1205,6 +1211,7 @@ zpl_readpage(struct file *filp, struct page *pp)
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL && dn->cadmus != NULL) {
             dn->cadmus->dn_datablksz = dn->dn_datablksz;
+            dn->cadmus->dn_datablkshift = dn->dn_datablkshift;
             kdata->InsNode = dn->cadmus;
             kdata->filp = filp;
             kdata->dentry = file_dentry(filp);
