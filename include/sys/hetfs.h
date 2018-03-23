@@ -38,8 +38,11 @@
 /*#define file_check(x) (strstr(x, "/log") == NULL) &&\
         (strstr(x, "/apache2") != NULL || strstr(x, ".html") != NULL ||\
          strstr(x, "/nginx") != NULL || strstr(x, "mysql") != NULL)*/
-#define file_check(x) (strstr(x, "/ibdata") != NULL)// ||
-//        strstr(x, "ib_logfile") != NULL || strstr(x, "sbtest.ibd") != NULL)
+#define mysql_check(x) (strlen(x) == 14 && strncmp(x, "/usr/bin/mysql", 14) == 0)
+#define mysqld_check(x) (strlen(x) == 16 && strncmp(x, "/usr/sbin/mysqld", 16) == 0)
+#define file_check(x) (strstr(x, "/ibdata") != NULL ||\
+        strstr(x, "ib_logfile") != NULL || strstr(x, "sbtest.ibd") != NULL ||\
+        mysql_check(x) || mysqld_check(x))
 
 #ifdef _KERNEL
 
