@@ -33,7 +33,7 @@ char *number;
 char *start;
 char *end;
 char *where;
-char *procfs_buffer = NULL;
+char procfs_buffer[PATH_MAX+NAME_MAX+40];
 const char delimiters[] = " \n";
 
 #define for_each_syscall(_iter, _tests, _tmp) \
@@ -416,7 +416,6 @@ static void small_list(void)
 }
 
 static void stop_print_list(void) {
-    kfree(procfs_buffer);
     only_name = NULL;
     print_only_one(0);
 }
@@ -737,30 +736,34 @@ static ssize_t __zfs_syscall_write(struct file *file, const char __user *buffer,
 {
     int ret;
     unsigned long val;
-    procfs_buffer = kzalloc(strlen(buffer)+2, GFP_KERNEL);
+    char * bla;
+//    procfs_buffer = kzalloc(strlen(buffer)+2, GFP_KERNEL);
+    memset(procfs_buffer, '\0', (PATH_MAX+NAME_MAX+40)*sizeof(char));
     procfs_buffer[strlen(buffer)+1] = ' ';
 
-    if ( copy_from_user(procfs_buffer, buffer, 2048) ) {
+    if ( copy_from_user(procfs_buffer, buffer, strlen(buffer)) ) {
             return -EFAULT;
     }
 
 /*    ret = kstrtoul_from_user(buffer, count, 10, &val);
     if (ret)
         return ret;*/
-    number = strsep(&procfs_buffer, delimiters);
+    bla = strdup(procfs_buffer);
+    number = strsep(&bla, delimiters);
     ret = kstrtoul(number, 10, &val);
     if (ret)
         return ret;
-    only_name = strsep(&procfs_buffer, delimiters);
-    start = strsep(&procfs_buffer, delimiters);
-    end = strsep(&procfs_buffer, delimiters);
-    where = strsep(&procfs_buffer, delimiters);
-    strsep(&procfs_buffer, delimiters);
+    only_name = strsep(&bla, delimiters);
+    start = strsep(&bla, delimiters);
+    end = strsep(&bla, delimiters);
+    where = strsep(&bla, delimiters);
+    strsep(&bla, delimiters);
     ret = zfs_syscalls_run(val);
     if (ret)
         return ret;
 
     *pos += count;
+//    procfs_buffer = number;
 
     return ret ? ret : count;
 }
