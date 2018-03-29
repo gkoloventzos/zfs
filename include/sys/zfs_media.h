@@ -38,6 +38,16 @@ typedef struct medium {
     struct list_head list;
 } medium_t;
 
+typedef struct media {
+    uint64_t m_start;
+    uint64_t m_end;
+    int8_t m_type;
+    struct list_head list;
+} media_t;
+
 medium_t * zfs_media_add(struct list_head *, loff_t, size_t, int8_t, int);
+media_t * zfs_media_add_blkid(struct list_head *, uint64_t, uint64_t, int8_t, int);
 struct list_head *get_media_storage(struct list_head *, loff_t, loff_t, int *);
+struct list_head *get_media_storage_blkid(struct list_head *, uint64_t, uint64_t, int *);
+int8_t get_blkid_medium(struct list_head *, uint64_t, bool);
 #endif	/* _SYS_ZFS_MEDIA_H */

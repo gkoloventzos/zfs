@@ -487,9 +487,11 @@ static void change_medium(void)
     }
 
     if (n_end != n_start)
-        zfs_media_add(tree_entry->list_write_rot, n_start, n_end-n_start, available_media[n_where].bit, 1);
+        zfs_media_add_blkid(tree_entry->list_write_rot, n_start, n_end, available_media[n_where].bit, 1);
+//        zfs_media_add(tree_entry->list_write_rot, n_start, n_end-n_start, available_media[n_where].bit, 1);
     else
-        zfs_media_add(tree_entry->list_write_rot, n_start, INT64_MAX, available_media[n_where].bit, 1);
+        zfs_media_add_blkid(tree_entry->list_write_rot, n_start, INT64_MAX, available_media[n_where].bit, 1);
+//        zfs_media_add(tree_entry->list_write_rot, n_start, INT64_MAX, available_media[n_where].bit, 1);
 
 
     if (tree_entry->filp != NULL)
@@ -516,7 +518,7 @@ static void change_medium(void)
 }
 
 void list_print(struct list_head *dn) {
-    medium_t *loop, *n = NULL;
+    media_t *loop, *n = NULL;
     list_for_each_entry_safe(loop, n, dn, list) {
         if (loop->m_type == METASLAB_ROTOR_VDEV_TYPE_HDD)
             printk(KERN_EMERG "[PRINT]File %s from %lld to %lld is in METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name, loop->m_start, loop->m_end);

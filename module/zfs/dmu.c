@@ -446,11 +446,11 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	uint64_t blkid, nblks, i;
 	uint32_t dbuf_flags;
 	int err;
-    int size = 0;
+//    int size = 0;
 #ifdef _KERNEL
     int bla = -99;
-    struct medium *loop = NULL;
-    struct list_head *list_rot;
+    struct media *loop = NULL;
+//    struct list_head *list_rot;
 //    char *name;
 #endif
 	zio_t *zio;
@@ -491,7 +491,7 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
         zio->io_dn = dn;
 	for (i = 0; i < nblks; i++) {
 		dmu_buf_impl_t *db = dbuf_hold(dn, blkid + i, tag, rot);
-        size = 0;
+//        size = 0;
 		if (db == NULL) {
 			rw_exit(&dn->dn_struct_rwlock);
 			dmu_buf_rele_array(dbp, nblks, tag);
@@ -506,20 +506,21 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
         if (dn != NULL && dn->cadmus != NULL) {
             if (list_first_entry_or_null(dn->cadmus->list_write_rot, typeof(*loop),list) != NULL) {
                 down_read(&dn->cadmus->write_sem);
-                list_rot = get_media_storage(dn->cadmus->list_write_rot, (blkid+i)*dn->dn_datablksz, ((blkid+i+1)*dn->dn_datablksz)-1, &size);
+//                list_rot = get_media_storage(dn->cadmus->list_write_rot, (blkid+i)*dn->dn_datablksz, ((blkid+i+1)*dn->dn_datablksz)-1, &size);
+                bla = get_blkid_medium(dn->cadmus->list_write_rot, blkid+i, dn->cadmus->print);
                 up_read(&dn->cadmus->write_sem);
-                loop = NULL;
+/*                loop = NULL;
                 if (size == 1)
-                    loop = list_first_entry_or_null(list_rot, typeof(*loop), list);
-                if (loop != NULL && loop->m_type > -1 && db->db.db_rot != loop->m_type) {
-                    db->db.db_rot = loop->m_type;
-                    bla = loop->m_type;
+                    loop = list_first_entry_or_null(list_rot, typeof(*loop), list);*/
+                if (bla > -1 && db->db.db_rot != bla) {
+                    db->db.db_rot = bla;
+//                    bla = loop->m_type;
                 }
             }
             if (dn->cadmus->print)
-                printk(KERN_EMERG "[DMU]name %s %s len %llu offset %llu blkid %llu nblks %llu db.rot %d looptype %d size %d\n", 
+                printk(KERN_EMERG "[DMU]name %s %s len %llu offset %llu blkid %llu nblks %llu db.rot %d looptype %d\n",
                     dn->cadmus->file, read?"read":"write",length, offset, blkid, 
-                    nblks, db->db.db_rot, bla, size);
+                    nblks, db->db.db_rot, bla);
         }
 #endif
 		dbp[i] = &db->db;
@@ -1446,10 +1447,10 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
 	uint32_t blksz = (uint32_t)arc_buf_lsize(buf);
 	uint64_t blkid;
 #ifdef _KERNEL
-    struct medium *loop = NULL;
-    struct list_head *list_rot;
-    int size = 0;
-    int type = -1;
+    struct media *loop = NULL;
+//    struct list_head *list_rot;
+//    int size = 0;
+    int8_t type = -1;
 //    char *name;
 #endif
 
@@ -1468,17 +1469,18 @@ dmu_assign_arcbuf(dmu_buf_t *handle, uint64_t offset, arc_buf_t *buf,
 	if (offset == db->db.db_offset && blksz == db->db.db_size) {
 #ifdef _KERNEL
         if (dn->cadmus != NULL) {
-            if (list_first_entry_or_null(dn->cadmus->list_write_rot, typeof(*loop),list) != NULL) {
+            if (list_first_entry_or_null(dn->cadmus->list_write_rot, typeof(*loop), list) != NULL) {
                 down_read(&dn->cadmus->write_sem);
-                list_rot = get_media_storage(dn->cadmus->list_write_rot, blkid*dn->dn_datablksz, ((blkid+1)*dn->dn_datablksz)-1, &size);
+//                list_rot = get_media_storage(dn->cadmus->list_write_rot, blkid*dn->dn_datablksz, ((blkid+1)*dn->dn_datablksz)-1, &size);
+                type = get_blkid_medium(dn->cadmus->list_write_rot, blkid, dn->cadmus->print);
                 up_read(&dn->cadmus->write_sem);
-                loop = NULL;
+/*                loop = NULL;
                 if (size == 1)
-                    loop = list_first_entry_or_null(list_rot, typeof(*loop), list);
-                if (loop != NULL && loop->m_type > -1 && db->db.db_rot != loop->m_type) {
-                    db->db.db_rot = loop->m_type;
-                    buf->b_rot = loop->m_type;
-                    type = loop->m_type;
+                    loop = list_first_entry_or_null(list_rot, typeof(*loop), list);*/
+                if (type > -1 && db->db.db_rot != type) {
+                    db->db.db_rot = type;
+                    buf->b_rot = type;
+//                    type = loop->m_type;
                 }
             }
         }
