@@ -35,15 +35,18 @@
 
 #define filp2name(filp) filp->f_path.dentry->d_name.name
 
-/*#define file_check(x) (strstr(x, "/log") == NULL) &&\
-        (strstr(x, "/apache2") != NULL || strstr(x, ".html") != NULL ||\
-         strstr(x, "/nginx") != NULL || strstr(x, "mysql") != NULL)*/
 #define sysbench(x) (strlen(x) == 17 && strncmp(x, "/usr/bin/sysbench", 17) == 0)
 #define mysql_check(x) (strlen(x) == 14 && strncmp(x, "/usr/bin/mysql", 14) == 0)
 #define mysqld_check(x) (strlen(x) == 16 && strncmp(x, "/usr/sbin/mysqld", 16) == 0)
-#define file_check(x) (strstr(x, "/ibdata") != NULL ||\
+#define mysql(x) (strstr(x, "/ibdata") != NULL ||\
         strstr(x, "ib_logfile") != NULL || strstr(x, "sbtest.ibd") != NULL ||\
         mysql_check(x) || mysqld_check(x) || sysbench(x))
+
+#define kvm(x) (strstr(x, "/var/kvm/images/cadmus.img") || \
+                strstr(x, "/var/kvm/images/ssd.img") || \
+                strstr(x, "/var/kvm/images/blocks.img"))
+
+#define file_check(x) kvm(x)
 
 #ifdef _KERNEL
 
