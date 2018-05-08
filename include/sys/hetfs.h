@@ -45,7 +45,10 @@
                 strstr(x, "/var/kvm/images/ssd.img") || \
                 strstr(x, "/var/kvm/images/blocks.img"))
 
-#define file_check(x) kvm(x)
+#define ecoham(x) (strstr(x, "ecoham"))
+#define doc(x) (strstr(x, "weird_dir"))
+
+#define file_check(x) doc(x)
 
 #define list_for_each_entry_rb(entry, nod, tree) \
                 for (nod = rb_first(tree), \
