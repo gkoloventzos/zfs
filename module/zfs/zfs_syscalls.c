@@ -140,9 +140,6 @@ void print_one_file(char *name) {
     struct crypto_hash *tfm;
     struct hash_desc desc;
     struct data *entry;
-    struct rb_node *nh;
-    struct analyze_request *posh;
-//    struct analyze_request *posh, *nh;
 
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR] Empty name\n");
