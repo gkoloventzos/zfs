@@ -46,6 +46,19 @@ struct storage_media available_media[] = {
     {"METASLAB_ROTOR_VDEV_TYPE_HDD", 0x08},
 };
 
+void print_in_order(struct rb_node *nod)
+{
+    struct analyze_request *ar;
+    if (nod == NULL)
+        return;
+    ar = container_of(nod, struct analyze_request, node);
+    print_in_order(nod->rb_left);
+    printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", ar->blkid, ar->times);
+    print_in_order(nod->rb_right);
+}
+
+
+
 void print_media_tree(int flag) {
 //    media_tree = flag;
     //media_list = flag;
@@ -166,40 +179,20 @@ void print_one_file(char *name) {
     down_read(&entry->read_sem);
     if (!RB_EMPTY_ROOT(entry->read_reqs))
         printk(KERN_EMERG "[HETFS] READ req:\n");
-    list_for_each_entry_rb(posh, nh, entry->read_reqs) {
-        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
-  /*          printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
-                    posh->start_offset, posh->end_offset,
-                    posh->start_time, posh->end_time, posh->times);*/
-    }
+    print_in_order(rb_first(entry->read_reqs));
     up_read(&entry->read_sem);
     down_read(&entry->write_sem);
     if (!RB_EMPTY_ROOT(entry->write_reqs))
         printk(KERN_EMERG "[HETFS] WRITE req:\n");
-    list_for_each_entry_rb(posh, nh, entry->write_reqs) {
-        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
-/*            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
-                    posh->start_offset, posh->end_offset,
-                    posh->start_time, posh->end_time, posh->times);*/
-    }
+    print_in_order(rb_first(entry->write_reqs));
     up_read(&entry->write_sem);
     down_read(&entry->read_sem);
     if (!RB_EMPTY_ROOT(entry->mmap_reqs))
         printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
-    list_for_each_entry_rb(posh, nh, entry->mmap_reqs) {
-        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
-/*            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
-                    posh->start_offset, posh->end_offset,
-                    posh->start_time, posh->end_time, posh->times);*/
-    }
+    print_in_order(rb_first(entry->mmap_reqs));
     if (!RB_EMPTY_ROOT(entry->rmap_reqs))
         printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
-    list_for_each_entry_rb(posh, nh, entry->rmap_reqs) {
-        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
-/*            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
-                    posh->start_offset, posh->end_offset,
-                    posh->start_time, posh->end_time, posh->times);*/
-    }
+    print_in_order(rb_first(entry->rmap_reqs));
     /*printk(KERN_EMERG "[END-FIRST]\n");
     entry->rmap_reqs = tight_list(entry->rmap_reqs);
     list_for_each_entry_safe(posh, nh, entry->rmap_reqs, list) {
