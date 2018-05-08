@@ -82,12 +82,12 @@ int init_tree(void)
 
 int init_data(struct data *InsNode, struct dentry *dentry)
 {
-    InsNode->read_reqs = kmem_zalloc(sizeof(struct list_head), GFP_KERNEL);
+    InsNode->read_reqs = kmem_zalloc(sizeof(struct rb_root), GFP_KERNEL);
     if (InsNode->read_reqs == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
         return 1;
     }
-    InsNode->write_reqs = kmem_zalloc(sizeof(struct list_head), GFP_KERNEL);
+    InsNode->write_reqs = kmem_zalloc(sizeof(struct rb_root), GFP_KERNEL);
     if (InsNode->write_reqs == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode write null after malloc\n");
         kzfree(InsNode->read_reqs);
@@ -108,7 +108,7 @@ int init_data(struct data *InsNode, struct dentry *dentry)
         kzfree(InsNode->list_read_rot);
         return 1;
     }
-    InsNode->rmap_reqs = kmem_zalloc(sizeof(struct list_head), GFP_KERNEL);
+    InsNode->rmap_reqs = kmem_zalloc(sizeof(struct rb_root), GFP_KERNEL);
     if (InsNode->rmap_reqs == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
         kzfree(InsNode->read_reqs);
@@ -117,7 +117,7 @@ int init_data(struct data *InsNode, struct dentry *dentry)
         kzfree(InsNode->list_write_rot);
         return 1;
     }
-    InsNode->mmap_reqs = kmem_zalloc(sizeof(struct list_head), GFP_KERNEL);
+    InsNode->mmap_reqs = kmem_zalloc(sizeof(struct rb_root), GFP_KERNEL);
     if (InsNode->mmap_reqs == NULL) {
         printk(KERN_EMERG "[ERROR]InsNode read null after malloc\n");
         kzfree(InsNode->rmap_reqs);
@@ -129,10 +129,10 @@ int init_data(struct data *InsNode, struct dentry *dentry)
     }
     INIT_LIST_HEAD(InsNode->list_read_rot);
     INIT_LIST_HEAD(InsNode->list_write_rot);
-    INIT_LIST_HEAD(InsNode->read_reqs);
-    INIT_LIST_HEAD(InsNode->write_reqs);
-    INIT_LIST_HEAD(InsNode->rmap_reqs);
-    INIT_LIST_HEAD(InsNode->mmap_reqs);
+    *InsNode->read_reqs = RB_ROOT;
+    *InsNode->write_reqs = RB_ROOT;
+    *InsNode->rmap_reqs = RB_ROOT;
+    *InsNode->mmap_reqs = RB_ROOT;
     InsNode->file = NULL;
     InsNode->read_all_file = 100;
     InsNode->write_all_file = 0;
@@ -550,7 +550,8 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
             kdata->type = HET_READ;
             kdata->offset = start_ppos;
             kdata->length = read;
-            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+            kdata->blkid = dbuf_whichblock(dn, 0, start_ppos); 
+//            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"readreq");
         }
         else
@@ -624,7 +625,8 @@ zpl_iter_read(struct kiocb *kiocb, struct iov_iter *to)
             kdata->type = HET_READ;
             kdata->offset = start_ppos;
             kdata->length = ret;
-            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+            kdata->blkid = dbuf_whichblock(dn, 0, start_ppos); 
+//            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"readreq");
         }
         else
@@ -857,7 +859,8 @@ err:
             kdata->type = HET_WRITE;
             kdata->offset = start_ppos;
             kdata->length = wrote;
-            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+            kdata->blkid = dbuf_whichblock(dn, 0, start_ppos); 
+//            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"writereq");
         }
         else
@@ -997,7 +1000,8 @@ zpl_iter_write(struct kiocb *kiocb, struct iov_iter *from)
             kdata->type = HET_WRITE;
             kdata->offset = start_ppos;
             kdata->length = ret;
-            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+            kdata->blkid = dbuf_whichblock(dn, 0, start_ppos); 
+//            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"readreq");
         }
         else
@@ -1139,7 +1143,8 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
 	    kdata->size = i_size_read(ip);
         kdata->offset = vma->vm_pgoff << PAGE_SHIFT;
         kdata->length = (size_t)(vma->vm_end - vma->vm_start);
-        kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+        kdata->blkid = dbuf_whichblock(dn, 0, vma->vm_pgoff << PAGE_SHIFT); 
+//        kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
         thread1 = kthread_run(add_request, (void *) kdata,"mmapreq");
     }
     if (dn->cadmus == NULL)
@@ -1223,7 +1228,8 @@ zpl_readpage(struct file *filp, struct page *pp)
             kdata->type = HET_RMAP;
             kdata->offset = io_off;
             kdata->length = io_len;
-            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+            kdata->blkid = dbuf_whichblock(dn, 0, io_off); 
+//            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"rmapreq");
         }
         if (dn->cadmus == NULL)
@@ -1559,7 +1565,7 @@ const struct file_operations zpl_dir_file_operations = {
 #endif
 };
 
-void data_analyze(struct data* InsNode)
+/*void data_analyze(struct data* InsNode)
 {
     struct list_head *pos, *n;
     struct analyze_request *areq;
@@ -1597,7 +1603,7 @@ void data_analyze(struct data* InsNode)
     mid = InsNode->write_all_file >> 1;
     if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid)))
         printk(KERN_EMERG "[HETFS] It was write sequentially\n");
-}
+}*/
 
 int delete_request(struct dentry *dentry, char *file_id, loff_t size)
 {
@@ -1647,39 +1653,47 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
 
 void print_lists(struct data *entry) {
 
-    struct analyze_request *posh, *nh;
+    struct rb_node *nh;
+    struct analyze_request *posh;
     int all_nodes, all_requests, requests;
 
     all_nodes = all_requests = requests = 0;
 
-    if (!list_empty(entry->read_reqs))
+    if (!RB_EMPTY_ROOT(entry->read_reqs))
         printk(KERN_EMERG "[HETFS] READ req:\n");
-    list_for_each_entry_safe(posh, nh, entry->read_reqs, list) {
+    list_for_each_entry_rb(posh, nh, entry->read_reqs) {
         all_requests += posh->times;
-        printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start-time:%lld - end-time:%lld times:%d\n",
-                    posh->start_offset, posh->end_offset, posh->start_time, posh->end_time, posh->times);
+        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+/*        printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start-time:%lld - end-time:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset, posh->start_time, posh->end_time, posh->times);*/
     }
-    if (!list_empty(entry->write_reqs))
+    if (!RB_EMPTY_ROOT(entry->write_reqs))
         printk(KERN_EMERG "[HETFS] WRITE req:\n");
-    list_for_each_entry_safe(posh, nh, entry->write_reqs, list) {
+    list_for_each_entry_rb(posh, nh, entry->write_reqs) {
         all_requests += posh->times;
-        printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
-                    posh->start_offset, posh->end_offset, posh->times);
+        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+/*        printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
+                    posh->start_offset, posh->end_offset, posh->times);*/
     }
 }
 
 int add_request(void *data)
 {
-    struct analyze_request *a_r;
-    struct list_head *general, *pos, *n;
+    struct analyze_request *a_r, *ret;
+//    struct list_head *general, *pos, *n;
+    struct rb_root *general;
     struct rw_semaphore *sem;
     struct kdata *kdata = (struct kdata *)data;
     struct dentry *dentry = kdata->dentry;
+    uint64_t nblks;
+    uint64_t blkid = kdata->blkid;
     int type = kdata->type;
     long long offset = kdata->offset;
     long len = kdata->length;
-    unsigned long long int time = kdata->time;
+//    unsigned long long int time = kdata->time;
     struct data *InsNode = kdata->InsNode;
+    int i = 0;
+    ret = NULL;
 
     if (dentry == NULL) {
         printk(KERN_EMERG "[ERROR] either dentry %p is NULL\n", dentry);
@@ -1719,71 +1733,64 @@ int add_request(void *data)
     }
     InsNode->filp = kdata->filp;
     InsNode->dentry = dentry;
+    if (InsNode->dn_datablkshift) {
+        int blkshift = InsNode->dn_datablkshift;
+        nblks = (P2ROUNDUP(offset + len, 1ULL << blkshift) -
+        P2ALIGN(offset, 1ULL << blkshift)) >> blkshift;
+    } else {
+        nblks = 1;
+    }
 
-/*sema:
-    if (InsNode->read_all_file != 100) {
-        printk(KERN_EMERG "[ERROR] Should not be here\n");
-        goto sema;
-    }*/
     down_write(sem);
 
-    if (type == HET_RMAP || type == HET_MMAP) {
-        if (!list_empty_careful(general)) {
-            list_for_each_prev_safe(pos, n, general) {
-                a_r = list_entry(pos, struct analyze_request, list);
-                if (offset == a_r->end_offset &&
-                    abs(time - a_r->end_time) <= MAX_DIFF) {
-                    a_r->end_offset += len;
-                    a_r->end_time = (time < a_r->end_time )?a_r->start_time:time;
-                    kzfree(kdata);
-                    up_write(sem);
-                    return 0;
-                }
-                if (offset + len == a_r->start_offset &&
-                    abs(time - a_r->start_time) <= MAX_DIFF) {
-                    a_r->start_offset = offset;
-                    a_r->start_time = (time < a_r->start_time)?time:a_r->start_time;
-                    kzfree(kdata);
-                    up_write(sem);
-                    return 0;
-                }
-            }
+	for (i = 0; i < nblks; i++) {
+        a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
+        if (a_r == NULL) {
+            printk(KERN_EMERG "[ERROR] Cannot allocate request\n");
+            up_write(sem);
+            kzfree(kdata);
+            return 1;
         }
-    } else {
-        if (!list_empty_careful(general)) {
-            list_for_each_prev_safe(pos, n, general) {
-                a_r = list_entry(pos, struct analyze_request, list);
-                if (time < a_r->start_time)
-                    continue;
-                if (offset == a_r->end_offset && \
-                   (time - a_r->end_time) < MAX_DIFF) {
-                    a_r->end_offset += len;
-                    a_r->end_time = time;
-                    kzfree(kdata);
-                    up_write(sem);
-                    return 0;
-                }
-            }
-        }
+        a_r->blkid = blkid;
+        a_r->times = 1;
+        ret = rb_blkid_insert(general, a_r);
+        if (ret == NULL)
+            kzfree(a_r);
     }
-
-    a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
-    if (a_r == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot allocate request\n");
-        up_write(sem);
-        kzfree(kdata);
-        return 1;
-    }
-
-    a_r->start_time = a_r->end_time = time;
-    a_r->start_offset = offset;
-    a_r->end_offset = offset + len;
-    a_r->times = 1;
-    list_add_tail(&a_r->list, general);
     up_write(sem);
 
     kzfree(kdata);
     return 0;
+}
+
+struct analyze_request *rb_blkid_insert(struct rb_root *root, struct analyze_request *data)
+{
+    struct rb_node **new, *parent = NULL;
+    new = &(root->rb_node);
+
+    /* Figure out where to put new node */
+    while (*new) {
+        int result;
+        struct analyze_request *this = container_of(*new, struct analyze_request, node);
+
+        result = data->blkid - this->blkid;
+
+        parent = *new;
+        if (result < 0)
+            new = &((*new)->rb_left);
+        else if (result > 0)
+            new = &((*new)->rb_right);
+        else {
+            data->times++;
+            return NULL;
+        }
+    }
+
+    /* Add new node and rebalance tree. */
+    rb_link_node(&data->node, parent, new);
+    rb_insert_color(&data->node, root);
+
+    return data;
 }
 
 struct data *rb_search(struct rb_root *root, char *string)

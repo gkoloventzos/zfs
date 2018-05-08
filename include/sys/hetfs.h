@@ -48,6 +48,12 @@
 
 #define file_check(x) kvm(x)
 
+#define list_for_each_entry_rb(entry, nod, tree) \
+                for (nod = rb_first(tree), \
+                     entry = container_of(nod, struct analyze_request, node); \
+                     nod; nod = rb_next(nod), \
+                     entry = container_of(nod, struct analyze_request, node))
+
 #ifdef _KERNEL
 
 struct storage_media {
@@ -58,12 +64,14 @@ struct storage_media {
 static DECLARE_RWSEM(tree_sem);
 
 struct analyze_request {
-    long long start_offset;
+/*    long long start_offset;
     long long end_offset;
     unsigned long long int start_time;
-    unsigned long long int end_time;
+    unsigned long long int end_time;*/
+    uint64_t blkid;
     int times;
-    struct list_head list;
+//    struct list_head list;
+    struct rb_node node;
 };
 
 struct data {
@@ -78,10 +86,10 @@ struct data {
 	uint32_t dn_datablksz;		/* in bytes */
     uint8_t dn_datablkshift;
     unsigned long long int deleted;
-    struct list_head *read_reqs;
-    struct list_head *write_reqs;
-    struct list_head *mmap_reqs;
-    struct list_head *rmap_reqs;
+    struct rb_root *read_reqs;
+    struct rb_root *write_reqs;
+    struct rb_root *mmap_reqs;
+    struct rb_root *rmap_reqs;
     struct list_head *list_write_rot;
     struct list_head *list_read_rot;
     struct rw_semaphore read_sem;
@@ -94,17 +102,18 @@ struct data {
 struct kdata {
     struct dentry *dentry;
     struct file *filp;
-    struct list_head *list_rot;
     loff_t offset;
     long length;
-    int type;
+    uint64_t blkid;
+//    unsigned long long int time;
 	loff_t size;
-    unsigned long long int time;
+    int type;
     struct data *InsNode;
 };
 
 struct data *rb_search(struct rb_root *, char *);
 struct data *rb_insert(struct rb_root *, struct data *);
+struct analyze_request *rb_blkid_insert(struct rb_root *, struct analyze_request *);
 int add_request(void *);
 void fullname(struct dentry *, char *, int *);
 int delete_node(unsigned char *, loff_t);

@@ -56,7 +56,7 @@ void print_only_one(int flag) {
     only_one = flag;
 }
 
-struct list_head *tight_list(struct list_head *general)
+/*struct list_head *tight_list(struct list_head *general)
 {
     struct list_head *pos, *n, *f, *pos1, *new;
     struct analyze_request *areq, *areq1;
@@ -104,21 +104,21 @@ start:
     if (list_empty(general)) {
         kzfree(general);
         return new;
-    }
+    }*/
 
 /*    list_for_each_safe(pos, n, general) {
         areq = list_entry(pos, struct analyze_request, list);
         list_del(pos);
         kzfree(areq);
         kzfree(pos);
-    }*/
+    }
 
     if (only_one) {
         general = new;
         goto start;
     }
     return new;
-}
+}*/
 
 
 void print_one_file(char *name) {
@@ -127,7 +127,9 @@ void print_one_file(char *name) {
     struct crypto_hash *tfm;
     struct hash_desc desc;
     struct data *entry;
-    struct analyze_request *posh, *nh;
+    struct rb_node *nh;
+    struct analyze_request *posh;
+//    struct analyze_request *posh, *nh;
 
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR] Empty name\n");
@@ -162,37 +164,41 @@ void print_one_file(char *name) {
 
     printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", name, entry->size, entry->dn_datablksz);
     down_read(&entry->read_sem);
-    if (!list_empty(entry->read_reqs))
+    if (!RB_EMPTY_ROOT(entry->read_reqs))
         printk(KERN_EMERG "[HETFS] READ req:\n");
-        list_for_each_entry_safe(posh, nh, entry->read_reqs, list) {
-            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+    list_for_each_entry_rb(posh, nh, entry->read_reqs) {
+        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+  /*          printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
                     posh->start_offset, posh->end_offset,
-                    posh->start_time, posh->end_time, posh->times);
+                    posh->start_time, posh->end_time, posh->times);*/
     }
     up_read(&entry->read_sem);
     down_read(&entry->write_sem);
-    if (!list_empty(entry->write_reqs))
+    if (!RB_EMPTY_ROOT(entry->write_reqs))
         printk(KERN_EMERG "[HETFS] WRITE req:\n");
-        list_for_each_entry_safe(posh, nh, entry->write_reqs, list) {
-            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+    list_for_each_entry_rb(posh, nh, entry->write_reqs) {
+        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+/*            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
                     posh->start_offset, posh->end_offset,
-                    posh->start_time, posh->end_time, posh->times);
+                    posh->start_time, posh->end_time, posh->times);*/
     }
     up_read(&entry->write_sem);
     down_read(&entry->read_sem);
-    if (!list_empty(entry->mmap_reqs))
+    if (!RB_EMPTY_ROOT(entry->mmap_reqs))
         printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
-    list_for_each_entry_safe(posh, nh, entry->mmap_reqs, list) {
-            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+    list_for_each_entry_rb(posh, nh, entry->mmap_reqs) {
+        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+/*            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
                     posh->start_offset, posh->end_offset,
-                    posh->start_time, posh->end_time, posh->times);
+                    posh->start_time, posh->end_time, posh->times);*/
     }
-    if (!list_empty(entry->rmap_reqs))
+    if (!RB_EMPTY_ROOT(entry->rmap_reqs))
         printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
-    list_for_each_entry_safe(posh, nh, entry->rmap_reqs, list) {
-            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+    list_for_each_entry_rb(posh, nh, entry->rmap_reqs) {
+        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+/*            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
                     posh->start_offset, posh->end_offset,
-                    posh->start_time, posh->end_time, posh->times);
+                    posh->start_time, posh->end_time, posh->times);*/
     }
     /*printk(KERN_EMERG "[END-FIRST]\n");
     entry->rmap_reqs = tight_list(entry->rmap_reqs);
@@ -207,9 +213,9 @@ void print_one_file(char *name) {
 }
 
 void print_tree(int flag) {
-    struct rb_node *node;
+    struct rb_node *node, *nh;
     struct data *entry;
-    struct analyze_request *posh, *nh;
+    struct analyze_request *posh;
     int all_nodes, all_requests, requests;
 	char *name;
 	int stop = 0;
@@ -238,36 +244,40 @@ void print_tree(int flag) {
 
         printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", name, entry->size, entry->dn_datablksz);
         if (flag) {
-            if (!list_empty(entry->read_reqs) && flag)
+            if (!RB_EMPTY_ROOT(entry->read_reqs) && flag)
                 printk(KERN_EMERG "[HETFS] READ req:\n");
-            list_for_each_entry_safe(posh, nh, entry->read_reqs, list) {
+            list_for_each_entry_rb(posh, nh, entry->read_reqs) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+/*                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
                             posh->start_offset, posh->end_offset,
-                            posh->start_time, posh->end_time, posh->times);
+                            posh->start_time, posh->end_time, posh->times);*/
             }
-            if (!list_empty(entry->write_reqs))
+            if (!RB_EMPTY_ROOT(entry->write_reqs))
                 printk(KERN_EMERG "[HETFS] WRITE req:\n");
-            list_for_each_entry_safe(posh, nh, entry->write_reqs, list) {
+            list_for_each_entry_rb(posh, nh, entry->write_reqs) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+/*                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
                             posh->start_offset, posh->end_offset,
-                            posh->start_time, posh->end_time, posh->times);
+                            posh->start_time, posh->end_time, posh->times);*/
             }
-            if (!list_empty(entry->mmap_reqs))
+            if (!RB_EMPTY_ROOT(entry->mmap_reqs))
                 printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
-            list_for_each_entry_safe(posh, nh, entry->mmap_reqs, list) {
-                    printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+            list_for_each_entry_rb(posh, nh, entry->mmap_reqs) {
+                printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+/*                    printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
                             posh->start_offset, posh->end_offset,
-                            posh->start_time, posh->end_time, posh->times);
+                            posh->start_time, posh->end_time, posh->times);*/
             }
-            if (!list_empty(entry->rmap_reqs))
+            if (!RB_EMPTY_ROOT(entry->rmap_reqs))
                 printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
-            list_for_each_entry_safe(posh, nh, entry->rmap_reqs, list) {
+            list_for_each_entry_rb(posh, nh, entry->rmap_reqs) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
+                printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+/*                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
                             posh->start_offset, posh->end_offset,
-                            posh->start_time, posh->end_time, posh->times);
+                            posh->start_time, posh->end_time, posh->times);*/
             }
         }
         memset(name, 0, PATH_MAX+NAME_MAX);
@@ -281,7 +291,7 @@ void print_tree(int flag) {
 }
 
 
-struct list_head *list_stuff(struct list_head *general, char* name, char *list) {
+/*struct list_head *list_stuff(struct list_head *general, char* name, char *list) {
     struct list_head *pos, *n, *posh, *new;
     struct analyze_request *areq, *areq1;
     int found;
@@ -334,7 +344,7 @@ struct list_head *list_stuff(struct list_head *general, char* name, char *list) 
         return new;
     }
     return general;
-}
+}*/
 
 
 void check_list(char *name) {
@@ -374,14 +384,14 @@ void check_list(char *name) {
         printk(KERN_EMERG "[ERROR] No file %s in tree\n", name);
         return;
     }
-    down_read(&entry->write_sem);
+/*    down_read(&entry->write_sem);
     entry->write_reqs = list_stuff(entry->write_reqs, name, "write");
     up_read(&entry->write_sem);
     down_read(&entry->read_sem);
     entry->read_reqs = list_stuff(entry->read_reqs, name, "read");
     entry->mmap_reqs = list_stuff(entry->mmap_reqs, name, "mmap");
     entry->rmap_reqs = list_stuff(entry->rmap_reqs, name, "rmap");
-    up_read(&entry->read_sem);
+    up_read(&entry->read_sem);*/
 }
 
 static void print_file(void)
@@ -583,16 +593,16 @@ static void print_media(void)
     return;
 }
 
-struct list_head *zip_list(struct list_head *general)
+/*struct list_head *zip_list(struct list_head *general)
 {
     struct list_head *pos, *n;
     struct analyze_request *areq, *areq1;
-/*    int found;
+    int found;
 
     new = kzalloc(sizeof(struct list_head), GFP_KERNEL);
     if (new == NULL)
         return NULL;
-    INIT_LIST_HEAD(new);*/
+    INIT_LIST_HEAD(new);
 
     list_for_each_safe(pos, n, general) {
 //        found = 0;
@@ -608,30 +618,30 @@ struct list_head *zip_list(struct list_head *general)
                 break;
             }
         }
-/*        if (!found) {
+        if (!found) {
             __list_del_entry(pos);
             list_add_tail(pos,new);
-        }*/
+        }
     }
     return general;
-/*    list_for_each_safe(pos, n, general) {
+    list_for_each_safe(pos, n, general) {
         areq = list_entry(pos, struct analyze_request, list);
         list_del(pos);
         kzfree(areq);
     }
     kzfree(general);
-    return new;*/
-}
+    return new;
+}*/
 
 void analyze(struct data* InsNode)
 {
-    struct list_head *pos, *n;
-    struct analyze_request *areq;
+//    struct list_head *pos, *n;
+//    struct analyze_request *areq;
     loff_t part, half;
-    int mid, all = 0;
+//    int mid, all = 0;
     half = InsNode->size >> 1;
-    if (!list_empty(InsNode->read_reqs)) {
-        InsNode->read_reqs = zip_list(InsNode->read_reqs);
+    if (!RB_EMPTY_ROOT(InsNode->read_reqs)) {
+/*        InsNode->read_reqs = zip_list(InsNode->read_reqs);
         printk(KERN_EMERG "[HETFS]File %s\n", InsNode->file);
         list_for_each_safe(pos, n, InsNode->read_reqs) {
             areq = list_entry(pos, struct analyze_request, list);
@@ -648,10 +658,10 @@ void analyze(struct data* InsNode)
         mid = InsNode->read_all_file >> 1;
         if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid))) {
             printk(KERN_EMERG "[HETFS] It was read sequentially\n");
-        }
+        }*/
     }
-    if (!list_empty(InsNode->write_reqs)) {
-        InsNode->write_reqs = zip_list(InsNode->write_reqs);
+    if (!RB_EMPTY_ROOT(InsNode->write_reqs)) {
+/*        InsNode->write_reqs = zip_list(InsNode->write_reqs);
         all = 0;
         list_for_each_safe(pos, n, InsNode->write_reqs) {
             areq = list_entry(pos, struct analyze_request, list);
@@ -666,7 +676,7 @@ void analyze(struct data* InsNode)
         }
         mid = InsNode->write_all_file >> 1;
         if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid)))
-            printk(KERN_EMERG "[HETFS] It was write sequentially\n");
+            printk(KERN_EMERG "[HETFS] It was write sequentially\n");*/
     }
 }
 
