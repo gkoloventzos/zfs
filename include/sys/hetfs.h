@@ -7,7 +7,6 @@
 #include <linux/types.h>
 #include <linux/rwsem.h>
 #include <sys/dnode.h>
-//#include <sys/zfs_media.h>
 #endif
 
 #define MAX_DIFF 4000000000
