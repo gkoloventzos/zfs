@@ -46,7 +46,9 @@
                 strstr(x, "/var/kvm/images/ssd.img") || \
                 strstr(x, "/var/kvm/images/blocks.img"))
 
-#define file_check(x) kvm(x)
+#define rocksdb(x) strstr(x, "/home/gkoloven/RocksDB/")
+
+#define file_check(x) rocksdb(x)
 
 #ifdef _KERNEL
 
