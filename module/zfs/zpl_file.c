@@ -38,10 +38,7 @@
 #include <sys/dnode.h>
 #include <sys/dbuf.h>
 
-#include <linux/crypto.h>
 #include <linux/err.h>
-#include <linux/scatterlist.h>
-#include <crypto/sha.h>
 
 struct rb_root *hetfs_tree = NULL;
 EXPORT_SYMBOL(hetfs_tree);
@@ -133,7 +130,6 @@ int init_data(struct data *InsNode, struct dentry *dentry)
     INIT_LIST_HEAD(InsNode->write_reqs);
     INIT_LIST_HEAD(InsNode->rmap_reqs);
     INIT_LIST_HEAD(InsNode->mmap_reqs);
-    InsNode->file = NULL;
     InsNode->read_all_file = 100;
     InsNode->write_all_file = 0;
     InsNode->deleted = 0;
@@ -183,10 +179,6 @@ void fullname(struct dentry *dentry, char *name, int *stop)
 
 struct data *tree_insearch(struct dentry *dentry, char *media)
 {
-    struct scatterlist sg;
-    struct crypto_hash *tfm;
-    struct hash_desc desc;
-    unsigned char *output;
     char *filename = NULL;
     struct data *InsNode, *OutNode;
     int stop = 0;
@@ -214,46 +206,29 @@ struct data *tree_insearch(struct dentry *dentry, char *media)
         }
         memcpy(filename, media, strlen(media));
     }
-    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-    if (output == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc mem for hash\n");
-        kzfree(filename);
-        return NULL;
-    }
 
-    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
-    desc.tfm = tfm;
-    desc.flags = 0;
-    sg_init_one(&sg, filename, strlen(filename));
-    crypto_hash_init(&desc);
-    crypto_hash_update(&desc, &sg, strlen(filename));
-    crypto_hash_final(&desc, output);
-    crypto_free_hash(tfm);
     InsNode = kzalloc(sizeof(struct data), GFP_KERNEL);
     if (InsNode == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc memory for InsNode\n");
         kzfree(filename);
-        kzfree(output);
         return NULL;
     }
-    InsNode->hash = output;
+    InsNode->file = filename;
 
     down_write(&tree_sem);
     OutNode = rb_insert(hetfs_tree, InsNode);
 
     if (OutNode == NULL || InsNode == NULL)
         return NULL;
-    if (OutNode == InsNode)
+    if (OutNode == InsNode) {
         init_data(OutNode, dentry);
+        OutNode->print = file_check(OutNode->file);
+    }
     else {
+        InsNode->file = NULL;
+        kzfree(filename);
         kzfree(InsNode);
     }
-    OutNode->print = file_check(filename);
-    if (OutNode->file == NULL)
-        OutNode->file = filename;
-    else
-        kzfree(filename);
-    up_write(&tree_sem);
 
     return OutNode;
 }
@@ -1604,10 +1579,6 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
     struct timespec arrival_time;
     unsigned long long int time;
     struct data *InsNode;
-    struct scatterlist sg;
-    struct crypto_hash *tfm;
-    struct hash_desc desc;
-    unsigned char *output;
 
     getnstimeofday(&arrival_time);
     time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
@@ -1615,32 +1586,16 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
         printk(KERN_EMERG "[ERROR]Name is NULL\n");
         return 1;
     }
-    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-    if (output == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc mem for hash in delete\n");
-        return 1;
-    }
-
-    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
-    desc.tfm = tfm;
-    desc.flags = 0;
-    sg_init_one(&sg, file_id, strlen(file_id));
-    crypto_hash_init(&desc);
-    crypto_hash_update(&desc, &sg, strlen(file_id));
-    crypto_hash_final(&desc, output);
-    crypto_free_hash(tfm);
     down_read(&tree_sem);
-    InsNode = rb_search(hetfs_tree, output);
+    InsNode = rb_search(hetfs_tree, file_id);
     up_read(&tree_sem);
     //remnants from previous execution
     if (InsNode == NULL) {
         printk(KERN_EMERG "[ERROR]Delete not in the tree %s\n", file_id);
-        kzfree(output);
         return 0;
     }
     InsNode->size = size;
     InsNode->deleted = time;
-    kzfree(output);
 
     return 0;
 }
@@ -1806,12 +1761,12 @@ struct data *rb_search(struct rb_root *root, char *string)
             printk(KERN_EMERG "[ERROR]No data !!!!!!!!!!!!!!!!!!!!!!!!\n");
             return NULL;
         }
-        if (data->hash == NULL) {
+        if (data->file == NULL) {
             printk(KERN_EMERG "[ERROR]Name are NULL in tree\n");
             return NULL;
         }
 
-        result = strncmp(string, data->hash, SHA512_DIGEST_SIZE+1);
+        result = strncmp(string, data->file, strlen(string));
 
         if (result < 0)
 			node = node->rb_left;
@@ -1840,12 +1795,12 @@ struct rb_node *rb_search_node(struct rb_root *root, char *string)
 
     while (node) {
 		struct data *data = container_of(node, struct data, node);
-        if (data->hash == NULL) {
+        if (data->file == NULL) {
             printk(KERN_EMERG "[ERROR]Name are NULL in tree\n");
             return NULL;
         }
 
-        result = strncmp(string, data->hash, SHA512_DIGEST_SIZE+1);
+        result = strncmp(string, data->file, strlen(string));
 
         if (result < 0)
 			node = node->rb_left;
@@ -1867,11 +1822,11 @@ struct data *rb_insert(struct rb_root *root, struct data *data)
     while (*new) {
         int result;
         struct data *this = container_of(*new, struct data, node);
-        if (this->hash == NULL || data->hash == NULL) {
-            printk(KERN_EMERG "[ERROR] NULL hash - rb_insert\n");
+        if (this->file == NULL || data->file == NULL) {
+            printk(KERN_EMERG "[ERROR] NULL file - rb_insert\n");
             return NULL;
         }
-        result = strncmp(data->hash, this->hash, SHA512_DIGEST_SIZE);
+        result = strncmp(data->file, this->file, strlen(data->file));
 
         parent = *new;
         if (result < 0)
@@ -1960,49 +1915,8 @@ int delete_node(unsigned char *output, loff_t size)
     printk(KERN_EMERG "[ERROR]before erase delete\n");
     rb_erase(node, hetfs_tree);
     kzfree(node);
-    printk(KERN_EMERG "[ERROR]Out delete\n");*/
-    kzfree(output);
+    printk(KERN_EMERG "[ERROR]Out delete\n");
+    kzfree(output);*/
     return 0;
 }
 
-
-/* If the new node already exists does do anything.
- * Insert just fails silently. */
-struct rb_node *rename_node(unsigned char *output, unsigned char *output1, struct dentry *dentry, char *name, char *name1)
-{
-	struct rb_node *node, *node1;
-    struct data *InsNode;//, *InsNode1;
-
-    if (output1 == NULL) {
-        printk(KERN_EMERG "[RENAME]NULL output1 in rename\n");
-        return NULL;
-    }
-    if (hetfs_tree == NULL) {
-        printk(KERN_EMERG "[RENAME]NULL tree in rename\n");
-        return NULL;
-    }
-
-    node = rb_search_node(hetfs_tree, output);
-    if (node == NULL) {
-        printk(KERN_EMERG "[RENAME]Node not found in rename %s %s\n", name, name1);
-        return NULL;
-    }
-    rb_erase(node, hetfs_tree);
-    InsNode = container_of(node, struct data, node);
-    node1 = rb_search_node(hetfs_tree, output1);
-    if (node1 == NULL) {
-        memcpy(InsNode->hash, output1, SHA512_DIGEST_SIZE+1);
-        InsNode->filp = NULL;
-        InsNode->dentry = dentry;
-        rb_insert(hetfs_tree, InsNode);
-    }
-    else {
-        //InsNode1 = container_of(node1, struct data, node);
-        /*if (InsNode->read_reqs != NULL && InsNode1->read_reqs != NULL)
-            list_splice(InsNode->read_reqs, InsNode1->read_reqs);
-        if (InsNode->write_reqs != NULL && InsNode1->write_reqs != NULL)
-            list_splice(InsNode->write_reqs, InsNode1->write_reqs);*/
-        //return node;
-    }
-    return NULL;
-}

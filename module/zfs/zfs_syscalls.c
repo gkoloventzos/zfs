@@ -17,10 +17,7 @@
 #include <sys/dnode.h>
 #include <sys/dbuf.h>
 
-#include <linux/crypto.h>
-#include <crypto/sha.h>
 #include <linux/err.h>
-#include <linux/scatterlist.h>
 #include <sys/hetfs.h>
 
 extern struct rb_root *hetfs_tree;
@@ -122,10 +119,6 @@ start:
 
 
 void print_one_file(char *name) {
-    unsigned char *output;
-    struct scatterlist sg;
-    struct crypto_hash *tfm;
-    struct hash_desc desc;
     struct data *entry;
     struct analyze_request *posh, *nh;
     int all_req = 0;
@@ -134,28 +127,13 @@ void print_one_file(char *name) {
         printk(KERN_EMERG "[ERROR] Empty name\n");
         return;
     }
-    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-    if (output == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
-        return;
-    }
-
-    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
-    desc.tfm = tfm;
-    desc.flags = 0;
-    sg_init_one(&sg, only_name, strlen(name));
-    crypto_hash_init(&desc);
-    crypto_hash_update(&desc, &sg, strlen(name));
-    crypto_hash_final(&desc, output);
-    crypto_free_hash(tfm);
     down_read(&tree_sem);
     if (RB_EMPTY_ROOT(hetfs_tree)) {
         printk(KERN_EMERG "[ERROR] Empty root\n");
         return;
     }
-    entry = rb_search(hetfs_tree, output);
+    entry = rb_search(hetfs_tree, name);
     up_read(&tree_sem);
-    kzfree(output);
     if (entry == NULL) {
         printk(KERN_EMERG "[ERROR] No file %s in tree\n", name);
         return;
@@ -357,38 +335,19 @@ struct list_head *list_stuff(struct list_head *general, char* name, char *list) 
 
 
 void check_list(char *name) {
-    unsigned char *output;
-    struct scatterlist sg;
-    struct crypto_hash *tfm;
-    struct hash_desc desc;
     struct data *entry;
 
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR] Empty name\n");
         return;
     }
-    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-    if (output == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
-        return;
-    }
-
-    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
-    desc.tfm = tfm;
-    desc.flags = 0;
-    sg_init_one(&sg, only_name, strlen(name));
-    crypto_hash_init(&desc);
-    crypto_hash_update(&desc, &sg, strlen(name));
-    crypto_hash_final(&desc, output);
-    crypto_free_hash(tfm);
     down_read(&tree_sem);
     if (RB_EMPTY_ROOT(hetfs_tree)) {
         printk(KERN_EMERG "[ERROR] Empty root\n");
         return;
     }
-    entry = rb_search(hetfs_tree, output);
+    entry = rb_search(hetfs_tree, name);
     up_read(&tree_sem);
-    kzfree(output);
     if (entry == NULL) {
         printk(KERN_EMERG "[ERROR] No file %s in tree\n", name);
         return;
@@ -449,10 +408,6 @@ static void change_medium(void)
     struct data *tree_entry = NULL;
     ssize_t n_start, n_end;
     int ret, n_where;
-/*    unsigned char *output;
-    struct scatterlist sg;
-    struct crypto_hash *tfm;
-    struct hash_desc desc;*/
 
     if (start == NULL || end == NULL || where == NULL) {
         printk(KERN_EMERG "[ERROR] Start, end and where should be mentioned\n");
@@ -478,20 +433,6 @@ static void change_medium(void)
         printk(KERN_EMERG "[ERROR] Change where to n_where failed\n");
         return ;
     }
-/*    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-    if (output == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
-        return;
-    }
-
-    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
-    desc.tfm = tfm;
-    desc.flags = 0;
-    sg_init_one(&sg, only_name, strlen(only_name));
-    crypto_hash_init(&desc);
-    crypto_hash_update(&desc, &sg, strlen(only_name));
-    crypto_hash_final(&desc, output);
-    crypto_free_hash(tfm);*/
     down_write(&tree_sem);
     if (RB_EMPTY_ROOT(hetfs_tree)) {
         printk(KERN_EMERG "[ERROR] Empty root\n");
@@ -531,8 +472,7 @@ static void change_medium(void)
     }
     else {
         printk(KERN_EMERG "[ERROR] Not changed read_rot %d\n", *tree_entry->read_rot);
-    }
-    kzfree(output);*/
+    }*/
     return;
 }
 
@@ -552,30 +492,11 @@ void list_print(struct list_head *dn) {
 
 static void print_media(void)
 {
-    unsigned char *output;
-    struct scatterlist sg;
-    struct crypto_hash *tfm;
-    struct hash_desc desc;
     struct data *tree_entry = NULL;
 
-    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-    if (output == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
-        return;
-    }
-
-    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
-    desc.tfm = tfm;
-    desc.flags = 0;
-    sg_init_one(&sg, only_name, strlen(only_name));
-    crypto_hash_init(&desc);
-    crypto_hash_update(&desc, &sg, strlen(only_name));
-    crypto_hash_final(&desc, output);
-    crypto_free_hash(tfm);
-    tree_entry = rb_search(hetfs_tree, output);
+    tree_entry = rb_search(hetfs_tree, only_name);
     if (tree_entry == NULL) {
         printk(KERN_EMERG "[ERROR] No node in tree\n");
-        kzfree(output);
         return;
     }
     else {
@@ -598,7 +519,6 @@ static void print_media(void)
         printk(KERN_EMERG "[PRINT] File %s read list rotor is empty\n", only_name);
     }
 
-    kzfree(output);
     return;
 }
 
