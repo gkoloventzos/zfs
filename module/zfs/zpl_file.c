@@ -514,7 +514,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     dnode_t *dn;
     znode_t *zp = ITOZ(filp->f_mapping->host);
 
-    ktime_get_ts(&arrival_time);
+    getnstimeofday(&arrival_time);
     rot = kzalloc(sizeof(int), GFP_KERNEL);
     *rot = -2;
 
@@ -595,7 +595,7 @@ zpl_iter_read(struct kiocb *kiocb, struct iov_iter *to)
     dnode_t *dn;
     znode_t     *zp = ITOZ(kiocb->ki_filp->f_mapping->host);
 
-    ktime_get_ts(&arrival_time);
+    getnstimeofday(&arrival_time);
 	if (to->type & ITER_KVEC)
 		seg = UIO_SYSSPACE;
 	if (to->type & ITER_BVEC)
@@ -726,7 +726,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     int size = 0;
     ssize_t error = 0;*/
 
-    ktime_get_ts(&arrival_time);
+    getnstimeofday(&arrival_time);
 	crhold(cr);
 
     down(&tree_lock);
@@ -969,7 +969,7 @@ zpl_iter_write(struct kiocb *kiocb, struct iov_iter *from)
     dnode_t *dn;
     znode_t     *zp = ITOZ(kiocb->ki_filp->f_mapping->host);
 
-    ktime_get_ts(&arrival_time);
+    getnstimeofday(&arrival_time);
 	if (from->type & ITER_KVEC)
 		seg = UIO_SYSSPACE;
 	if (from->type & ITER_BVEC)
@@ -1107,7 +1107,7 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
     struct kdata *kdata = NULL;
     dnode_t *dn;
 
-    ktime_get_ts(&arrival_time);
+    getnstimeofday(&arrival_time);
 
 	cookie = spl_fstrans_mark();
 	error = -zfs_map(ip, vma->vm_pgoff, (caddr_t *)vma->vm_start,
@@ -1176,7 +1176,7 @@ zpl_readpage(struct file *filp, struct page *pp)
     char *filename = NULL;
     int stop = 0 ;
 
-    ktime_get_ts(&arrival_time);
+    getnstimeofday(&arrival_time);
 
 	ASSERT(PageLocked(pp));
 	ip = pp->mapping->host;
@@ -1609,7 +1609,7 @@ int delete_request(struct dentry *dentry, char *file_id, loff_t size)
     struct hash_desc desc;
     unsigned char *output;
 
-    ktime_get_ts(&arrival_time);
+    getnstimeofday(&arrival_time);
     time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
     if (file_id == NULL) {
         printk(KERN_EMERG "[ERROR]Name is NULL\n");
@@ -1895,7 +1895,7 @@ int delete_node(unsigned char *output, loff_t size)
     struct timespec arrival_time;
     unsigned long long int time;
 
-    ktime_get_ts(&arrival_time);
+    getnstimeofday(&arrival_time);
     time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
     /*struct list_head *pos, *n;
     struct analyze_request *areq;
