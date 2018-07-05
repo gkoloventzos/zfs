@@ -217,6 +217,7 @@ struct data *tree_insearch(struct dentry *dentry, char *media)
 
     down_write(&tree_sem);
     OutNode = rb_insert(hetfs_tree, InsNode);
+    up_write(&tree_sem);
 
     if (OutNode == NULL || InsNode == NULL)
         return NULL;
