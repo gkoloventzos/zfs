@@ -437,6 +437,9 @@ zpl_rename2(struct inode *sdip, struct dentry *sdentry,
 
 	crhold(cr);
 	cookie = spl_fstrans_mark();
+    if (strstr(dname(tdentry), ".log") != NULL || strstr(dname(tdentry), ".sst") != NULL ||
+            strstr(dname(sdentry), ".log") != NULL || strstr(dname(sdentry), ".sst") != NULL)
+        printk(KERN_EMERG "[RENAME]Source name %s destination name %s\n", dname(sdentry), dname(tdentry));
 /*	name = kzalloc(PATH_MAX+NAME_MAX,GFP_KERNEL);
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");

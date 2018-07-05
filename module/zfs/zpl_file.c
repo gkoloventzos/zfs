@@ -190,7 +190,7 @@ struct data *tree_insearch(struct dentry *dentry, char *media)
             return NULL;
         }
         fullname(dentry, filename, &stop);
-        if (strstr(filename, "/log/") != NULL && strstr(filename, "mysql") == NULL) {
+        if (strstr(filename, "/log/") != NULL) {
             kzfree(filename);
             return NULL;
         }
@@ -739,6 +739,10 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             if (strstr(filename, "sample_ssd") != NULL) {
 //                zfs_media_add(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
                 zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
+                rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+            }
+            else if (strstr(filename, "/home/gkoloven/RocksDB/") != NULL && strstr(filename, ".sst") != NULL) {
+                zfs_media_add_blkid(InsNode->list_write_rot, 0, 250, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
             }
             else {
@@ -1833,8 +1837,11 @@ struct data *rb_insert(struct rb_root *root, struct data *data)
             new = &((*new)->rb_left);
         else if (result > 0)
             new = &((*new)->rb_right);
-        else
+        else {
+            if (strncmp(data->file, this->file, strlen(data->file)) != 0)
+                printk(KERN_EMERG "[ERROR] data->file %s this->file %s hash compare %d\n", data->file, this->file, result);
             return this;
+        }
     }
 
     /* Add new node and rebalance tree. */

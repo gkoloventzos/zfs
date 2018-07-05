@@ -500,7 +500,7 @@ static void print_media(void)
         return;
     }
     else {
-        printk(KERN_EMERG "[PRINT] File %s InsNode %p\n", only_name, tree_entry);
+        printk(KERN_EMERG "[PRINT] File: %s size %llu blksz %u InsNode %p\n", only_name, tree_entry->size, tree_entry->dn_datablksz, tree_entry);
     }
 
     if (!list_empty(tree_entry->list_write_rot)) {

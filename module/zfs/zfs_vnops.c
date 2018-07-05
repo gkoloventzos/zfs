@@ -1495,6 +1495,8 @@ top:
 		}
 	}
 out:
+    if (strstr(name, ".log") != NULL || strstr(name, ".sst") != NULL)
+        printk(KERN_EMERG "[ZFS_CREATE]name %s\n", name);
 
 	if (dl)
 		zfs_dirent_unlock(dl);
@@ -1732,6 +1734,9 @@ top:
 	 * other holds on the inode.  So we dmu_tx_hold() the right things to
 	 * allow for either case.
 	 */
+    if (strstr(name, ".log") != NULL || strstr(name, ".sst") != NULL)
+        printk(KERN_EMERG "[ZFS_REMOVE]name %s inode size %lld znode size %lld\n", name, ip->i_size, zp->z_size);
+
 	obj = zp->z_id;
 	tx = dmu_tx_create(zsb->z_os);
 	dmu_tx_hold_zap(tx, dzp->z_id, FALSE, name);
@@ -3620,6 +3625,9 @@ top:
 	zfs_sa_upgrade_txholds(tx, szp);
 	dmu_tx_hold_zap(tx, zsb->z_unlinkedobj, FALSE, NULL);
 	error = dmu_tx_assign(tx, waited ? TXG_WAITED : TXG_NOWAIT);
+    if (strstr(snm, ".log") != NULL || strstr(snm, ".sst") != NULL ||
+            strstr(tnm, ".log") != NULL || strstr(tnm, ".sst") != NULL)
+        printk(KERN_EMERG "[RENAME]Source name %s destination name %s\n", snm, tnm);
 	if (error) {
 		if (zl != NULL)
 			zfs_rename_unlock(&zl);
