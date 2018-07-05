@@ -135,6 +135,7 @@ int init_data(struct data *InsNode, struct dentry *dentry)
     InsNode->deleted = 0;
     InsNode->dn_datablksz = 0;
     InsNode->dn_datablkshift = 0;
+    InsNode->print = file_check(InsNode->file);
     init_rwsem(&(InsNode->read_sem));
     init_rwsem(&(InsNode->write_sem));
 /*    bla++;
@@ -223,13 +224,12 @@ struct data *tree_insearch(struct dentry *dentry, char *media)
         return NULL;
     if (OutNode == InsNode) {
         init_data(OutNode, dentry);
-        OutNode->print = file_check(OutNode->file);
+        return OutNode;
     }
-    else {
-        InsNode->file = NULL;
-        kzfree(filename);
-        kzfree(InsNode);
-    }
+
+    InsNode->file = NULL;
+    kzfree(filename);
+    kzfree(InsNode);
 
     return OutNode;
 }
