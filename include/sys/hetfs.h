@@ -106,6 +106,7 @@ struct kdata {
     loff_t offset;
     long length;
     uint64_t blkid;
+    uint64_t last_blkid;
 //    unsigned long long int time;
 	loff_t size;
     int type;

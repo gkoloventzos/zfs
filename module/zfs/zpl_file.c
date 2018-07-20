@@ -522,6 +522,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
             kdata->offset = start_ppos;
             kdata->length = read;
             kdata->blkid = dbuf_whichblock(dn, 0, start_ppos); 
+            kdata->last_blkid = dbuf_whichblock(dn, 0, start_ppos + read - 1);
 //            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"readreq");
         }
@@ -597,6 +598,7 @@ zpl_iter_read(struct kiocb *kiocb, struct iov_iter *to)
             kdata->offset = start_ppos;
             kdata->length = ret;
             kdata->blkid = dbuf_whichblock(dn, 0, start_ppos); 
+            kdata->last_blkid = dbuf_whichblock(dn, 0, start_ppos + ret - 1);
 //            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"readreq");
         }
@@ -759,6 +761,7 @@ err:
             kdata->offset = start_ppos;
             kdata->length = wrote;
             kdata->blkid = dbuf_whichblock(dn, 0, start_ppos); 
+            kdata->last_blkid = dbuf_whichblock(dn, 0, start_ppos + wrote - 1);
 //            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"writereq");
         }
@@ -900,6 +903,7 @@ zpl_iter_write(struct kiocb *kiocb, struct iov_iter *from)
             kdata->offset = start_ppos;
             kdata->length = ret;
             kdata->blkid = dbuf_whichblock(dn, 0, start_ppos); 
+            kdata->last_blkid = dbuf_whichblock(dn, 0, start_ppos + ret - 1);
 //            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"readreq");
         }
@@ -1042,7 +1046,8 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
 	    kdata->size = i_size_read(ip);
         kdata->offset = vma->vm_pgoff << PAGE_SHIFT;
         kdata->length = (size_t)(vma->vm_end - vma->vm_start);
-        kdata->blkid = dbuf_whichblock(dn, 0, vma->vm_pgoff << PAGE_SHIFT); 
+        kdata->blkid = dbuf_whichblock(dn, 0, vma->vm_start);
+        kdata->last_blkid = dbuf_whichblock(dn, 0, vma->vm_end - 1);
 //        kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
         thread1 = kthread_run(add_request, (void *) kdata,"mmapreq");
     }
@@ -1128,6 +1133,7 @@ zpl_readpage(struct file *filp, struct page *pp)
             kdata->offset = io_off;
             kdata->length = io_len;
             kdata->blkid = dbuf_whichblock(dn, 0, io_off); 
+            kdata->last_blkid = dbuf_whichblock(dn, 0, io_off + io_len - 1);
 //            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"rmapreq");
         }
@@ -1569,13 +1575,14 @@ void print_lists(struct data *entry) {
 int add_request(void *data)
 {
     struct analyze_request *a_r, *ret;
-//    struct list_head *general, *pos, *n;
     struct rb_root *general;
+    struct rb_node *next;
     struct rw_semaphore *sem;
     struct kdata *kdata = (struct kdata *)data;
     struct dentry *dentry = kdata->dentry;
     uint64_t nblks;
     uint64_t blkid = kdata->blkid;
+    uint64_t last_blkid = kdata->last_blkid;
     int type = kdata->type;
     long long offset = kdata->offset;
     long len = kdata->length;
@@ -1583,6 +1590,8 @@ int add_request(void *data)
     struct data *InsNode = kdata->InsNode;
     int i = 0;
     ret = NULL;
+    a_r = NULL;
+    next = NULL;
 
     if (dentry == NULL) {
         printk(KERN_EMERG "[ERROR] either dentry %p is NULL\n", dentry);
@@ -1622,17 +1631,22 @@ int add_request(void *data)
     }
     InsNode->filp = kdata->filp;
     InsNode->dentry = dentry;
-    if (InsNode->dn_datablkshift) {
-        int blkshift = InsNode->dn_datablkshift;
-        nblks = (P2ROUNDUP(offset + len, 1ULL << blkshift) -
-        P2ALIGN(offset, 1ULL << blkshift)) >> blkshift;
-    } else {
-        nblks = 1;
-    }
 
+    nblks = last_blkid - blkid;
     down_write(sem);
-
-	for (i = 0; i < nblks; i++) {
+	for (i = 0; i <= nblks; i++) {
+        if (ret != NULL) {
+            next = rb_next(&(ret->node));
+            if (next != NULL) {
+                a_r = container_of(next, struct analyze_request, node);
+                if (a_r != NULL) {
+                    if (a_r->blkid == blkid + i) {
+                    a_r->times++;
+                    ret = a_r;
+                    continue;
+                }}
+            }
+        }
         a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
         if (a_r == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot allocate request\n");
@@ -1640,11 +1654,13 @@ int add_request(void *data)
             kzfree(kdata);
             return 1;
         }
-        a_r->blkid = blkid;
+        a_r->blkid = blkid + i;
         a_r->times = 1;
         ret = rb_blkid_insert(general, a_r);
-        if (ret == NULL)
+        if (ret == NULL) {
+            ret = a_r;
             kzfree(a_r);
+        }
     }
     up_write(sem);
 
