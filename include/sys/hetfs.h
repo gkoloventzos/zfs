@@ -77,8 +77,7 @@ struct analyze_request {
 };
 
 struct data {
-	char *hash;             //Should NEVER be NULL
-    char *file;
+    char *file;             //Should NEVER be NULL
 	loff_t size;
     bool print;
     int8_t read_all_file;
