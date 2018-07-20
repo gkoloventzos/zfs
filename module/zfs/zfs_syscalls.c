@@ -627,7 +627,7 @@ void analyze(struct data* InsNode)
 {
 //    struct list_head *pos, *n;
 //    struct analyze_request *areq;
-    loff_t part, half;
+    loff_t half;
 //    int mid, all = 0;
     half = InsNode->size >> 1;
     if (!RB_EMPTY_ROOT(InsNode->read_reqs)) {
