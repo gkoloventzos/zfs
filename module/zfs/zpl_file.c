@@ -1706,7 +1706,7 @@ struct data *rb_search(struct rb_root *root, char *string)
     if (root == NULL || RB_EMPTY_ROOT(root))
         return NULL;
     if (string == NULL) {
-        printk(KERN_EMERG "[ERROR]Name are NULL in tree\n");
+        printk(KERN_EMERG "[ERROR]Search name is NULL\n");
         return NULL;
     }
 

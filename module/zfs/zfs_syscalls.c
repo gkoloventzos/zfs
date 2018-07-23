@@ -43,25 +43,6 @@ struct storage_media available_media[] = {
     {"METASLAB_ROTOR_VDEV_TYPE_HDD", 0x08},
 };
 
-void print_in_order(struct rb_node *nod)
-{
-    struct analyze_request *ar;
-    if (nod == NULL)
-        return;
-    ar = container_of(nod, struct analyze_request, node);
-    print_in_order(nod->rb_left);
-    printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", ar->blkid, ar->times);
-    print_in_order(nod->rb_right);
-}
-
-
-
-void print_media_tree(int flag) {
-//    media_tree = flag;
-    //media_list = flag;
-    return;
-}
-
 void print_only_one(int flag) {
     only_one = flag;
 }
@@ -218,35 +199,23 @@ void print_tree(int flag) {
             list_for_each_entry_rb(posh, nh, entry->read_reqs) {
                 all_requests += posh->times;
                 printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
-/*                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
-                            posh->start_offset, posh->end_offset,
-                            posh->start_time, posh->end_time, posh->times);*/
             }
             if (!RB_EMPTY_ROOT(entry->write_reqs))
                 printk(KERN_EMERG "[HETFS] WRITE req:\n");
             list_for_each_entry_rb(posh, nh, entry->write_reqs) {
                 all_requests += posh->times;
                 printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
-/*                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
-                            posh->start_offset, posh->end_offset,
-                            posh->start_time, posh->end_time, posh->times);*/
             }
             if (!RB_EMPTY_ROOT(entry->mmap_reqs))
                 printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
             list_for_each_entry_rb(posh, nh, entry->mmap_reqs) {
                 printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
-/*                    printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
-                            posh->start_offset, posh->end_offset,
-                            posh->start_time, posh->end_time, posh->times);*/
             }
             if (!RB_EMPTY_ROOT(entry->rmap_reqs))
                 printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
             list_for_each_entry_rb(posh, nh, entry->rmap_reqs) {
                 all_requests += posh->times;
                 printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
-/*                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
-                            posh->start_offset, posh->end_offset,
-                            posh->start_time, posh->end_time, posh->times);*/
             }
         }
         memset(name, 0, PATH_MAX+NAME_MAX);
@@ -360,30 +329,14 @@ static void print_all(void)
     print_tree(true);
 }
 
-/*static void print_medium(void)
-{
-    print_media_tree(true);
-}*/
-
 static void print_list(void)
 {
     print_only_one(1);
 }
 
-static void small_list(void)
-{
-    check_list(only_name);
-    print_one_file(only_name);
-}
-
 static void stop_print_list(void) {
     only_name = NULL;
     print_only_one(0);
-}
-
-static void stop_print_medium(void)
-{
-    print_media_tree(false);
 }
 
 static void change_medium(void)
@@ -594,7 +547,6 @@ void analyze(struct data* InsNode)
 
 static void analyze_tree(void)
 {
-
     struct rb_node *node;
     struct data *entry;
     printk(KERN_EMERG "[HETFS]Start of analyze\n");
@@ -817,6 +769,3 @@ void zfs_syscalls_initialize(void)
 {
     zfs_syscalls_init();
 }
-
-//__initcall(zfs_syscalls_init);
-//module_init(zfs_syscalls_init);
