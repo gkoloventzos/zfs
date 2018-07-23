@@ -130,7 +130,6 @@ int init_data(struct data *InsNode, struct dentry *dentry)
     *InsNode->write_reqs = RB_ROOT;
     *InsNode->rmap_reqs = RB_ROOT;
     *InsNode->mmap_reqs = RB_ROOT;
-    InsNode->file = NULL;
     InsNode->read_all_file = 100;
     InsNode->write_all_file = 0;
     InsNode->deleted = 0;
