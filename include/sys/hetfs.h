@@ -47,6 +47,7 @@
 
 #define ecoham(x) (strstr(x, "ecoham"))
 #define doc(x) (strstr(x, "weird_dir"))
+#define rocks(x) (strstr(x, "/home/gkoloven/RocksDB"))
 
 #define file_check(x) doc(x)
 
