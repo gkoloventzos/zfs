@@ -1659,7 +1659,7 @@ int add_request(void *data)
         ret = rb_blkid_insert(general, a_r);
         if (ret == NULL) {
             ret = a_r;
-            kzfree(a_r);
+            a_r = NULL;
         }
     }
     up_write(sem);
