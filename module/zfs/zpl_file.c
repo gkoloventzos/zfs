@@ -1638,12 +1638,11 @@ int add_request(void *data)
             next = rb_next(&(ret->node));
             if (next != NULL) {
                 a_r = container_of(next, struct analyze_request, node);
-                if (a_r != NULL) {
-                    if (a_r->blkid == blkid + i) {
+                if (a_r != NULL && a_r->blkid == blkid + i) {
                     a_r->times++;
                     ret = a_r;
                     continue;
-                }}
+                }
             }
         }
         a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
