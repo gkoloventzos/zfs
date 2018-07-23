@@ -113,7 +113,9 @@ start:
 
 
 void print_one_file(char *name) {
+    struct rb_node *nh;
     struct data *entry;
+    struct analyze_request *posh;
 
     if (name == NULL) {
         printk(KERN_EMERG "[ERROR] Empty name\n");
@@ -136,28 +138,24 @@ void print_one_file(char *name) {
     down_read(&entry->read_sem);
     if (!RB_EMPTY_ROOT(entry->read_reqs))
         printk(KERN_EMERG "[HETFS] READ req:\n");
-    print_in_order(rb_first(entry->read_reqs));
+    list_for_each_entry_rb(posh, nh, entry->read_reqs)
+        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
     up_read(&entry->read_sem);
     down_read(&entry->write_sem);
     if (!RB_EMPTY_ROOT(entry->write_reqs))
         printk(KERN_EMERG "[HETFS] WRITE req:\n");
-    print_in_order(rb_first(entry->write_reqs));
+    list_for_each_entry_rb(posh, nh, entry->write_reqs)
+        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
     up_read(&entry->write_sem);
     down_read(&entry->read_sem);
     if (!RB_EMPTY_ROOT(entry->mmap_reqs))
         printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
-    print_in_order(rb_first(entry->mmap_reqs));
+    list_for_each_entry_rb(posh, nh, entry->mmap_reqs)
+        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
     if (!RB_EMPTY_ROOT(entry->rmap_reqs))
         printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
-    print_in_order(rb_first(entry->rmap_reqs));
-    /*printk(KERN_EMERG "[END-FIRST]\n");
-    entry->rmap_reqs = tight_list(entry->rmap_reqs);
-    list_for_each_entry_safe(posh, nh, entry->rmap_reqs, list) {
-        printk(KERN_EMERG "[HETFS-AFTER] start: %lld - end:%lld start time: %lld - end time:%lld times:%d\n",
-                    posh->start_offset, posh->end_offset,
-                    posh->start_time, posh->end_time, posh->times);
-    }
-    printk(KERN_EMERG "[END-SECOND]\n");*/
+    list_for_each_entry_rb(posh, nh, entry->rmap_reqs)
+        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
     up_read(&entry->read_sem);
 //  analyze(entry);
 }
