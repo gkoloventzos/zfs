@@ -609,17 +609,112 @@ static void analyze_tree(void)
 
 }
 
+void empty_tree(struct rb_root *tree) {
+    struct rb_node *node;
+    node = rb_first(tree);
+    while (node != NULL) {
+        rb_erase(node, tree);
+        kzfree(node);
+        node = rb_first(tree);
+    }
+}
+
+static void read_tree_free(void) {
+    struct data *entry;
+    if (only_name == NULL)
+        return;
+    down_read(&tree_sem);
+    entry = rb_search(hetfs_tree, only_name);
+    up_read(&tree_sem);
+    down_write(&entry->read_sem);
+    empty_tree(entry->read_reqs);
+    up_write(&entry->read_sem);
+}
+
+static void write_tree_free(void) {
+    struct data *entry;
+    if (only_name == NULL)
+        return;
+    down_read(&tree_sem);
+    entry = rb_search(hetfs_tree, only_name);
+    up_read(&tree_sem);
+    down_write(&entry->write_sem);
+    empty_tree(entry->write_reqs);
+    up_write(&entry->write_sem);
+}
+
+static void both_tree_free(void) {
+    struct data *entry;
+    if (only_name == NULL)
+        return;
+    down_read(&tree_sem);
+    entry = rb_search(hetfs_tree, only_name);
+    up_read(&tree_sem);
+    down_write(&entry->read_sem);
+    empty_tree(entry->read_reqs);
+    up_write(&entry->read_sem);
+    down_write(&entry->write_sem);
+    empty_tree(entry->write_reqs);
+    up_write(&entry->write_sem);
+}
+
+static void all_read_tree_free(void) {
+    struct rb_node *node;
+    struct data *entry;
+    down_read(&tree_sem);
+    for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
+        entry = rb_entry(node, struct data, node);
+        down_write(&entry->read_sem);
+        empty_tree(entry->read_reqs);
+        up_write(&entry->read_sem);
+    }
+    up_read(&tree_sem);
+}
+
+static void all_write_tree_free(void) {
+    struct rb_node *node;
+    struct data *entry;
+    down_read(&tree_sem);
+    for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
+        entry = rb_entry(node, struct data, node);
+        down_write(&entry->write_sem);
+        empty_tree(entry->write_reqs);
+        up_write(&entry->write_sem);
+    }
+    up_read(&tree_sem);
+}
+
+static void all_tree_free(void) {
+    struct rb_node *node;
+    struct data *entry;
+    down_read(&tree_sem);
+    for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
+        entry = rb_entry(node, struct data, node);
+        down_write(&entry->read_sem);
+        empty_tree(entry->read_reqs);
+        up_write(&entry->read_sem);
+        down_write(&entry->write_sem);
+        empty_tree(entry->write_reqs);
+        up_write(&entry->write_sem);
+    }
+    up_read(&tree_sem);
+}
+
 struct zfs_syscalls available_syscalls[] = {
 	{ "print_nodes",	print_nodes	},
 	{ "print_all",		print_all	},
 	{ "analyze_tree",	analyze_tree	},
-	{ "ziping_lists",	small_list	},
-	{ "stop_print_medium",		stop_print_medium	},
 	{ "print_list",	    print_list	},
 	{ "stop_print_list",		stop_print_list	},
 	{ "change_medium",	change_medium	},
 	{ "print_media",	print_media	},
 	{ "print_file",	    print_file	},
+	{ "read_tree_free",	    read_tree_free	},
+	{ "write_tree_free",	    write_tree_free	},
+	{ "both_tree_free",	    both_tree_free	},
+	{ "all_read_tree_free",	    all_read_tree_free	},
+	{ "all_write_tree_free",	    all_write_tree_free	},
+	{ "all_tree_free",	    all_tree_free	},
 };
 
 static void run_syscall(struct zfs_syscalls *syscall)
