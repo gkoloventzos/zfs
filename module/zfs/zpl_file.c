@@ -1686,7 +1686,7 @@ struct analyze_request *rb_blkid_insert(struct rb_root *root, struct analyze_req
         else if (result > 0)
             new = &((*new)->rb_right);
         else {
-            data->times++;
+            this->times++;
             return NULL;
         }
     }
