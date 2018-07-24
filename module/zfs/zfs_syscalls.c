@@ -139,23 +139,23 @@ void print_one_file(char *name) {
     if (!RB_EMPTY_ROOT(entry->read_reqs))
         printk(KERN_EMERG "[HETFS] READ req:\n");
     list_for_each_entry_rb(posh, nh, entry->read_reqs)
-        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+        printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
     up_read(&entry->read_sem);
     down_read(&entry->write_sem);
     if (!RB_EMPTY_ROOT(entry->write_reqs))
         printk(KERN_EMERG "[HETFS] WRITE req:\n");
     list_for_each_entry_rb(posh, nh, entry->write_reqs)
-        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+        printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
     up_read(&entry->write_sem);
     down_read(&entry->read_sem);
     if (!RB_EMPTY_ROOT(entry->mmap_reqs))
         printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
     list_for_each_entry_rb(posh, nh, entry->mmap_reqs)
-        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+        printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
     if (!RB_EMPTY_ROOT(entry->rmap_reqs))
         printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
     list_for_each_entry_rb(posh, nh, entry->rmap_reqs)
-        printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+        printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
     up_read(&entry->read_sem);
 //  analyze(entry);
 }
@@ -196,24 +196,24 @@ void print_tree(int flag) {
                 printk(KERN_EMERG "[HETFS] READ req:\n");
             list_for_each_entry_rb(posh, nh, entry->read_reqs) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+                printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
             }
             if (!RB_EMPTY_ROOT(entry->write_reqs))
                 printk(KERN_EMERG "[HETFS] WRITE req:\n");
             list_for_each_entry_rb(posh, nh, entry->write_reqs) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+                printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
             }
             if (!RB_EMPTY_ROOT(entry->mmap_reqs))
                 printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
             list_for_each_entry_rb(posh, nh, entry->mmap_reqs) {
-                printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+                printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
             }
             if (!RB_EMPTY_ROOT(entry->rmap_reqs))
                 printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
             list_for_each_entry_rb(posh, nh, entry->rmap_reqs) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] blkid: %lld times:%d\n", posh->blkid, posh->times);
+                printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
             }
         }
         memset(name, 0, PATH_MAX+NAME_MAX);
