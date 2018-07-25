@@ -382,31 +382,12 @@ static void change_medium(void)
     }
 
     if (n_end != n_start)
-        zfs_media_add_blkid(tree_entry->list_write_rot, n_start, n_end, available_media[n_where].bit, 1);
-    else
-        zfs_media_add_blkid(tree_entry->list_write_rot, n_start, INT64_MAX, available_media[n_where].bit, 1);
+        n_end = INT64_MAX;
 
+    zfs_media_add_blkid(tree_entry->list_write_rot, n_start, n_end, available_media[n_where].bit, 1);
 
     if (tree_entry->filp != NULL)
-        zpl_rewrite(tree_entry->filp);
-    /* You have read where the medium is stored and changed it */
-/*    if (tree_entry->read_rot == NULL) {
-        printk(KERN_EMERG "[ERROR] Not changed read_rot because it is NULL\n");
-        kzfree(output);
-        return;
-    }
-    if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD) {
-        tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
-        zpl_rewrite(tree_entry->filp);
-    }
-    else if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_SSD) {
-        tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
-        zpl_rewrite(tree_entry->filp);
-    }
-    else {
-        printk(KERN_EMERG "[ERROR] Not changed read_rot %d\n", *tree_entry->read_rot);
-    }
-    kzfree(output);*/
+        zpl_rewrite(tree_entry->filp, n_start, n_end, tree_entry->dn_datablksz);
     return;
 }
 
@@ -582,11 +563,19 @@ void analyze(struct data* InsNode)
     part = (part * proportion) / 100;
     part = max - part;
     printk(KERN_EMERG "[ANALYZE]max %d, min %d, part %d, proportion %d\n", max, min, part, proportion);
+    min = max = 0;
     list_for_each_entry_rb(posh, nh, InsNode->read_reqs) {
-        if (posh->times >= part)
+        if (posh->times >= part) {
+            if (min == 0)
+                min = posh->blkid;
+            max = posh->blkid;
             zfs_media_add_blkid(InsNode->list_write_rot, posh->blkid, posh->blkid+1, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
+        }
     }
     up_read(&InsNode->read_sem);
+    if (InsNode->filp != NULL) {
+        zpl_rewrite(InsNode->filp, min, max, InsNode->dn_datablksz);
+    }
 }
 
 static void analyze_tree(void)
