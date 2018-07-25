@@ -677,7 +677,7 @@ static void all_write_tree_free(void) {
     up_read(&tree_sem);
 }
 
-static void all_tree_free(void) {
+static void all_list_free(void) {
     struct rb_node *node;
     struct data *entry;
     down_read(&tree_sem);
@@ -718,7 +718,7 @@ struct zfs_syscalls available_syscalls[] = {
 	{ "both_tree_free",	    both_tree_free	},
 	{ "all_read_tree_free",	    all_read_tree_free	},
 	{ "all_write_tree_free",	    all_write_tree_free	},
-	{ "all_tree_free",	    all_tree_free	},
+	{ "all_list_free",	    all_list_free	},
 	{ "analyze_only",	    analyze_only	},
 };
 
