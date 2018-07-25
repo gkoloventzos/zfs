@@ -118,19 +118,19 @@ void print_one_file(char *name) {
     struct analyze_request *posh;
 
     if (name == NULL) {
-        printk(KERN_EMERG "[ERROR] Empty name\n");
+        printk(KERN_EMERG "[ERR-POF]Empty name\n");
         return;
     }
 
     down_read(&tree_sem);
     if (RB_EMPTY_ROOT(hetfs_tree)) {
-        printk(KERN_EMERG "[ERROR] Empty root\n");
+        printk(KERN_EMERG "[ERR-POF]Empty root\n");
         return;
     }
     entry = rb_search(hetfs_tree, name);
     up_read(&tree_sem);
     if (entry == NULL) {
-        printk(KERN_EMERG "[ERROR] No file %s in tree\n", name);
+        printk(KERN_EMERG "[ERR-POF]No file %s in tree\n", name);
         return;
     }
 
