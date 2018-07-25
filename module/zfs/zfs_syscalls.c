@@ -496,15 +496,15 @@ static void print_media(void)
     return new;
 }*/
 
-void analyze(struct data* InsNode)
+/*void analyze(struct data* InsNode)
 {
-//    struct list_head *pos, *n;
-//    struct analyze_request *areq;
+    struct list_head *pos, *n;
+    struct analyze_request *areq;
     loff_t half;
-//    int mid, all = 0;
+    int mid, all = 0;
     half = InsNode->size >> 1;
     if (!RB_EMPTY_ROOT(InsNode->read_reqs)) {
-/*        InsNode->read_reqs = zip_list(InsNode->read_reqs);
+        InsNode->read_reqs = zip_list(InsNode->read_reqs);
         printk(KERN_EMERG "[HETFS]File %s\n", InsNode->file);
         list_for_each_safe(pos, n, InsNode->read_reqs) {
             areq = list_entry(pos, struct analyze_request, list);
@@ -521,10 +521,10 @@ void analyze(struct data* InsNode)
         mid = InsNode->read_all_file >> 1;
         if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid))) {
             printk(KERN_EMERG "[HETFS] It was read sequentially\n");
-        }*/
+        }
     }
     if (!RB_EMPTY_ROOT(InsNode->write_reqs)) {
-/*        InsNode->write_reqs = zip_list(InsNode->write_reqs);
+        InsNode->write_reqs = zip_list(InsNode->write_reqs);
         all = 0;
         list_for_each_safe(pos, n, InsNode->write_reqs) {
             areq = list_entry(pos, struct analyze_request, list);
@@ -539,15 +539,60 @@ void analyze(struct data* InsNode)
         }
         mid = InsNode->write_all_file >> 1;
         if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid)))
-            printk(KERN_EMERG "[HETFS] It was write sequentially\n");*/
+            printk(KERN_EMERG "[HETFS] It was write sequentially\n");
     }
+}*/
+
+void analyze(struct data* InsNode)
+{
+    struct rb_node *nh;
+    struct analyze_request *posh;
+    int proportion, ret;
+    int max = -1;
+    int min = 0;
+    int part = 0;
+    if (start == NULL)
+        proportion = 50;
+    else {
+        ret = kstrtoint(start, 10, &proportion);
+        if (ret) {
+            printk(KERN_EMERG "[ERROR]Change proportion\n");
+            return;
+        }
+    }
+    down_read(&InsNode->read_sem);
+    if (RB_EMPTY_ROOT(InsNode->read_reqs))
+        return;
+    list_for_each_entry_rb(posh, nh, InsNode->read_reqs) {
+        if (max == -1) {
+            max = posh->times;
+            min = posh->times;
+            continue;
+        }
+        if (max < posh->times) {
+            max = posh->times;
+            continue;
+        }
+        if (min > posh->times) {
+            min = posh->times;
+            continue;
+        }
+    }
+    part = max - min;
+    part = (part * proportion) / 100;
+    part = max - part;
+    printk(KERN_EMERG "[ANALYZE]max %d, min %d, part %d, proportion %d\n", max, min, part, proportion);
+    list_for_each_entry_rb(posh, nh, InsNode->read_reqs) {
+        if (posh->times >= part)
+            zfs_media_add_blkid(InsNode->list_write_rot, posh->blkid, posh->blkid+1, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
+    }
+    up_read(&InsNode->read_sem);
 }
 
 static void analyze_tree(void)
 {
     struct rb_node *node;
     struct data *entry;
-    printk(KERN_EMERG "[HETFS]Start of analyze\n");
     down_read(&tree_sem);
     /*We actually write to nodes in the tree but no insert or delete*/
     for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
@@ -555,8 +600,6 @@ static void analyze_tree(void)
         analyze(entry);
     }
     up_read(&tree_sem);
-    printk(KERN_EMERG "[HETFS] End of analyze\n");
-
 }
 
 void empty_tree(struct rb_root *tree) {
@@ -650,6 +693,17 @@ static void all_tree_free(void) {
     up_read(&tree_sem);
 }
 
+static void analyze_only(void) {
+    struct data *entry;
+    if (only_name == NULL)
+        return;
+    down_read(&tree_sem);
+    entry = rb_search(hetfs_tree, only_name);
+    if (entry != NULL)
+        analyze(entry);
+    up_read(&tree_sem);
+}
+
 struct zfs_syscalls available_syscalls[] = {
 	{ "print_nodes",	print_nodes	},
 	{ "print_all",		print_all	},
@@ -665,6 +719,7 @@ struct zfs_syscalls available_syscalls[] = {
 	{ "all_read_tree_free",	    all_read_tree_free	},
 	{ "all_write_tree_free",	    all_write_tree_free	},
 	{ "all_tree_free",	    all_tree_free	},
+	{ "analyze_only",	    analyze_only	},
 };
 
 static void run_syscall(struct zfs_syscalls *syscall)
