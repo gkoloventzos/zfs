@@ -688,9 +688,9 @@ static void analyze_only(void) {
         return;
     down_read(&tree_sem);
     entry = rb_search(hetfs_tree, only_name);
+    up_read(&tree_sem);
     if (entry != NULL)
         analyze(entry);
-    up_read(&tree_sem);
 }
 
 struct zfs_syscalls available_syscalls[] = {
