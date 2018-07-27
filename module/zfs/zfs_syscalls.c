@@ -563,17 +563,17 @@ void analyze(struct data* InsNode)
     part = (part * proportion) / 100;
     part = max - part;
     printk(KERN_EMERG "[ANALYZE]max %d, min %d, part %d, proportion %d\n", max, min, part, proportion);
-    min = max = 0;
+    min = max = -1;
     list_for_each_entry_rb(posh, nh, InsNode->read_reqs) {
         if (posh->times >= part) {
-            if (min == 0)
+            if (min == -1)
                 min = posh->blkid;
             max = posh->blkid;
             zfs_media_add_blkid(InsNode->list_write_rot, posh->blkid, posh->blkid+1, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
         }
     }
     up_read(&InsNode->read_sem);
-    if (InsNode->filp != NULL) {
+    if (min != -1 && InsNode->filp != NULL) {
         zpl_rewrite(InsNode->filp, min, max, InsNode->dn_datablksz);
     }
 }
