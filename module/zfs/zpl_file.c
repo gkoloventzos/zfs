@@ -458,13 +458,10 @@ re_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 {
     cred_t *cr = CRED();
     ssize_t read;
-    //int8_t rot = -5;
 
-    //printk(KERN_EMERG "[RE_READ]If not rewrite what the fuck I am doing here\n");
     crhold(cr);
     read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
        UIO_USERSPACE, filp->f_flags, cr, NULL, true);
-       //UIO_USERSPACE, filp->f_flags, cr, &rot);
     crfree(cr);
 
     return (read);
@@ -832,10 +829,8 @@ zpl_rewrite(struct file *filp, loff_t start, loff_t end, uint32_t blksz)
         return 1;
     }
     for(;;) {
-        //printk(KERN_EMERG "[ERROR]ZPL_REWRITE start_pos %lld npos %lld pos %lld\n", start_pos, npos, pos);
         reread = re_read(filp, buf, len, &pos);
         if (reread > 0) {
-           // printk(KERN_EMERG "[ERROR]ZPL_REWRITE start_pos %lld npos %lld pos %lld\n", start_pos, npos, pos);
             rewrite = re_write(filp, buf, reread, &npos);
             if (reread != rewrite || npos >= end_bz) {
                 printk(KERN_EMERG "[ERROR]ZPL_REWRITE %lld %lld error %zd\n", start_pos, npos, reread);
