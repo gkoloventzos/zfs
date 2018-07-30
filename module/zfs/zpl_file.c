@@ -794,8 +794,9 @@ zpl_rewrite(struct file *filp, loff_t start, loff_t end, uint32_t blksz)
     ssize_t reread = 0;
     ssize_t rewrite = 0;
     size_t len;
+    int open;
     dnode_t *dn;
-    znode_t *zp = ITOZ(filp->f_mapping->host);
+    znode_t *zp;
     loff_t pos = 0;
     loff_t start_pos = 0;
     loff_t npos = 0;
@@ -806,34 +807,48 @@ zpl_rewrite(struct file *filp, loff_t start, loff_t end, uint32_t blksz)
         printk(KERN_EMERG "[ERROR]zpl_rewrite - filp NULL\n");
         return 1;
     }
+
     if (filp->f_mapping == NULL) {
         printk(KERN_EMERG "[ERROR]zpl_rewrite - filp->f_mapping NULL\n");
         return 1;
     }
+
     if (filp->f_mapping->host == NULL) {
         printk(KERN_EMERG "[ERROR]zpl_rewrite - filp->f_mapping->host NULL\n");
         return 1;
     }
 
+    zp = ITOZ(filp->f_mapping->host);
     if (blksz)
         len = blksz;
     else {
         dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
         len = dn->dn_datablksz;
     }
-    pos = start_pos = npos = start * len;
-    end_bz = (end * len) - 1;
+
     buf = kzalloc(sizeof(char) * len, GFP_KERNEL);
     if (buf == NULL) {
         printk(KERN_EMERG "[ERROR]zpl_rewrite - Cannot allocate buf\n");
         return 1;
     }
+
+    open = zpl_open(filp->f_mapping->host, filp);
+    if (open < 0) {
+        printk(KERN_EMERG "[ERROR]zpl_rewrite - zpl_open %d\n", open);
+        kzfree(buf);
+        return 1;
+    }
+
+    pos = start_pos = npos = start * len;
+    end_bz = (end * len) - 1;
+
     for(;;) {
         reread = re_read(filp, buf, len, &pos);
         if (reread > 0) {
             rewrite = re_write(filp, buf, reread, &npos);
             if (reread != rewrite || npos >= end_bz) {
-                printk(KERN_EMERG "[ERROR]ZPL_REWRITE %lld %lld error %zd\n", start_pos, npos, reread);
+                printk(KERN_EMERG "[ZPL_REWRITE] start_pos %lld npos %lld reread %zd rewrite %zd end_bz %lld start %lld end %lld len %ld\n",
+                        start_pos, npos, reread, rewrite, end_bz, start, end, len);
                 break;
             }
             start_pos += reread;
@@ -843,11 +858,22 @@ zpl_rewrite(struct file *filp, loff_t start, loff_t end, uint32_t blksz)
             continue;
         }
         else if (reread < 0){
-            printk(KERN_EMERG "[ERROR]ZPL_REWRITE %lld %lld error %zd\n", start_pos, npos, reread);
+            printk(KERN_EMERG "[ERROR]ZPL_REWRITEstart_pos %lld npos %lld reread %zd rewrite %zd end_bz %lld start %lld end %lld len %ld\n",
+                    start_pos, npos, reread, rewrite, end_bz, start, end, len);
+            break;
         }
+        printk(KERN_EMERG "[ZPL_REWRITE]start_pos %lld npos %lld reread %zd rewrite %zd end_bz %lld start %lld end %lld len %ld\n",
+                start_pos, npos, reread, rewrite, end_bz, start, end, len);
         break;
     }
+
     kzfree(buf);
+    open = zpl_release(filp->f_mapping->host, filp);
+    if (open < 0) {
+        printk(KERN_EMERG "[ERROR]zpl_rewrite - zpl_release %d\n", open);
+        return 1;
+    }
+
     return 0;
 }
 
