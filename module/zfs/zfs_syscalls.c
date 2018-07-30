@@ -542,8 +542,10 @@ void analyze(struct data* InsNode)
         }
     }
     down_read(&InsNode->read_sem);
-    if (RB_EMPTY_ROOT(InsNode->read_reqs))
+    if (RB_EMPTY_ROOT(InsNode->read_reqs)) {
+        up_read(&InsNode->read_sem);
         return;
+    }
     list_for_each_entry_rb(posh, nh, InsNode->read_reqs) {
         if (max == -1) {
             max = posh->times;
