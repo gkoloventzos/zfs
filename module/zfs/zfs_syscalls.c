@@ -327,16 +327,6 @@ static void print_all(void)
     print_tree(true);
 }
 
-static void print_list(void)
-{
-    print_only_one(1);
-}
-
-static void stop_print_list(void) {
-    only_name = NULL;
-    print_only_one(0);
-}
-
 static void change_medium(void)
 {
     struct data *tree_entry = NULL;
@@ -699,8 +689,6 @@ struct zfs_syscalls available_syscalls[] = {
 	{ "print_nodes",	print_nodes	},
 	{ "print_all",		print_all	},
 	{ "analyze_tree",	analyze_tree	},
-	{ "print_list",	    print_list	},
-	{ "stop_print_list",		stop_print_list	},
 	{ "change_medium",	change_medium	},
 	{ "print_media",	print_media	},
 	{ "print_file",	    print_file	},
