@@ -563,11 +563,12 @@ void analyze(struct data* InsNode)
             max = posh->blkid;
             zfs_media_add_blkid(InsNode->list_write_rot, posh->blkid, posh->blkid+1, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
         }
+        if (max != posh->blkid && max != -1 && InsNode->filp != NULL) {
+            zpl_rewrite(InsNode->filp, min, max, InsNode->dn_datablksz);
+            min = max = -1;
+        }
     }
     up_read(&InsNode->read_sem);
-    if (min != -1 && InsNode->filp != NULL) {
-        zpl_rewrite(InsNode->filp, min, max, InsNode->dn_datablksz);
-    }
 }
 
 static void analyze_tree(void)
