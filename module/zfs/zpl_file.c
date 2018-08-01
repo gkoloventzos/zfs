@@ -789,14 +789,12 @@ re_write(struct file *filp, const char *buf, size_t len, loff_t *ppos)
 }
 
 int
-zpl_rewrite(struct file *filp, loff_t start, loff_t end, uint32_t blksz)
+zpl_rewrite(struct file *filp, loff_t start, loff_t end, size_t len)
 {
     ssize_t reread = 0;
     ssize_t rewrite = 0;
-    size_t len;
     int open;
-    dnode_t *dn;
-    znode_t *zp;
+    struct inode *ip = NULL;
     loff_t pos = 0;
     loff_t start_pos = 0;
     loff_t npos = 0;
@@ -808,22 +806,17 @@ zpl_rewrite(struct file *filp, loff_t start, loff_t end, uint32_t blksz)
         return 1;
     }
 
-    if (filp->f_mapping == NULL) {
-        printk(KERN_EMERG "[ERROR]zpl_rewrite - filp->f_mapping NULL\n");
-        return 1;
+    if (filp->f_mapping != NULL) {
+        if (filp->f_mapping->host != NULL)
+            ip = filp->f_mapping->host;
+    }
+    else if (filp->f_inode != NULL){
+        ip = filp->f_inode;
     }
 
-    if (filp->f_mapping->host == NULL) {
-        printk(KERN_EMERG "[ERROR]zpl_rewrite - filp->f_mapping->host NULL\n");
+    if (ip == NULL) {
+        printk(KERN_EMERG "[ERROR]zpl_rewrite - inode NULL\n");
         return 1;
-    }
-
-    zp = ITOZ(filp->f_mapping->host);
-    if (blksz)
-        len = blksz;
-    else {
-        dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-        len = dn->dn_datablksz;
     }
 
     buf = kzalloc(sizeof(char) * len, GFP_KERNEL);
@@ -832,7 +825,7 @@ zpl_rewrite(struct file *filp, loff_t start, loff_t end, uint32_t blksz)
         return 1;
     }
 
-    open = zpl_open(filp->f_mapping->host, filp);
+    open = zpl_open(ip, filp);
     if (open < 0) {
         printk(KERN_EMERG "[ERROR]zpl_rewrite - zpl_open %d\n", open);
         kzfree(buf);
@@ -868,7 +861,7 @@ zpl_rewrite(struct file *filp, loff_t start, loff_t end, uint32_t blksz)
     }
 
     kzfree(buf);
-    open = zpl_release(filp->f_mapping->host, filp);
+    open = zpl_release(ip, filp);
     if (open < 0) {
         printk(KERN_EMERG "[ERROR]zpl_rewrite - zpl_release %d\n", open);
         return 1;
