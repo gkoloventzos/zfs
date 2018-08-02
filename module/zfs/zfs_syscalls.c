@@ -374,7 +374,7 @@ static void change_medium(void)
     if (n_end != n_start)
         n_end = INT64_MAX;
 
-    zfs_media_add_blkid(tree_entry->list_write_rot, n_start, n_end, available_media[n_where].bit, 1);
+    zfs_media_add_blkid(tree_entry->list_write_rot, n_start, n_end, available_media[n_where].bit, 0);
 
     if (tree_entry->filp != NULL)
         zpl_rewrite(tree_entry->filp, n_start, n_end, tree_entry->dn_datablksz);
