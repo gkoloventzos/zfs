@@ -453,13 +453,13 @@ zpl_read_common(struct inode *ip, const char *buf, size_t len, loff_t *ppos,
 }
 
 static ssize_t
-re_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
+re_read(struct file *filp, struct inode *ip, char __user *buf, size_t len, loff_t *ppos)
 {
     cred_t *cr = CRED();
     ssize_t read;
 
     crhold(cr);
-    read = zpl_read_common(filp->f_mapping->host, buf, len, ppos,
+    read = zpl_read_common(ip, buf, len, ppos,
        UIO_USERSPACE, filp->f_flags, cr, NULL, true);
     crfree(cr);
 
@@ -507,6 +507,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     if (read > 0 && dn->cadmus != NULL) {
         dn->cadmus->dn_datablksz = dn->dn_datablksz;
         dn->cadmus->filp = filp;
+        dn->cadmus->ip = filp->f_mapping->host;
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->InsNode = dn->cadmus;
@@ -580,6 +581,7 @@ zpl_iter_read(struct kiocb *kiocb, struct iov_iter *to)
 	ret = zpl_iter_read_common(kiocb, to->iov, to->nr_segs,
 	    iov_iter_count(to), seg, to->iov_offset);
 	if (ret > 0 && dn->cadmus != NULL) {
+        dn->cadmus->ip = kiocb->ki_filp->f_mapping->host;
         dn->cadmus->dn_datablksz = dn->dn_datablksz;
         dn->cadmus->filp = kiocb->ki_filp;
 		iov_iter_advance(to, ret);
@@ -746,6 +748,7 @@ err:
     if (wrote > 0 && InsNode != NULL) {
         dn->cadmus->dn_datablksz = dn->dn_datablksz;
         dn->cadmus->filp = filp;
+        dn->cadmus->ip = filp->f_mapping->host;
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->InsNode = InsNode;
@@ -768,18 +771,13 @@ err:
 }
 
 static ssize_t
-re_write(struct file *filp, const char *buf, size_t len, loff_t *ppos)
+re_write(struct file *filp, struct inode *ip, const char *buf, size_t len, loff_t *ppos)
 {
 	cred_t *cr = CRED();
 	ssize_t wrote;
-    dnode_t *dn;
-    znode_t     *zp = ITOZ(filp->f_mapping->host);
 
     crhold(cr);
-
-    dn = DB_DNODE((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
-
-	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
+	wrote = zpl_write_common(ip, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr, true, -5);
 	crfree(cr);
 
@@ -787,12 +785,10 @@ re_write(struct file *filp, const char *buf, size_t len, loff_t *ppos)
 }
 
 int
-zpl_rewrite(struct file *filp, loff_t start, loff_t end, size_t len)
+zpl_rewrite(struct file *filp, struct inode *ip, loff_t start, loff_t end, size_t len)
 {
     ssize_t reread = 0;
     ssize_t rewrite = 0;
-    int open;
-    struct inode *ip = NULL;
     loff_t pos = 0;
     loff_t start_pos = 0;
     loff_t npos = 0;
@@ -804,29 +800,9 @@ zpl_rewrite(struct file *filp, loff_t start, loff_t end, size_t len)
         return 1;
     }
 
-    if (filp->f_mapping != NULL) {
-        if (filp->f_mapping->host != NULL)
-            ip = filp->f_mapping->host;
-    }
-    else if (filp->f_inode != NULL){
-        ip = filp->f_inode;
-    }
-
-    if (ip == NULL) {
-        printk(KERN_EMERG "[ERROR]zpl_rewrite - inode NULL\n");
-        return 1;
-    }
-
     buf = kzalloc(sizeof(char) * len, GFP_KERNEL);
     if (buf == NULL) {
         printk(KERN_EMERG "[ERROR]zpl_rewrite - Cannot allocate buf\n");
-        return 1;
-    }
-
-    open = zpl_open(ip, filp);
-    if (open < 0) {
-        printk(KERN_EMERG "[ERROR]zpl_rewrite - zpl_open %d\n", open);
-        kzfree(buf);
         return 1;
     }
 
@@ -834,9 +810,9 @@ zpl_rewrite(struct file *filp, loff_t start, loff_t end, size_t len)
     end_bz = (end * len) - 1;
 
     for(;;) {
-        reread = re_read(filp, buf, len, &pos);
+        reread = re_read(filp, ip, buf, len, &pos);
         if (reread > 0) {
-            rewrite = re_write(filp, buf, reread, &npos);
+            rewrite = re_write(filp, ip, buf, reread, &npos);
             if (reread != rewrite || npos >= end_bz) {
                 printk(KERN_EMERG "[ZPL_REWRITE] start_pos %lld npos %lld reread %zd rewrite %zd end_bz %lld start %lld end %lld len %ld\n",
                         start_pos, npos, reread, rewrite, end_bz, start, end, len);
@@ -853,18 +829,12 @@ zpl_rewrite(struct file *filp, loff_t start, loff_t end, size_t len)
                     start_pos, npos, reread, rewrite, end_bz, start, end, len);
             break;
         }
-        printk(KERN_EMERG "[ZPL_REWRITE]start_pos %lld npos %lld reread %zd rewrite %zd end_bz %lld start %lld end %lld len %ld\n",
+        printk(KERN_EMERG "[ZPL_REWRITE2]start_pos %lld npos %lld reread %zd rewrite %zd end_bz %lld start %lld end %lld len %ld\n",
                 start_pos, npos, reread, rewrite, end_bz, start, end, len);
         break;
     }
 
     kzfree(buf);
-    open = zpl_release(ip, filp);
-    if (open < 0) {
-        printk(KERN_EMERG "[ERROR]zpl_rewrite - zpl_release %d\n", open);
-        return 1;
-    }
-
     return 0;
 }
 
@@ -917,6 +887,7 @@ zpl_iter_write(struct kiocb *kiocb, struct iov_iter *from)
 		iov_iter_advance(from, ret);
         dn->cadmus->dn_datablksz = dn->dn_datablksz;
         dn->cadmus->filp = kiocb->ki_filp;
+        dn->cadmus->ip = kiocb->ki_filp->f_mapping->host;
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL && dn->cadmus != NULL) {
             dn->cadmus->dn_datablksz = dn->dn_datablksz;
@@ -1062,6 +1033,7 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
     if (kdata != NULL && dn->cadmus != NULL) {
         dn->cadmus->dn_datablksz = dn->dn_datablksz;
         dn->cadmus->filp = filp;
+        dn->cadmus->ip = ip;
         kdata->InsNode = dn->cadmus;
         kdata->filp = filp;
         kdata->type = HET_MMAP;
@@ -1147,6 +1119,7 @@ zpl_readpage(struct file *filp, struct page *pp)
         if (kdata != NULL && dn->cadmus != NULL) {
             dn->cadmus->dn_datablksz = dn->dn_datablksz;
             dn->cadmus->filp = filp;
+            dn->cadmus->ip = ip;
             kdata->InsNode = dn->cadmus;
             kdata->filp = filp;
 	        kdata->size = i_size_read(d_inode(file_dentry(filp)));

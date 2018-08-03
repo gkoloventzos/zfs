@@ -96,6 +96,7 @@ struct data {
     struct rw_semaphore read_sem;
     struct rw_semaphore write_sem;
     struct file *filp;      //Should NEVER be NULL - rename may cause issues
+    struct inode *ip;
     struct rb_node node;
 };
 
