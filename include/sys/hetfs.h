@@ -86,7 +86,6 @@ struct data {
     int8_t read_seq;
     int8_t write_seq;
 	uint32_t dn_datablksz;		/* in bytes */
-    uint8_t dn_datablkshift;
     unsigned long long int deleted;
     struct rb_root *read_reqs;
     struct rb_root *write_reqs;
@@ -96,8 +95,7 @@ struct data {
     struct list_head *list_read_rot;
     struct rw_semaphore read_sem;
     struct rw_semaphore write_sem;
-    struct dentry *dentry;  //Mainly never NULL
-    struct file *filp;      //It can be NULL in case of rename
+    struct file *filp;      //Should NEVER be NULL - rename may cause issues
     struct rb_node node;
 };
 

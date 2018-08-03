@@ -165,7 +165,6 @@ void print_tree(int flag) {
     struct data *entry;
     struct analyze_request *posh;
     int all_nodes, all_requests, requests;
-	char *name;
 	int stop = 0;
 
     all_nodes = all_requests = requests = 0;
@@ -175,22 +174,16 @@ void print_tree(int flag) {
         printk(KERN_EMERG "[ERROR] __exact empty root\n");
         return;
     }
-    name = kzalloc(PATH_MAX+NAME_MAX * sizeof(char),GFP_KERNEL);
-    if (name == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
-        return;
-    }
     for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
         stop = 0;
         ++all_nodes;
         entry = rb_entry(node, struct data, node);
-        if (entry->dentry == NULL) {
-            printk(KERN_EMERG "[HETFS] Error one dentry NULL\n");
+        if (entry->file == NULL) {
+            printk(KERN_EMERG "[HETFS] Error name NULL\n");
             continue;
         }
-        fullname(entry->dentry, name, &stop);
 
-        printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", name, entry->size, entry->dn_datablksz);
+        printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", entry->file, entry->size, entry->dn_datablksz);
         if (flag) {
             if (!RB_EMPTY_ROOT(entry->read_reqs) && flag)
                 printk(KERN_EMERG "[HETFS] READ req:\n");
@@ -216,13 +209,11 @@ void print_tree(int flag) {
                 printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
             }
         }
-        memset(name, 0, PATH_MAX+NAME_MAX);
     }
     if (flag)
         printk(KERN_EMERG "[HETFS]Tree Nodes:%d, requests:%d\n", all_nodes, all_requests);
     else
         printk(KERN_EMERG "[HETFS]Tree Nodes:%d\n", all_nodes);
-    kzfree(name);
     up_read(&tree_sem);
 }
 

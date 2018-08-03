@@ -77,7 +77,7 @@ int init_tree(void)
         return 0;
 }
 
-int init_data(struct data *InsNode, struct dentry *dentry)
+int init_data(struct data *InsNode)
 {
     InsNode->read_reqs = kmem_zalloc(sizeof(struct rb_root), GFP_KERNEL);
     if (InsNode->read_reqs == NULL) {
@@ -134,7 +134,6 @@ int init_data(struct data *InsNode, struct dentry *dentry)
     InsNode->write_all_file = 0;
     InsNode->deleted = 0;
     InsNode->dn_datablksz = 0;
-    InsNode->dn_datablkshift = 0;
     init_rwsem(&(InsNode->read_sem));
     init_rwsem(&(InsNode->write_sem));
     return 0;
@@ -218,7 +217,7 @@ struct data *tree_insearch(struct dentry *dentry, char *media)
     if (OutNode == NULL || InsNode == NULL)
         return NULL;
     if (OutNode == InsNode)
-        init_data(OutNode, dentry);
+        init_data(OutNode);
     else {
         kzfree(InsNode);
     }
@@ -508,7 +507,6 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     if (read > 0 && dn->cadmus != NULL) {
         dn->cadmus->dn_datablksz = dn->dn_datablksz;
         dn->cadmus->filp = filp;
-        dn->cadmus->dentry = file_dentry(filp);
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->InsNode = dn->cadmus;
@@ -582,13 +580,11 @@ zpl_iter_read(struct kiocb *kiocb, struct iov_iter *to)
 	ret = zpl_iter_read_common(kiocb, to->iov, to->nr_segs,
 	    iov_iter_count(to), seg, to->iov_offset);
 	if (ret > 0 && dn->cadmus != NULL) {
-        dn->cadmus->dn_datablkshift = dn->dn_datablkshift;
+        dn->cadmus->dn_datablksz = dn->dn_datablksz;
+        dn->cadmus->filp = kiocb->ki_filp;
 		iov_iter_advance(to, ret);
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL && dn->cadmus != NULL) {
-            dn->cadmus->dn_datablksz = dn->dn_datablksz;
-            dn->cadmus->filp = kiocb->ki_filp;
-            dn->cadmus->dentry = file_dentry(kiocb->ki_filp);
             kdata->InsNode = dn->cadmus;
             kdata->filp = kiocb->ki_filp;
             kdata->dentry = file_dentry(kiocb->ki_filp);
@@ -719,7 +715,6 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     if (dn->cadmus != NULL) {
         InsNode = dn->cadmus;
         down_write(&(InsNode->write_sem));
-        InsNode->dentry = file_dentry(filp);
         if (list_empty(InsNode->list_write_rot)) {
             if (strstr(filename, "/log/") != NULL) {
                 zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_HDD, 0);
@@ -751,7 +746,6 @@ err:
     if (wrote > 0 && InsNode != NULL) {
         dn->cadmus->dn_datablksz = dn->dn_datablksz;
         dn->cadmus->filp = filp;
-        dn->cadmus->dentry = file_dentry(filp);
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL) {
             kdata->InsNode = InsNode;
@@ -923,13 +917,11 @@ zpl_iter_write(struct kiocb *kiocb, struct iov_iter *from)
 		iov_iter_advance(from, ret);
         dn->cadmus->dn_datablksz = dn->dn_datablksz;
         dn->cadmus->filp = kiocb->ki_filp;
-        dn->cadmus->dentry = file_dentry(kiocb->ki_filp);
         kdata = kzalloc(sizeof(struct kdata), GFP_KERNEL);
         if (kdata != NULL && dn->cadmus != NULL) {
             dn->cadmus->dn_datablksz = dn->dn_datablksz;
             kdata->InsNode = dn->cadmus;
             kdata->filp = kiocb->ki_filp;
-            kdata->dentry = file_dentry(kiocb->ki_filp);
             kdata->type = HET_WRITE;
             kdata->offset = start_ppos;
             kdata->length = ret;
@@ -1070,10 +1062,8 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
     if (kdata != NULL && dn->cadmus != NULL) {
         dn->cadmus->dn_datablksz = dn->dn_datablksz;
         dn->cadmus->filp = filp;
-        dn->cadmus->dentry = file_dentry(filp);
         kdata->InsNode = dn->cadmus;
         kdata->filp = filp;
-        kdata->dentry = file_dentry(filp);
         kdata->type = HET_MMAP;
 	    kdata->size = i_size_read(ip);
         kdata->offset = vma->vm_pgoff << PAGE_SHIFT;
@@ -1157,10 +1147,8 @@ zpl_readpage(struct file *filp, struct page *pp)
         if (kdata != NULL && dn->cadmus != NULL) {
             dn->cadmus->dn_datablksz = dn->dn_datablksz;
             dn->cadmus->filp = filp;
-            dn->cadmus->dentry = file_dentry(filp);
             kdata->InsNode = dn->cadmus;
             kdata->filp = filp;
-            kdata->dentry = file_dentry(filp);
 	        kdata->size = i_size_read(d_inode(file_dentry(filp)));
             kdata->type = HET_RMAP;
             kdata->offset = io_off;
@@ -1612,13 +1600,10 @@ int add_request(void *data)
     struct rb_node *next;
     struct rw_semaphore *sem;
     struct kdata *kdata = (struct kdata *)data;
-    struct dentry *dentry = kdata->dentry;
     uint64_t nblks;
     uint64_t blkid = kdata->blkid;
     uint64_t last_blkid = kdata->last_blkid;
     int type = kdata->type;
-    long long offset = kdata->offset;
-    long len = kdata->length;
 //    unsigned long long int time = kdata->time;
     struct data *InsNode = kdata->InsNode;
     int i = 0;
@@ -1626,18 +1611,6 @@ int add_request(void *data)
     a_r = NULL;
     next = NULL;
 
-    if (dentry == NULL) {
-        printk(KERN_EMERG "[ERROR] either dentry %p is NULL\n", dentry);
-        return 1;
-    }
-
-    if (d_really_is_negative(dentry)) {
-        printk(KERN_EMERG "[ERROR] dentry is negative offset %lld len %ld\n", offset, len);
-        return 1;
-    }
-
-    if (InsNode == NULL)
-        InsNode = tree_insearch(dentry, NULL);
     if (InsNode == NULL)
         return 1;
 
@@ -1659,8 +1632,6 @@ int add_request(void *data)
     else {
         general = InsNode->write_reqs;
         sem = &(InsNode->write_sem);
-        if (dentry != NULL && !d_really_is_negative(dentry) && d_inode(dentry) != NULL)
-            InsNode->size = i_size_read(d_inode(dentry));
     }
 //    InsNode->filp = kdata->filp;
 //    InsNode->dentry = dentry;
@@ -1937,7 +1908,7 @@ struct rb_node *rename_node(unsigned char *output, unsigned char *output1, struc
     if (node1 == NULL) {
         memcpy(InsNode->file, output1, PATH_MAX+NAME_MAX);
         InsNode->filp = NULL;
-        InsNode->dentry = dentry;
+//        InsNode->dentry = dentry;
         rb_insert(hetfs_tree, InsNode);
     }
     else {
