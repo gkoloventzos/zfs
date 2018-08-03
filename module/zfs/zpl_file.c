@@ -615,11 +615,7 @@ zpl_aio_read(struct kiocb *kiocb, const struct iovec *iovp,
     if (filename != NULL) {
         fullname(file_dentry(kiocb->ki_filp), filename, &stop);
         tree_insearch(file_dentry(kiocb->ki_filp), NULL);
-//        path = dentry_path_raw(kiocb->ki_filp->f_path.dentry, filename, PATH_MAX+NAME_MAX);
-        printk(KERN_EMERG "[ZPL_AIO_READ] one name %s \n", filename);
         kzfree(filename);
-    } else {
-        printk(KERN_EMERG "[ZPL_AIO_READ] one\n");
     }
 	return (zpl_iter_read_common(kiocb, iovp, nr_segs, kiocb->ki_nbytes,
 	    UIO_USERSPACE, 0));
@@ -814,8 +810,10 @@ zpl_rewrite(struct file *filp, struct inode *ip, loff_t start, loff_t end, size_
         if (reread > 0) {
             rewrite = re_write(filp, ip, buf, reread, &npos);
             if (reread != rewrite || npos >= end_bz) {
-                printk(KERN_EMERG "[ZPL_REWRITE] start_pos %lld npos %lld reread %zd rewrite %zd end_bz %lld start %lld end %lld len %ld\n",
-                        start_pos, npos, reread, rewrite, end_bz, start, end, len);
+                printk(KERN_EMERG "[ZPL_REWRITE] start_pos %lld npos %lld \
+                        reread %zd rewrite %zd end_bz %lld start %lld end %lld \
+                        len %ld\n", start_pos, npos, reread, rewrite, end_bz, 
+                        start, end, len);
                 break;
             }
             start_pos += reread;
@@ -825,11 +823,14 @@ zpl_rewrite(struct file *filp, struct inode *ip, loff_t start, loff_t end, size_
             continue;
         }
         else if (reread < 0){
-            printk(KERN_EMERG "[ERROR]ZPL_REWRITEstart_pos %lld npos %lld reread %zd rewrite %zd end_bz %lld start %lld end %lld len %ld\n",
-                    start_pos, npos, reread, rewrite, end_bz, start, end, len);
+            printk(KERN_EMERG "[ERROR]ZPL_REWRITE start_pos %lld npos %lld \
+                    reread %zd rewrite %zd end_bz %lld start %lld end %lld \
+                    len %ld\n", start_pos, npos, reread, rewrite, end_bz, start\
+                    , end, len);
             break;
         }
-        printk(KERN_EMERG "[ZPL_REWRITE2]start_pos %lld npos %lld reread %zd rewrite %zd end_bz %lld start %lld end %lld len %ld\n",
+        printk(KERN_EMERG "[ZPL_REWRITE2]start_pos %lld npos %lld reread %zd \
+                rewrite %zd end_bz %lld start %lld end %lld len %ld\n", 
                 start_pos, npos, reread, rewrite, end_bz, start, end, len);
         break;
     }
@@ -1464,46 +1465,6 @@ const struct file_operations zpl_dir_file_operations = {
 #endif
 };
 
-/*void data_analyze(struct data* InsNode)
-{
-    struct list_head *pos, *n;
-    struct analyze_request *areq;
-    loff_t part, half;
-    int mid, all = 0;
-    half = InsNode->size >> 1;
-    list_for_each_safe(pos, n, InsNode->read_reqs) {
-        areq = list_entry(pos, struct analyze_request, list);
-        part = areq->end_offset - areq->start_offset;
-        InsNode->read_all_file++;
-        if (part == InsNode->size)
-            all++;
-        else if (part >= half) {
-            printk(KERN_EMERG "[HETFS] This part is a big read start %lld end %lld\n",
-                    areq->start_offset, areq->end_offset);
-        }
-        list_del(pos);
-    }
-    mid = InsNode->read_all_file >> 1;
-    if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid)))
-        printk(KERN_EMERG "[HETFS] It was read sequentially\n");
-    all = 0;
-    list_for_each_safe(pos, n, InsNode->write_reqs) {
-        areq = list_entry(pos, struct analyze_request, list);
-        part = areq->end_offset - areq->start_offset;
-        InsNode->write_all_file++;
-        if (part == InsNode->size)
-            all++;
-        else if (part >= half) {
-            printk(KERN_EMERG "[HETFS] This part is a big write start %lld end %lld\n",
-                    areq->start_offset, areq->end_offset);
-        }
-        list_del(pos);
-    }
-    mid = InsNode->write_all_file >> 1;
-    if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid)))
-        printk(KERN_EMERG "[HETFS] It was write sequentially\n");
-}*/
-
 int delete_request(struct dentry *dentry, char *file_id, loff_t size)
 {
     struct timespec arrival_time;
@@ -1606,8 +1567,6 @@ int add_request(void *data)
         general = InsNode->write_reqs;
         sem = &(InsNode->write_sem);
     }
-//    InsNode->filp = kdata->filp;
-//    InsNode->dentry = dentry;
 
     nblks = last_blkid - blkid;
     down_write(sem);
