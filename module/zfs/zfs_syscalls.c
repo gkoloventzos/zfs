@@ -165,7 +165,6 @@ void print_tree(int flag) {
     struct data *entry;
     struct analyze_request *posh;
     int all_nodes, all_requests, requests;
-	int stop = 0;
 
     all_nodes = all_requests = requests = 0;
 
@@ -175,7 +174,6 @@ void print_tree(int flag) {
         return;
     }
     for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
-        stop = 0;
         ++all_nodes;
         entry = rb_entry(node, struct data, node);
         if (entry->file == NULL) {
