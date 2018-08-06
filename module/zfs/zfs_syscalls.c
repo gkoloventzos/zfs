@@ -160,6 +160,42 @@ void print_one_file(char *name) {
 //  analyze(entry);
 }
 
+void print_name_region(char *name) {
+    struct rb_node *node, *nh;
+    struct data *entry;
+    struct analyze_request *posh;
+
+    down_read(&tree_sem);
+    if (hetfs_tree == NULL || RB_EMPTY_ROOT(hetfs_tree)) {
+        printk(KERN_EMERG "[ERROR] __exact empty root\n");
+        return;
+    }
+    for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
+        entry = rb_entry(node, struct data, node);
+        if (entry->file == NULL || strstr(entry->file, name) == NULL)
+            continue;
+
+        printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", entry->file, entry->size, entry->dn_datablksz);
+        if (!RB_EMPTY_ROOT(entry->read_reqs))
+            printk(KERN_EMERG "[HETFS] READ req:\n");
+        list_for_each_entry_rb(posh, nh, entry->read_reqs)
+            printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+        if (!RB_EMPTY_ROOT(entry->write_reqs))
+            printk(KERN_EMERG "[HETFS] WRITE req:\n");
+        list_for_each_entry_rb(posh, nh, entry->write_reqs)
+            printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+        if (!RB_EMPTY_ROOT(entry->mmap_reqs))
+            printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
+        list_for_each_entry_rb(posh, nh, entry->mmap_reqs)
+            printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+        if (!RB_EMPTY_ROOT(entry->rmap_reqs))
+            printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
+        list_for_each_entry_rb(posh, nh, entry->rmap_reqs)
+            printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+    }
+    up_read(&tree_sem);
+}
+
 void print_tree(int flag) {
     struct rb_node *node, *nh;
     struct data *entry;
@@ -304,6 +340,11 @@ void check_list(char *name) {
 static void print_file(void)
 {
     print_one_file(only_name);
+}
+
+static void print_region(void)
+{
+    print_name_region(only_name);
 }
 
 static void print_nodes(void)
@@ -689,6 +730,7 @@ struct zfs_syscalls available_syscalls[] = {
 	{ "all_write_tree_free",	    all_write_tree_free	},
 	{ "all_list_free",	    all_list_free	},
 	{ "analyze_only",	    analyze_only	},
+	{ "print_region",	    print_region	},
 };
 
 static void run_syscall(struct zfs_syscalls *syscall)
