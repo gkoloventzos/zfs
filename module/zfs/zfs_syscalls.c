@@ -170,7 +170,7 @@ void print_tree(int flag) {
     all_nodes = all_requests = requests = 0;
 
     down_read(&tree_sem);
-    if (RB_EMPTY_ROOT(hetfs_tree) || hetfs_tree == NULL) {
+    if (hetfs_tree == NULL || RB_EMPTY_ROOT(hetfs_tree)) {
         printk(KERN_EMERG "[ERROR] __exact empty root\n");
         return;
     }
