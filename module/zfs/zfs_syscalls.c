@@ -123,7 +123,7 @@ void print_one_file(char *name) {
     }
 
     down_read(&tree_sem);
-    if (RB_EMPTY_ROOT(hetfs_tree)) {
+    if (hetfs_tree == NULL || RB_EMPTY_ROOT(hetfs_tree)) {
         printk(KERN_EMERG "[ERR-POF]Empty root\n");
         return;
     }
@@ -389,7 +389,7 @@ static void change_medium(void)
     }
 
     down_write(&tree_sem);
-    if (RB_EMPTY_ROOT(hetfs_tree)) {
+    if (hetfs_tree == NULL || RB_EMPTY_ROOT(hetfs_tree)) {
         printk(KERN_EMERG "[ERROR] Empty root\n");
         return;
     }
