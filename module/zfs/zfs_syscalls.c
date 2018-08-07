@@ -23,8 +23,6 @@
 extern struct rb_root *hetfs_tree;
 extern int media_tree;
 extern int only_one;
-//extern int bla;
-//extern int media_list;
 extern char *only_name;
 char *number;
 char *start;
@@ -306,36 +304,6 @@ void print_tree(int flag) {
     }
     return general;
 }*/
-
-
-void check_list(char *name) {
-    struct data *entry;
-
-    if (name == NULL) {
-        printk(KERN_EMERG "[ERROR] Empty name\n");
-        return;
-    }
-
-    down_read(&tree_sem);
-    if (RB_EMPTY_ROOT(hetfs_tree)) {
-        printk(KERN_EMERG "[ERROR] Empty root\n");
-        return;
-    }
-    entry = rb_search(hetfs_tree, name);
-    up_read(&tree_sem);
-    if (entry == NULL) {
-        printk(KERN_EMERG "[ERROR] No file %s in tree\n", name);
-        return;
-    }
-/*    down_read(&entry->write_sem);
-    entry->write_reqs = list_stuff(entry->write_reqs, name, "write");
-    up_read(&entry->write_sem);
-    down_read(&entry->read_sem);
-    entry->read_reqs = list_stuff(entry->read_reqs, name, "read");
-    entry->mmap_reqs = list_stuff(entry->mmap_reqs, name, "mmap");
-    entry->rmap_reqs = list_stuff(entry->rmap_reqs, name, "rmap");
-    up_read(&entry->read_sem);*/
-}
 
 static void print_file(void)
 {
@@ -776,7 +744,7 @@ static ssize_t __zfs_syscall_write(struct file *file, const char __user *buffer,
     memset(procfs_buffer, '\0', (PATH_MAX+NAME_MAX+40)*sizeof(char));
     procfs_buffer[strlen(buffer)+1] = ' ';
 
-    if ( copy_from_user(procfs_buffer, buffer, strlen(buffer)) ) {
+    if (copy_from_user(procfs_buffer, buffer, strlen(buffer))) {
             return -EFAULT;
     }
 
