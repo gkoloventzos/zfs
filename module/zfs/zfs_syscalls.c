@@ -584,10 +584,12 @@ static void analyze_tree(void)
 
 void empty_tree(struct rb_root *tree) {
     struct rb_node *node;
+    struct analyze_request *ar;
     node = rb_first(tree);
     while (node != NULL) {
+        ar = rb_entry_safe(node, struct analyze_request, node);
         rb_erase(node, tree);
-        kzfree(node);
+        kzfree(ar);
         node = rb_first(tree);
     }
 }
