@@ -217,28 +217,28 @@ void print_tree(int flag) {
 
         printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", entry->file, entry->size, entry->dn_datablksz);
         if (flag) {
-            if (!RB_EMPTY_ROOT(entry->read_reqs) && flag)
+            if (rb_first(entry->read_reqs) != NULL)
                 printk(KERN_EMERG "[HETFS] READ req:\n");
             list_for_each_entry_rb(posh, nh, entry->read_reqs) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+                printk(KERN_EMERG "[HETFS] read file %s blkid: %lld times: %d\n", entry->file, posh->blkid, posh->times);
             }
-            if (!RB_EMPTY_ROOT(entry->write_reqs))
+            if (rb_first(entry->write_reqs) != NULL)
                 printk(KERN_EMERG "[HETFS] WRITE req:\n");
             list_for_each_entry_rb(posh, nh, entry->write_reqs) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+                printk(KERN_EMERG "[HETFS] write file %s blkid: %lld times: %d\n", entry->file, posh->blkid, posh->times);
             }
-            if (!RB_EMPTY_ROOT(entry->mmap_reqs))
+            if (rb_first(entry->mmap_reqs) != NULL)
                 printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
             list_for_each_entry_rb(posh, nh, entry->mmap_reqs) {
-                printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+                printk(KERN_EMERG "[HETFS] mmap file %s blkid: %lld times: %d\n", entry->file, posh->blkid, posh->times);
             }
-            if (!RB_EMPTY_ROOT(entry->rmap_reqs))
+            if (rb_first(entry->rmap_reqs) != NULL)
                 printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
             list_for_each_entry_rb(posh, nh, entry->rmap_reqs) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+                printk(KERN_EMERG "[HETFS] read mmap file %s blkid: %lld times: %d\n", entry->file, posh->blkid, posh->times);
             }
         }
     }
