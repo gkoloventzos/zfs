@@ -1592,10 +1592,10 @@ int add_request(void *data)
         a_r->blkid = blkid + i;
         a_r->times = 1;
         ret = rb_blkid_insert(general, a_r);
-        if (ret == NULL) {
+/*        if (ret == NULL) {
             ret = a_r;
             a_r = NULL;
-        }
+        }*/
     }
     up_write(sem);
 
@@ -1622,7 +1622,8 @@ struct analyze_request *rb_blkid_insert(struct rb_root *root, struct analyze_req
             new = &((*new)->rb_right);
         else {
             this->times++;
-            return NULL;
+            kzfree(data);
+            return this;
         }
     }
 
