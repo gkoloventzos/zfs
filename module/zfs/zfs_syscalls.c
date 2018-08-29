@@ -109,6 +109,36 @@ start:
     return new;
 }*/
 
+static void print_media(void)
+{
+    struct data *tree_entry = NULL;
+
+    tree_entry = rb_search(hetfs_tree, only_name);
+    if (tree_entry == NULL) {
+        printk(KERN_EMERG "[ERROR] No node in tree\n");
+        return;
+    }
+    else {
+        printk(KERN_EMERG "[PRINT] File %s InsNode %p\n", only_name, tree_entry);
+    }
+
+    if (!list_empty(tree_entry->list_write_rot)) {
+        printk(KERN_EMERG "[PRINT] File %s write list rotor\n", only_name);
+        list_print(tree_entry->list_write_rot);
+    }
+    else {
+        printk(KERN_EMERG "[PRINT] File %s write list rotor is empty\n", only_name);
+    }
+
+    if (!list_empty(tree_entry->list_read_rot)) {
+        printk(KERN_EMERG "[PRINT] File %s read list rotor\n", only_name);
+        list_print(tree_entry->list_read_rot);
+    }
+    else {
+        printk(KERN_EMERG "[PRINT] File %s read list rotor is empty\n", only_name);
+    }
+    return;
+}
 
 void print_one_file(char *name) {
     struct rb_node *nh;
@@ -133,6 +163,7 @@ void print_one_file(char *name) {
     }
 
     printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", name, entry->size, entry->dn_datablksz);
+    print_media();
     down_read(&entry->read_sem);
     if (!RB_EMPTY_ROOT(entry->read_reqs))
         printk(KERN_EMERG "[HETFS] READ req:\n");
@@ -391,38 +422,6 @@ void list_print(struct list_head *dn) {
         else
             printk(KERN_EMERG "[PRINT]File %s from %lld to %lld with rot %d\n", only_name, loop->m_start, loop->m_end, loop->m_type);
     }
-}
-
-static void print_media(void)
-{
-    struct data *tree_entry = NULL;
-
-    tree_entry = rb_search(hetfs_tree, only_name);
-    if (tree_entry == NULL) {
-        printk(KERN_EMERG "[ERROR] No node in tree\n");
-        return;
-    }
-    else {
-        printk(KERN_EMERG "[PRINT] File %s InsNode %p\n", only_name, tree_entry);
-    }
-
-    if (!list_empty(tree_entry->list_write_rot)) {
-        printk(KERN_EMERG "[PRINT] File %s write list rotor\n", only_name);
-        list_print(tree_entry->list_write_rot);
-    }
-    else {
-        printk(KERN_EMERG "[PRINT] File %s write list rotor is empty\n", only_name);
-    }
-
-    if (!list_empty(tree_entry->list_read_rot)) {
-        printk(KERN_EMERG "[PRINT] File %s read list rotor\n", only_name);
-        list_print(tree_entry->list_read_rot);
-    }
-    else {
-        printk(KERN_EMERG "[PRINT] File %s read list rotor is empty\n", only_name);
-    }
-
-    return;
 }
 
 /*struct list_head *zip_list(struct list_head *general)
