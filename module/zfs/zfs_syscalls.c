@@ -388,7 +388,7 @@ static void change_medium(void)
     }
 
     down_write(&tree_sem);
-    if (hetfs_tree == NULL || RB_EMPTY_ROOT(hetfs_tree)) {
+    if (hetfs_tree == NULL) {
         printk(KERN_EMERG "[ERROR] Empty root\n");
         return;
     }
