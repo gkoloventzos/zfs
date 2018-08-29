@@ -792,10 +792,10 @@ static const struct file_operations zfs_syscalls_proc_fops = {
 
 static int __init zfs_syscalls_init(void)
 {
-
 	proc_create("zfs_syscalls", 0, NULL, &zfs_syscalls_proc_fops);
 	pr_info("&zfs_syscalls_proc_fops successfully initialized\n");
-	return 0;
+    init_tree();
+    return 0;
 }
 
 void zfs_syscalls_initialize(void)
