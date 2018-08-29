@@ -400,7 +400,7 @@ static void change_medium(void)
         return;
     }
 
-    if (n_end != n_start)
+    if (n_end == n_start)
         n_end = INT64_MAX;
 
     zfs_media_add_blkid(tree_entry->list_write_rot, n_start, n_end, available_media[n_where].bit, 0);
