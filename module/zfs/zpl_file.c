@@ -755,6 +755,7 @@ err:
             kdata->length = wrote;
             kdata->blkid = dbuf_whichblock(dn, 0, start_ppos); 
             kdata->last_blkid = dbuf_whichblock(dn, 0, start_ppos + wrote - 1);
+	        kdata->size = i_size_read(d_inode(file_dentry(filp)));
 //            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"writereq");
         }
@@ -898,6 +899,7 @@ zpl_iter_write(struct kiocb *kiocb, struct iov_iter *from)
             kdata->offset = start_ppos;
             kdata->length = ret;
             kdata->blkid = dbuf_whichblock(dn, 0, start_ppos); 
+	        kdata->size = i_size_read(d_inode(file_dentry(kiocb->ki_filp)));
             kdata->last_blkid = dbuf_whichblock(dn, 0, start_ppos + ret - 1);
 //            kdata->time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
             thread1 = kthread_run(add_request, (void *) kdata,"readreq");
@@ -1565,6 +1567,7 @@ int add_request(void *data)
     }
     else {
         general = InsNode->write_reqs;
+        InsNode->size = kdata->size;
         sem = &(InsNode->write_sem);
     }
 
