@@ -520,7 +520,7 @@ void analyze(struct data* InsNode)
     int min = 0;
     int part = 0;
     if (start == NULL)
-        proportion = 50;
+        proportion = 20;
     else {
         ret = kstrtoint(start, 10, &proportion);
         if (ret) {
