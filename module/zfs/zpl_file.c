@@ -720,7 +720,14 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
                 up_write(&(InsNode->write_sem));
                 goto err;
             }
-            if (strstr(filename, "sample_ssd") != NULL) {
+            if (strstr(filename, ".sst") != NULL) {
+                zfs_media_add_blkid(InsNode->list_write_rot, 0, 250, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
+                rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+            }
+            if (strstr(filename, "openfoam_ssd") != NULL ||
+                    strstr(filename, "mysql_ssd/") != NULL ||
+                    strstr(filename, "ycsb_ssd/") != NULL ||
+                    strstr(filename, "kvm_ssd/") != NULL) {
                 zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
             }
