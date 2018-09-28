@@ -732,6 +732,9 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             }
         }
         up_write(&(InsNode->write_sem));
+/*        if (strstr(filename, "kvm_blocks/") != NULL)
+            dn->cadmus->print = true;*/
+
     }
 
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));

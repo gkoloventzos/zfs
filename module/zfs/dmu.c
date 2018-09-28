@@ -511,10 +511,10 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
                     db->db.db_rot = bla;
                 }
             }
-            if (dn->cadmus->print)
-                printk(KERN_EMERG "[DMU]name %s %s len %llu offset %llu blkid %llu db.rot %d looptype %d\n",
-                    dn->cadmus->file, read?"read":"write",length, offset, blkid, 
-                    db->db.db_rot, bla);
+/*            if (dn->cadmus->print && read)
+                printk(KERN_EMERG "[DMU]name %s %s blkid %llu db.rot %d looptype %d\n",
+                    dn->cadmus->file, read?"read":"write", blkid,
+                    db->db.db_rot, bla);*/
         }
 #endif
 		dbp[i] = &db->db;
