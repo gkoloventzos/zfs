@@ -1571,9 +1571,11 @@ int add_request(void *data)
         sem = &(InsNode->read_sem);
     }
     else if (type == HET_MMAP) {
-        general = InsNode->mmap_reqs;
+        kzfree(kdata);
+        return 0;
+/*        general = InsNode->mmap_reqs;
         InsNode->size = kdata->size;
-        sem = &(InsNode->read_sem);
+        sem = &(InsNode->read_sem);*/
     }
     else {
         general = InsNode->write_reqs;
@@ -1584,7 +1586,7 @@ int add_request(void *data)
     nblks = last_blkid - blkid;
     down_write(sem);
 	for (i = 0; i <= nblks; i++) {
-        if (ret != NULL) {
+/*        if (ret != NULL) {
             next = rb_next(&(ret->node));
             if (next != NULL) {
                 a_r = container_of(next, struct analyze_request, node);
@@ -1594,7 +1596,7 @@ int add_request(void *data)
                     continue;
                 }
             }
-        }
+        }*/
         a_r = kzalloc(sizeof(struct analyze_request), GFP_KERNEL);
         if (a_r == NULL) {
             printk(KERN_EMERG "[ERROR] Cannot allocate request\n");
