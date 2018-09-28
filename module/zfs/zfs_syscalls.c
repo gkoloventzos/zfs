@@ -666,6 +666,8 @@ static void all_list_free(void) {
         entry = rb_entry(node, struct data, node);
         down_write(&entry->read_sem);
         empty_tree(entry->read_reqs);
+        empty_tree(entry->mmap_reqs);
+        empty_tree(entry->rmap_reqs);
         up_write(&entry->read_sem);
         down_write(&entry->write_sem);
         empty_tree(entry->write_reqs);
