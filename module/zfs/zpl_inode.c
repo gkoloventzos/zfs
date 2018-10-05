@@ -32,6 +32,8 @@
 #include <sys/vfs.h>
 #include <sys/zpl.h>
 #include <sys/file.h>
+#include <sys/hetfs.h>
+#include <linux/err.h>
 
 
 static struct dentry *
@@ -263,6 +265,29 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
 
 	crhold(cr);
 	cookie = spl_fstrans_mark();
+/*	name = kcalloc(PATH_MAX+NAME_MAX,sizeof(char),GFP_KERNEL);
+    if (name == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
+    }
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        kzfree(name);
+    }
+    if (name != NULL && output != NULL) {
+        fullname(dentry, name, &stop);
+        tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+        desc.tfm = tfm;
+        desc.flags = 0;
+        sg_init_one(&sg, name, strlen(name));
+        crypto_hash_init(&desc);
+        crypto_hash_update(&desc, &sg, strlen(name));
+        crypto_hash_final(&desc, output);
+        crypto_free_hash(tfm);
+        //printk(KERN_EMERG "[ZPL_UNLINK]Unlink name %s\n", name);
+        kzfree(name);
+        size = d_inode(dentry)->i_size;
+    }*/
 	error = -zfs_remove(dir, dname(dentry), cr, 0);
 
 	/*
@@ -271,6 +296,13 @@ zpl_unlink(struct inode *dir, struct dentry *dentry)
 	 */
 	if (error == 0 && zfsvfs->z_case == ZFS_CASE_INSENSITIVE)
 		d_invalidate(dentry);
+/*    if (error == 0) {
+        //printk(KERN_EMERG "[ERROR]before delete\n");
+        down_write(&tree_sem);
+        delete_node(output, size);
+        //printk(KERN_EMERG "[ERROR]after delete\n");
+        up_write(&tree_sem);
+    }*/
 
 	spl_fstrans_unmark(cookie);
 	crfree(cr);
@@ -409,6 +441,13 @@ zpl_rename2(struct inode *sdip, struct dentry *sdentry,
 	cred_t *cr = CRED();
 	int error;
 	fstrans_cookie_t cookie;
+/*    struct scatterlist sg, sg1;
+    struct crypto_hash *tfm, *tfm1;
+    struct hash_desc desc, desc1;
+    unsigned char *output, *output1;
+    struct rb_node * node;
+	char *name, *name1;
+	int stop = 0;*/
 
 	/* We don't have renameat2(2) support */
 	if (flags)
@@ -416,7 +455,64 @@ zpl_rename2(struct inode *sdip, struct dentry *sdentry,
 
 	crhold(cr);
 	cookie = spl_fstrans_mark();
+/*	name = kzalloc(PATH_MAX+NAME_MAX,GFP_KERNEL);
+    if (name == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
+    }
+	name1 = kzalloc(PATH_MAX+NAME_MAX,GFP_KERNEL);
+    if (name1 == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc mem for name1\n");
+    }
+    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    output1 = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
+    if (output == NULL || output1 == NULL) {
+        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        kzfree(name);
+        kzfree(name1);
+    }
+    if (name != NULL && output != NULL) {
+        fullname(sdentry, name, &stop);
+        tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+        desc.tfm = tfm;
+        desc.flags = 0;
+        sg_init_one(&sg, name, strlen(name));
+        crypto_hash_init(&desc);
+        crypto_hash_update(&desc, &sg, strlen(name));
+        crypto_hash_final(&desc, output);
+        crypto_free_hash(tfm);
+    }*/
 	error = -zfs_rename(sdip, dname(sdentry), tdip, dname(tdentry), cr, 0);
+/*    if (name1 != NULL && output1 != NULL) {
+        stop = 0;
+        if (name == NULL)
+            printk(KERN_EMERG "[ERROR]name NULL WTF\n");
+        if (tdentry == NULL)
+            printk(KERN_EMERG "[ERROR]tdentry NULL WTF\n");
+        //memset(name, 0, PATH_MAX+NAME_MAX);
+        fullname(tdentry, name1, &stop);
+        tfm1 = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
+        desc1.tfm = tfm1;
+        desc1.flags = 0;
+        sg_init_one(&sg1, name1, strlen(name1));
+        crypto_hash_init(&desc1);
+        crypto_hash_update(&desc1, &sg1, strlen(name1));
+        crypto_hash_final(&desc1, output1);
+        crypto_free_hash(tfm1);
+    }
+    if (error >= 0) {
+        down_write(&tree_sem);
+        node = rename_node(output, output1, tdentry, name, name1);
+        up_write(&tree_sem);
+        if (node != NULL)
+            kzfree(node);
+        kzfree(name);
+        kzfree(name1);
+    }
+    if (output != NULL)
+        kzfree(output);
+    if (output1 != NULL)
+        kzfree(output1);*/
+
 	spl_fstrans_unmark(cookie);
 	crfree(cr);
 	ASSERT3S(error, <=, 0);

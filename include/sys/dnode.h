@@ -38,6 +38,8 @@
 #include <sys/multilist.h>
 #include <sys/hetfs.h>
 
+#include <sys/hetfs.h>
+
 #ifdef	__cplusplus
 extern "C" {
 #endif

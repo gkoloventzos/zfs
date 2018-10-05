@@ -352,7 +352,7 @@ skip_open:
 
 	/* Inform the ZIO pipeline that we are non-rotational */
 	v->vdev_nonrot = blk_queue_nonrot(bdev_get_queue(vd->vd_bdev));
-    v->vdev_nonrot_mix = B_FALSE;
+	v->vdev_nonrot_mix = B_FALSE;
 
 	/* Physical volume size in bytes */
 	*psize = bdev_capacity(vd->vd_bdev, v->vdev_wholedisk);
@@ -537,8 +537,14 @@ bio_set_dev(struct bio *bio, struct block_device *bdev)
 #endif /* !HAVE_BIO_SET_DEV */
 
 static inline void
-vdev_submit_bio(struct bio *bio)
+vdev_submit_bio(struct bio *bio, int rw)
 {
+    dio_request_t *dr = NULL;
+    zio_t *zio = NULL;
+/*    char *name = NULL;
+    int stop = 0;
+    char *meta = NULL;
+    blkptr_t * bp = NULL;*/
 #ifdef HAVE_CURRENT_BIO_TAIL
 	struct bio **bio_tail = current->bio_tail;
 	current->bio_tail = NULL;
@@ -547,26 +553,31 @@ vdev_submit_bio(struct bio *bio)
 #else
 	struct bio_list *bio_list = current->bio_list;
 	current->bio_list = NULL;
-    if (rw == -1) {                                                            
-        zio = (zio_t *)bio->bi_private;                                        
-    }                                                                          
-    else {                                                                     
-        dr = (dio_request_t *)bio->bi_private;                                 
-        zio = dr->dr_zio;                                                      
-    }                                                                          
-                                                                           
-    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {                      
-        if (rw == READ) {                                                      
-            if (zio != NULL )                                                  
-                zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;               
-        }                                                                      
-    }                                                                          
-    else {                                                                     
-        if (rw == READ) {                                                      
-            if (zio != NULL)                                                   
-                zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;               
-        }                                                                      
-    }            
+    if (rw == -1) {
+        zio = (zio_t *)bio->bi_private;
+    }
+    else {
+        dr = (dio_request_t *)bio->bi_private;
+        zio = dr->dr_zio;
+    }
+
+    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
+            if (zio != NULL )
+                zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
+    }
+    else {
+            if (zio != NULL)
+                zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
+    }
+/*    if (zio != NULL && zio->io_bp != NULL && BP_GET_LEVEL(zio->io_bp) == 0 &&
+            !DMU_OT_IS_METADATA(BP_GET_TYPE(zio->io_bp)) && zio->io_dn != NULL) {
+            if (zio->io_dn->cadmus != NULL && zio->io_dn->cadmus->print) {
+                printk(KERN_EMERG "[BIO]name %s %s bv_len %u bv_offset %u zio_size %llu zio_lsize %llu zio_offset %llu from %s\n",
+                        zio->io_dn->cadmus->file, rw == READ?"read":"write",bio->bi_io_vec->bv_len,
+                        bio->bi_io_vec->bv_offset, zio->io_size, zio->io_lsize, zio->io_offset,
+                        zio->io_read_rot == METASLAB_ROTOR_VDEV_TYPE_SSD?"METASLAB_ROTOR_VDEV_TYPE_SSD":"METASLAB_ROTOR_VDEV_TYPE_HDD");
+            }
+    }*/
 	vdev_submit_bio_impl(bio);
 	current->bio_list = bio_list;
 #endif

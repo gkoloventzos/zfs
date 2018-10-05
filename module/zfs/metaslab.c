@@ -41,6 +41,7 @@
 #define	GANG_ALLOCATION(flags) \
 	((flags) & (METASLAB_GANG_CHILD | METASLAB_GANG_HEADER))
 
+int get_metaslab_class(metaslab_class_t *mc, int rot);
 /*
  * Metaslab granularity, in bytes. This is roughly similar to what would be
  * referred to as the "stripe size" in traditional RAID arrays. In normal
@@ -3404,21 +3405,16 @@ metaslab_alloc_dva(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 		nrot++;
 	}
 
-    if (rot >= METASLAB_CLASS_ROTORS)
-        rot = METASLAB_CLASS_ROTORS-1;
-    if (rot > -1 && rot < METASLAB_CLASS_ROTORS)
+    if (rot > -1 && rot < METASLAB_CLASS_ROTORS && alloc_class != METASLAB_ROTOR_ALLOC_CLASS_METADATA)
         nrot = rot;
 
 	for (; nrot < METASLAB_CLASS_ROTORS; nrot++)
 		if (mc->mc_rotorv[nrot])
 			break;
 
-    if (nrot >= METASLAB_CLASS_ROTORS)
-        nrot = 0;
-#ifdef _KERNEL
-    if (print && nrot != rot && rot > -1)
-        printk(KERN_EMERG "[METASLAB] nrot %d rot %d size %lld\n", nrot, rot, psize);
-#endif
+    if (nrot >= METASLAB_CLASS_ROTORS) {
+        nrot = get_metaslab_class(mc, METASLAB_ROTOR_VDEV_TYPE_HDD);
+    }
 	/*
 	 * Start at the rotor and loop through all mgs until we find something.
 	 * Note that there's no locking on mc_rotor or mc_aliquot because
@@ -3862,21 +3858,23 @@ metaslab_alloc(spa_t *spa, metaslab_class_t *mc, uint64_t psize, blkptr_t *bp,
 {
 	dva_t *dva = bp->blk_dva;
 	dva_t *hintdva = hintbp->blk_dva;
-	int i, d, error = 0;
+	int d, error = 0;
+	int i;
+	int alloc_class;
     int rot = -1;
-    int alloc_class;
 
 	ASSERT(bp->blk_birth == 0);
 	ASSERT(BP_PHYSICAL_BIRTH(bp) == 0);
 
 	spa_config_enter(spa, SCL_ALLOC, FTAG, RW_READER);
 
-    for (i = 0; i < METASLAB_CLASS_ROTORS; i++)
-        if (mc->mc_rotorv[i] != NULL)
-            goto has_vdev;
+	for (i = 0; i < METASLAB_CLASS_ROTORS; i++)
+		if (mc->mc_rotorv[i] != NULL)
+			goto has_vdev;
 
-    spa_config_exit(spa, SCL_ALLOC, FTAG);
-    return (SET_ERROR(ENOSPC));
+	/* no vdevs in this class */
+	spa_config_exit(spa, SCL_ALLOC, FTAG);
+	return (SET_ERROR(ENOSPC));
 
 has_vdev:
 	ASSERT(ndvas > 0 && ndvas <= spa_max_replication(spa));
@@ -3884,21 +3882,17 @@ has_vdev:
 	ASSERT(hintbp == NULL || ndvas <= BP_GET_NDVAS(hintbp));
 	ASSERT3P(zal, !=, NULL);
 
-    alloc_class = METASLAB_ROTOR_ALLOC_CLASS_DATA;
-    if (DMU_OT_IS_METADATA(BP_GET_TYPE(bp)))
-        alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
-    /* Also include these blocks in metadata (from #5182). */
-    if (BP_GET_LEVEL(bp) > 0)
-        alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
+	alloc_class = METASLAB_ROTOR_ALLOC_CLASS_DATA;
+    if (BP_IS_METADATA(bp))
+		alloc_class = METASLAB_ROTOR_ALLOC_CLASS_METADATA;
+	/* Also include these blocks in metadata (from #5182). */
 
     if (zio != NULL) {
-        print = zio->print;
-        if (zio->io_write_rot > -1) {
+        if (zio->io_write_rot > -1 && !BP_IS_METADATA(bp)) {
             rot = get_metaslab_class(mc, zio->io_write_rot);
         }
-        if (zio->io_dn != NULL && zio->io_dn->dn_write_rot > -1)
-            rot = get_metaslab_class(mc, zio->io_dn->dn_write_rot);
     }
+
 	for (d = 0; d < ndvas; d++) {
 		error = metaslab_alloc_dva(spa, mc, psize, dva, d, hintdva,
 		    txg, flags, zal, alloc_class, rot, print);

@@ -474,10 +474,12 @@ struct zio {
 	void		*io_waiter;
 	kmutex_t	io_lock;
 	kcondvar_t	io_cv;
+//#ifdef CONFIG_HTEFS
     int8_t     io_read_rot;
     int8_t     io_write_rot;
     dnode_t *io_dn;
     bool print;
+//#endif
 
 	/* FMA state */
 	zio_cksum_report_t *io_cksum_report;
@@ -485,6 +487,7 @@ struct zio {
 
 	/* Taskq dispatching state */
 	taskq_ent_t	io_tqent;
+
 };
 
 extern int zio_bookmark_compare(const void *, const void *);

@@ -50,10 +50,10 @@
  * 3 : Equal with the end of the node
  * -1 : when it is after the last node. For partial reads mostly.
  */
-medium_t *
-find_in(struct list_head *head, medium_t *start, bool contin, loff_t posi, int *ret) {
+media_t *
+find_in_blkid(struct list_head *head, media_t *start, bool contin, uint64_t posi, int *ret) {
 
-    medium_t *where, *n, *pos;
+    media_t *where, *n, *pos;
     where = NULL;
     if (start == NULL)
         return NULL;
@@ -101,12 +101,12 @@ find_in(struct list_head *head, medium_t *start, bool contin, loff_t posi, int *
  * If rotating device is same, change the end. Else check next node.
  * In this section remove all the unwanted nodes between start and end.
  * -End*/
-medium_t *
-zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int only)
+media_t *
+zfs_media_add_blkid(struct list_head *dn, uint64_t ppos, uint64_t len, int8_t rot, int only)
 {
     int start, stop;
-    medium_t *new, *loop, *next, *del, *inter;
-    loff_t end = ppos + len;
+    media_t *new, *loop, *next, *del, *inter;
+    uint64_t end = len;
     loop = new = del = next = NULL;
     start = stop = -1;
 
@@ -130,7 +130,7 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int onl
     }
 
     /* Find where the begining of this part is supposed to be added.*/
-    loop = find_in(dn, list_first_entry(dn, typeof(*new), list), false, ppos, &start);
+    loop = find_in_blkid(dn, list_first_entry(dn, typeof(*new), list), false, ppos, &start);
 
     /* Probably on read. Reading 10 first and then 10 last lines.
      * Accessing not sequencial parts of file.
@@ -141,7 +141,7 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int onl
     }
 
     /* Find where the end of this part is supposed to be added.*/
-    del = find_in(dn, loop, true, end, &stop);
+    del = find_in_blkid(dn, loop, true, end, &stop);
     next = loop;
 
     switch(start) {
@@ -266,18 +266,18 @@ zfs_media_add(struct list_head *dn, loff_t ppos, size_t len, int8_t rot, int onl
 }
 
 struct list_head *
-get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend, int *size)
+get_media_storage_blkid(struct list_head *dn, uint64_t ppos, uint64_t pend, int *size)
 {
-    struct medium *nh, *new, *loop, *del, *next, *prev;
+    struct media *nh, *new, *loop, *del, *next, *prev;
     int start, stop;
     struct list_head *ret = NULL;
 
     *size = 0;
-    loop = find_in(dn, list_first_entry(dn, typeof(*new), list), false, ppos, &start);
+    loop = find_in_blkid(dn, list_first_entry(dn, typeof(*new), list), false, ppos, &start);
     if (loop == NULL || start < 0)
         return NULL;
 
-    del = find_in(dn, loop, true, pend, &stop);
+    del = find_in_blkid(dn, loop, true, pend, &stop);
     if (loop == del && start == 0 && stop < 2)
         return NULL;
     ret = kzalloc(sizeof(struct list_head), GFP_KERNEL);
@@ -393,23 +393,6 @@ get_media_storage(struct list_head *dn, loff_t ppos, loff_t pend, int *size)
             list_add_tail(&new->list, ret);
             ++(*size);
             break;
-    }
-    return ret;
-}
-
-int8_t
-get_blkid_medium(struct list_head *dn, uint64_t blkid, bool print)
-{
-    struct media *loop, *nh;
-    uint8_t ret = -1;
-
-    list_for_each_entry_safe(loop, nh, dn, list) {
-        if (blkid >= loop->m_end) {
-            continue;
-        }
-        if (blkid < loop->m_end && blkid >= loop->m_start) {
-            ret = loop->m_type;
-        }
     }
     return ret;
 }

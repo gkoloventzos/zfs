@@ -894,12 +894,22 @@ dbuf_clear_data(dmu_buf_impl_t *db)
 static void
 dbuf_set_data(dmu_buf_impl_t *db, arc_buf_t *buf)
 {
+//    dnode_t *dn;
 	ASSERT(MUTEX_HELD(&db->db_mtx));
 	ASSERT(buf != NULL);
 
 	db->db_buf = buf;
 	ASSERT(buf->b_data != NULL);
 	db->db.db_data = buf->b_data;
+/*#ifdef _KERNEL
+    if (db->db_level == 0 && db->db_dnode_handle->dnh_dnode != NULL) {
+        dn = db->db_dnode_handle->dnh_dnode;
+        if (dn->cadmus != NULL)
+            zfs_media_add(dn->cadmus->list_read_rot,
+                    db->db_blkid*dn->dn_datablkshift, dn->dn_datablkshift,
+                    buf->b_rot, -1);
+    }
+#endif*/
 }
 
 /*
@@ -1623,7 +1633,6 @@ dbuf_dirty(dmu_buf_impl_t *db, dmu_tx_t *tx)
 		drp = &dr->dr_next;
 	if (dr && dr->dr_txg == tx->tx_txg) {
 		DB_DNODE_EXIT(db);
-
 		dbuf_redirty(dr);
 		mutex_exit(&db->db_mtx);
 		return (dr);
@@ -2591,6 +2600,10 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 
 	pio = zio_root(dmu_objset_spa(dn->dn_objset), NULL, NULL,
 	    ZIO_FLAG_CANFAIL);
+#ifdef _KERNEL
+    if (pio->io_dn == NULL)
+        pio->io_dn = dn;
+#endif
 
 	dpa = kmem_zalloc(sizeof (*dpa), KM_SLEEP);
 	ds = dn->dn_objset->os_dsl_dataset;
@@ -2761,6 +2774,7 @@ __dbuf_hold_impl(struct dbuf_hold_impl_data *dh, int8_t *rot)
 	ASSERT3P(DB_DNODE(dh->dh_db), ==, dh->dh_dn);
 	ASSERT3U(dh->dh_db->db_blkid, ==, dh->dh_blkid);
 	ASSERT3U(dh->dh_db->db_level, ==, dh->dh_level);
+    dh->dh_db->db.db_rot = -1;
 	*(dh->dh_dbp) = dh->dh_db;
 
 	return (0);
@@ -3732,12 +3746,17 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	zbookmark_phys_t zb;
 	zio_prop_t zp;
 	zio_t *zio;
+    //int alloc_class, nrot;
 	int wp_flag = 0;
-
+    //metaslab_class_t *mc;
+#ifdef _KERNEL
+    bool print = false;
+#endif
 	ASSERT(dmu_tx_is_syncing(tx));
 
 	DB_DNODE_ENTER(db);
 	dn = DB_DNODE(db);
+
 	os = dn->dn_objset;
 
 	if (db->db_state != DB_NOFILL) {
@@ -3803,6 +3822,14 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 	 */
 	dr->dr_bp_copy = *db->db_blkptr;
 
+/*#ifdef _KERNEL
+    if (dn->cadmus != NULL && dn->cadmus->dentry != NULL \
+        && dn->cadmus->dentry->d_name.name != NULL \
+        && strstr(dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL) {
+        print = true;
+    }
+#endif*/
+
 	if (db->db_level == 0 &&
 	    dr->dt.dl.dr_override_state == DR_OVERRIDDEN) {
 		/*
@@ -3851,7 +3878,7 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 		    ZIO_FLAG_MUSTSUCCEED, &zb);
 	}
 #ifdef _KERNEL
-//    dr->dr_zio->print = print;
+    dr->dr_zio->print = print;
     dr->dr_zio->io_write_rot = dr->dr_rot;
 #endif
 }

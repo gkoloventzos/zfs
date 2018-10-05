@@ -5115,6 +5115,8 @@ arc_read_done(zio_t *zio)
 		freeable = refcount_is_zero(&hdr->b_l1hdr.b_refcnt);
 	}
 
+    if (hdr->b_l1hdr.b_buf != NULL)
+        hdr->b_l1hdr.b_buf->b_rot = zio->io_read_rot;
 	/*
 	 * Broadcast before we drop the hash_lock to avoid the possibility
 	 * that the hdr (and hence the cv) might be freed before we get to
@@ -6141,6 +6143,12 @@ arc_write(zio_t *pio, spa_t *spa, uint64_t txg,
 	    (children_ready != NULL) ? arc_write_children_ready : NULL,
 	    arc_write_physdone, arc_write_done, callback,
 	    priority, zio_flags, zb);
+/*#ifdef _KERNEL
+    if (pio != NULL && pio->io_dn != NULL && pio->io_dn->cadmus != NULL && pio->io_dn->cadmus->dentry != NULL \
+        && pio->io_dn->cadmus->dentry->d_name.name != NULL \
+        && strstr(pio->io_dn->cadmus->dentry->d_name.name, "sample_ssd") != NULL)
+        print = true;
+#endif*/
 
 	return (zio);
 }

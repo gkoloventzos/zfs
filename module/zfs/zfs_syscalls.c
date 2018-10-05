@@ -13,24 +13,22 @@
 #include <sys/zpl.h>
 #include <asm/uaccess.h>
 #include <linux/list.h>
+#include <sys/zfs_znode.h>
+#include <sys/dnode.h>
+#include <sys/dbuf.h>
 
-#include <linux/crypto.h>
-#include <crypto/sha.h>
 #include <linux/err.h>
-#include <linux/scatterlist.h>
 #include <sys/hetfs.h>
 
 extern struct rb_root *hetfs_tree;
 extern int media_tree;
 extern int only_one;
-//extern int bla;
-//extern int media_list;
 extern char *only_name;
 char *number;
 char *start;
 char *end;
 char *where;
-char *procfs_buffer = NULL;
+char procfs_buffer[PATH_MAX+NAME_MAX+40];
 const char delimiters[] = " \n";
 
 #define for_each_syscall(_iter, _tests, _tmp) \
@@ -43,130 +41,189 @@ struct storage_media available_media[] = {
     {"METASLAB_ROTOR_VDEV_TYPE_HDD", 0x08},
 };
 
-void print_media_tree(int flag) {
-//    media_tree = flag;
-    //media_list = flag;
-    return;
-}
-
 void print_only_one(int flag) {
     only_one = flag;
 }
 
+static void print_media(void)
+{
+    struct data *tree_entry = NULL;
+
+    tree_entry = rb_search(hetfs_tree, only_name);
+    if (tree_entry == NULL) {
+        printk(KERN_EMERG "[ERROR] No node in tree\n");
+        return;
+    }
+    else {
+        printk(KERN_EMERG "[PRINT] File %s InsNode %p\n", only_name, tree_entry);
+    }
+
+    if (!list_empty(tree_entry->list_write_rot)) {
+        printk(KERN_EMERG "[PRINT] File %s write list rotor\n", only_name);
+        list_print(tree_entry->list_write_rot);
+    }
+    else {
+        printk(KERN_EMERG "[PRINT] File %s write list rotor is empty\n", only_name);
+    }
+
+    if (!list_empty(tree_entry->list_read_rot)) {
+        printk(KERN_EMERG "[PRINT] File %s read list rotor\n", only_name);
+        list_print(tree_entry->list_read_rot);
+    }
+    else {
+        printk(KERN_EMERG "[PRINT] File %s read list rotor is empty\n", only_name);
+    }
+    return;
+}
+
 void print_one_file(char *name) {
-    unsigned char *output;
-    struct scatterlist sg;
-    struct crypto_hash *tfm;
-    struct hash_desc desc;
+    struct rb_node *nh;
     struct data *entry;
-    struct analyze_request *posh, *nh;
+    struct analyze_request *posh;
 
     if (name == NULL) {
-        printk(KERN_EMERG "[ERROR] Empty name\n");
-        return;
-    }
-    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-    if (output == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
+        printk(KERN_EMERG "[ERR-POF]Empty name\n");
         return;
     }
 
-    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
-    desc.tfm = tfm;
-    desc.flags = 0;
-    sg_init_one(&sg, only_name, strlen(name));
-    crypto_hash_init(&desc);
-    crypto_hash_update(&desc, &sg, strlen(name));
-    crypto_hash_final(&desc, output);
-    crypto_free_hash(tfm);
     down_read(&tree_sem);
-    if (RB_EMPTY_ROOT(hetfs_tree)) {
-        printk(KERN_EMERG "[ERROR] Empty root\n");
+    if (hetfs_tree == NULL || RB_EMPTY_ROOT(hetfs_tree)) {
+        printk(KERN_EMERG "[ERR-POF]Empty root\n");
         return;
     }
-    entry = rb_search(hetfs_tree, output);
-    kzfree(output);
+    entry = rb_search(hetfs_tree, name);
+    up_read(&tree_sem);
     if (entry == NULL) {
-        printk(KERN_EMERG "[ERROR] No file %s in tree\n", name);
+        printk(KERN_EMERG "[ERR-POF]No file %s in tree\n", name);
         return;
     }
 
-    if (!list_empty(entry->read_reqs))
+    printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", name, entry->size, entry->dn_datablksz);
+    print_media();
+    down_read(&entry->read_sem);
+    if (!RB_EMPTY_ROOT(entry->read_reqs))
         printk(KERN_EMERG "[HETFS] READ req:\n");
-        list_for_each_entry_safe(posh, nh, entry->read_reqs, list) {
-            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
-                    posh->start_offset, posh->end_offset, posh->times);
-    }
-    if (!list_empty(entry->write_reqs))
+    list_for_each_entry_rb(posh, nh, entry->read_reqs)
+        printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+    up_read(&entry->read_sem);
+    down_read(&entry->write_sem);
+    if (!RB_EMPTY_ROOT(entry->write_reqs))
         printk(KERN_EMERG "[HETFS] WRITE req:\n");
-        list_for_each_entry_safe(posh, nh, entry->write_reqs, list) {
-            printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
-                    posh->start_offset, posh->end_offset, posh->times);
-    }
+    list_for_each_entry_rb(posh, nh, entry->write_reqs)
+        printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+    up_read(&entry->write_sem);
+    down_read(&entry->read_sem);
+    if (!RB_EMPTY_ROOT(entry->mmap_reqs))
+        printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
+    list_for_each_entry_rb(posh, nh, entry->mmap_reqs)
+        printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+    if (!RB_EMPTY_ROOT(entry->rmap_reqs))
+        printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
+    list_for_each_entry_rb(posh, nh, entry->rmap_reqs)
+        printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+    up_read(&entry->read_sem);
 //  analyze(entry);
+}
+
+void print_name_region(char *name) {
+    struct rb_node *node, *nh;
+    struct data *entry;
+    struct analyze_request *posh;
+
+    down_read(&tree_sem);
+    if (hetfs_tree == NULL || RB_EMPTY_ROOT(hetfs_tree)) {
+        printk(KERN_EMERG "[ERROR] __exact empty root\n");
+        return;
+    }
+    for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
+        entry = rb_entry(node, struct data, node);
+        if (entry->file == NULL || strstr(entry->file, name) == NULL)
+            continue;
+
+        printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", entry->file, entry->size, entry->dn_datablksz);
+        if (!RB_EMPTY_ROOT(entry->read_reqs))
+            printk(KERN_EMERG "[HETFS] READ req:\n");
+        list_for_each_entry_rb(posh, nh, entry->read_reqs)
+            printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+        if (!RB_EMPTY_ROOT(entry->write_reqs))
+            printk(KERN_EMERG "[HETFS] WRITE req:\n");
+        list_for_each_entry_rb(posh, nh, entry->write_reqs)
+            printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+        if (!RB_EMPTY_ROOT(entry->mmap_reqs))
+            printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
+        list_for_each_entry_rb(posh, nh, entry->mmap_reqs)
+            printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+        if (!RB_EMPTY_ROOT(entry->rmap_reqs))
+            printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
+        list_for_each_entry_rb(posh, nh, entry->rmap_reqs)
+            printk(KERN_EMERG "[HETFS] blkid: %lld times: %d\n", posh->blkid, posh->times);
+    }
     up_read(&tree_sem);
 }
 
 void print_tree(int flag) {
-    struct rb_node *node;
+    struct rb_node *node, *nh;
     struct data *entry;
-    struct analyze_request *posh, *nh;
+    struct analyze_request *posh;
     int all_nodes, all_requests, requests;
-	char *name;
-	int stop = 0;
 
     all_nodes = all_requests = requests = 0;
 
     down_read(&tree_sem);
-    if (RB_EMPTY_ROOT(hetfs_tree)) {
+    if (hetfs_tree == NULL || RB_EMPTY_ROOT(hetfs_tree)) {
         printk(KERN_EMERG "[ERROR] __exact empty root\n");
         return;
     }
-    name = kzalloc(PATH_MAX+NAME_MAX * sizeof(char),GFP_KERNEL);
-    if (name == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc mem for name\n");
-        return;
-    }
     for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
-        stop = 0;
         ++all_nodes;
         entry = rb_entry(node, struct data, node);
-        if (entry->dentry == NULL) {
-            printk(KERN_EMERG "[HETFS] Error one dentry NULL\n");
+        if (entry->file == NULL) {
+            printk(KERN_EMERG "[HETFS] Error name NULL\n");
             continue;
         }
-        fullname(entry->dentry, name, &stop);
 
-        printk(KERN_EMERG "[HETFS] file: %s\n", name);
+        printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", entry->file, entry->size, entry->dn_datablksz);
         if (flag) {
-            if (!list_empty(entry->read_reqs) && flag)
+            if (rb_first(entry->read_reqs) != NULL)
                 printk(KERN_EMERG "[HETFS] READ req:\n");
-            list_for_each_entry_safe(posh, nh, entry->read_reqs, list) {
+            list_for_each_entry_rb(posh, nh, entry->read_reqs) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
-                            posh->start_offset, posh->end_offset, posh->times);
+                printk(KERN_EMERG "[HETFS] read file %s blkid: %lld times: %d\n", entry->file, posh->blkid, posh->times);
             }
-            if (!list_empty(entry->write_reqs))
+            if (rb_first(entry->write_reqs) != NULL)
                 printk(KERN_EMERG "[HETFS] WRITE req:\n");
-            list_for_each_entry_safe(posh, nh, entry->write_reqs, list) {
+            list_for_each_entry_rb(posh, nh, entry->write_reqs) {
                 all_requests += posh->times;
-                printk(KERN_EMERG "[HETFS] start: %lld - end:%lld times:%d\n",
-                            posh->start_offset, posh->end_offset, posh->times);
+                printk(KERN_EMERG "[HETFS] write file %s blkid: %lld times: %d\n", entry->file, posh->blkid, posh->times);
+            }
+            if (rb_first(entry->mmap_reqs) != NULL)
+                printk(KERN_EMERG "[HETFS] MAP MMAP req:\n");
+            list_for_each_entry_rb(posh, nh, entry->mmap_reqs) {
+                printk(KERN_EMERG "[HETFS] mmap file %s blkid: %lld times: %d\n", entry->file, posh->blkid, posh->times);
+            }
+            if (rb_first(entry->rmap_reqs) != NULL)
+                printk(KERN_EMERG "[HETFS] READ MMAP req:\n");
+            list_for_each_entry_rb(posh, nh, entry->rmap_reqs) {
+                all_requests += posh->times;
+                printk(KERN_EMERG "[HETFS] read mmap file %s blkid: %lld times: %d\n", entry->file, posh->blkid, posh->times);
             }
         }
-        memset(name, 0, PATH_MAX+NAME_MAX);
     }
     if (flag)
         printk(KERN_EMERG "[HETFS]Tree Nodes:%d, requests:%d\n", all_nodes, all_requests);
     else
         printk(KERN_EMERG "[HETFS]Tree Nodes:%d\n", all_nodes);
-
     up_read(&tree_sem);
 }
 
 static void print_file(void)
 {
     print_one_file(only_name);
+}
+
+static void print_region(void)
+{
+    print_name_region(only_name);
 }
 
 static void print_nodes(void)
@@ -177,28 +234,6 @@ static void print_nodes(void)
 static void print_all(void)
 {
     print_tree(true);
-}
-
-static void print_medium(void)
-{
-    print_media_tree(true);
-}
-
-static void print_list(void)
-{
-//    bla=1;
-    print_only_one(1);
-}
-
-static void stop_print_list(void) {
-    kfree(procfs_buffer);
-    only_name = NULL;
-    print_only_one(0);
-}
-
-static void stop_print_medium(void)
-{
-    print_media_tree(false);
 }
 
 static void change_medium(void)
@@ -232,43 +267,31 @@ static void change_medium(void)
         return ;
     }
 
+    down_write(&tree_sem);
+    if (hetfs_tree == NULL) {
+        printk(KERN_EMERG "[ERROR] Empty root\n");
+        return;
+    }
     tree_entry = tree_insearch(NULL, only_name);
+    up_write(&tree_sem);
+
     if (tree_entry == NULL) {
         printk(KERN_EMERG "[ERROR] No node in tree\n");
         return;
     }
 
-    if (n_end != n_start)
-        zfs_media_add(tree_entry->list_write_rot, n_start, n_end-n_start, available_media[n_where].bit, 1);
-    else
-        zfs_media_add(tree_entry->list_write_rot, n_start, UINT64_MAX, available_media[n_where].bit, 1);
+    if (n_end == n_start)
+        n_end = INT64_MAX;
 
+    zfs_media_add_blkid(tree_entry->list_write_rot, n_start, n_end, available_media[n_where].bit, 0);
 
     if (tree_entry->filp != NULL)
-        zpl_rewrite(tree_entry->filp);
-    /* You have read where the medium is stored and changed it */
-/*    if (tree_entry->read_rot == NULL) {
-        printk(KERN_EMERG "[ERROR] Not changed read_rot because it is NULL\n");
-        kzfree(output);
-        return;
-    }
-    if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_HDD) {
-        tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
-        zpl_rewrite(tree_entry->filp);
-    }
-    else if (*tree_entry->read_rot == METASLAB_ROTOR_VDEV_TYPE_SSD) {
-        tree_entry->write_rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
-        zpl_rewrite(tree_entry->filp);
-    }
-    else {
-        printk(KERN_EMERG "[ERROR] Not changed read_rot %d\n", *tree_entry->read_rot);
-    }
-    kzfree(output);*/
+        zpl_rewrite(tree_entry->filp, tree_entry->ip, n_start, n_end, tree_entry->dn_datablksz);
     return;
 }
 
 void list_print(struct list_head *dn) {
-    medium_t *loop, *n = NULL;
+    media_t *loop, *n = NULL;
     list_for_each_entry_safe(loop, n, dn, list) {
         if (loop->m_type == METASLAB_ROTOR_VDEV_TYPE_HDD)
             printk(KERN_EMERG "[PRINT]File %s from %lld to %lld is in METASLAB_ROTOR_VDEV_TYPE_HDD\n", only_name, loop->m_start, loop->m_end);
@@ -281,148 +304,67 @@ void list_print(struct list_head *dn) {
     }
 }
 
-static void print_media(void)
-{
-    unsigned char *output;
-    struct scatterlist sg;
-    struct crypto_hash *tfm;
-    struct hash_desc desc;
-    struct data *tree_entry = NULL;
-
-    output = kzalloc(SHA512_DIGEST_SIZE+1, GFP_KERNEL);
-    if (output == NULL) {
-        printk(KERN_EMERG "[ERROR] Cannot alloc memory for output\n");
-        return;
-    }
-
-    tfm = crypto_alloc_hash("sha512", 0, CRYPTO_ALG_ASYNC);
-    desc.tfm = tfm;
-    desc.flags = 0;
-    sg_init_one(&sg, only_name, strlen(only_name));
-    crypto_hash_init(&desc);
-    crypto_hash_update(&desc, &sg, strlen(only_name));
-    crypto_hash_final(&desc, output);
-    crypto_free_hash(tfm);
-    tree_entry = rb_search(hetfs_tree, output);
-    if (tree_entry == NULL) {
-        printk(KERN_EMERG "[ERROR] No node in tree\n");
-        kzfree(output);
-        return;
-    }
-    else {
-        printk(KERN_EMERG "[PRINT] File %s InsNode %p\n", only_name, tree_entry);
-    }
-
-    if (!list_empty(tree_entry->list_write_rot)) {
-        printk(KERN_EMERG "[PRINT] File %s write list rotor\n", only_name);
-        list_print(tree_entry->list_write_rot);
-    }
-    else {
-        printk(KERN_EMERG "[PRINT] File %s write list rotor is empty\n", only_name);
-    }
-
-    if (!list_empty(tree_entry->list_read_rot)) {
-        printk(KERN_EMERG "[PRINT] File %s read list rotor\n", only_name);
-        list_print(tree_entry->list_read_rot);
-    }
-    else {
-        printk(KERN_EMERG "[PRINT] File %s read list rotor is empty\n", only_name);
-    }
-
-    kzfree(output);
-    return;
-}
-
-struct list_head *zip_list(struct list_head *general)
-{
-    struct list_head *pos, *n, *pos1, *new;
-    struct analyze_request *areq, *areq1;
-    int found;
-
-    new = kzalloc(sizeof(struct list_head), GFP_KERNEL);
-    if (new == NULL)
-        return NULL;
-    INIT_LIST_HEAD(new);
-
-    list_for_each_safe(pos, n, general) {
-        found = 0;
-        areq = list_entry(pos, struct analyze_request, list);
-        list_for_each(pos1, new){
-            areq1 = list_entry(pos1, struct analyze_request, list);
-            if (areq->start_offset == areq1->start_offset &&
-                areq->end_offset == areq1->end_offset) {
-                areq1->times += areq->times;
-                found = 1;
-                break;
-            }
-        }
-        if (!found) {
-            __list_del_entry(pos);
-            list_add_tail(pos,new);
-        }
-    }
-    list_for_each_safe(pos, n, general) {
-        areq = list_entry(pos, struct analyze_request, list);
-        list_del(pos);
-        kzfree(areq);
-    }
-    kzfree(general);
-    return new;
-}
-
 void analyze(struct data* InsNode)
 {
-    struct list_head *pos, *n;
-    struct analyze_request *areq;
-    loff_t part, half;
-    int mid, all = 0;
-    half = InsNode->size >> 1;
-    if (!list_empty(InsNode->read_reqs)) {
-        InsNode->read_reqs = zip_list(InsNode->read_reqs);
-        printk(KERN_EMERG "[HETFS]File %s\n", InsNode->file);
-        list_for_each_safe(pos, n, InsNode->read_reqs) {
-            areq = list_entry(pos, struct analyze_request, list);
-            part = areq->end_offset - areq->start_offset;
-            InsNode->read_all_file += areq->times;
-            if (part == InsNode->size) {
-                all += areq->times;
-            }
-            else if (part >= half) {
-                printk(KERN_EMERG "[HETFS] This part is a big read start %lld end %lld accessed %d times\n",
-                        areq->start_offset, areq->end_offset, areq->times);
-            }
-        }
-        mid = InsNode->read_all_file >> 1;
-        if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid))) {
-            printk(KERN_EMERG "[HETFS] It was read sequentially\n");
+    struct rb_node *nh;
+    struct analyze_request *posh;
+    int proportion, ret;
+    int max = -1;
+    int min = 0;
+    int part = 0;
+    if (start == NULL)
+        proportion = 20;
+    else {
+        ret = kstrtoint(start, 10, &proportion);
+        if (ret) {
+            printk(KERN_EMERG "[ERROR]Change proportion\n");
+            return;
         }
     }
-    if (!list_empty(InsNode->write_reqs)) {
-        InsNode->write_reqs = zip_list(InsNode->write_reqs);
-        all = 0;
-        list_for_each_safe(pos, n, InsNode->write_reqs) {
-            areq = list_entry(pos, struct analyze_request, list);
-            part = areq->end_offset - areq->start_offset;
-            InsNode->write_all_file += areq->times;
-            if (part == InsNode->size)
-                all++;
-            else if (part >= half) {
-                printk(KERN_EMERG "[HETFS] This part is a big write start %lld end %lld accessed %d times\n",
-                        areq->start_offset, areq->end_offset, areq->times);
-            }
-        }
-        mid = InsNode->write_all_file >> 1;
-        if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid)))
-            printk(KERN_EMERG "[HETFS] It was write sequentially\n");
+    down_read(&InsNode->read_sem);
+    if (RB_EMPTY_ROOT(InsNode->read_reqs)) {
+        up_read(&InsNode->read_sem);
+        return;
     }
+    list_for_each_entry_rb(posh, nh, InsNode->read_reqs) {
+        if (max == -1) {
+            max = posh->times;
+            min = posh->times;
+            continue;
+        }
+        if (max < posh->times) {
+            max = posh->times;
+            continue;
+        }
+        if (min > posh->times) {
+            min = posh->times;
+            continue;
+        }
+    }
+    part = max - min;
+    part = (part * proportion) / 100;
+    part = max - part;
+    printk(KERN_EMERG "[ANALYZE]max %d, min %d, part %d, proportion %d\n", max, min, part, proportion);
+    min = max = -1;
+    list_for_each_entry_rb(posh, nh, InsNode->read_reqs) {
+        if (posh->times >= part) {
+            if (min == -1)
+                min = posh->blkid;
+            max = posh->blkid;
+            zfs_media_add_blkid(InsNode->list_write_rot, posh->blkid, posh->blkid+1, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
+        }
+        if (max != posh->blkid && max != -1 && InsNode->filp != NULL) {
+            zpl_rewrite(InsNode->filp, InsNode->ip, min, max, InsNode->dn_datablksz);
+            min = max = -1;
+        }
+    }
+    up_read(&InsNode->read_sem);
 }
 
 static void analyze_tree(void)
 {
-
     struct rb_node *node;
     struct data *entry;
-    printk(KERN_EMERG "[HETFS]Start of analyze\n");
     down_read(&tree_sem);
     /*We actually write to nodes in the tree but no insert or delete*/
     for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
@@ -430,21 +372,129 @@ static void analyze_tree(void)
         analyze(entry);
     }
     up_read(&tree_sem);
-    printk(KERN_EMERG "[HETFS] End of analyze\n");
+}
 
+void empty_tree(struct rb_root *tree) {
+    struct rb_node *node;
+    struct analyze_request *ar;
+    node = rb_first(tree);
+    while (node != NULL) {
+        ar = rb_entry_safe(node, struct analyze_request, node);
+        rb_erase(node, tree);
+        kzfree(ar);
+        node = rb_first(tree);
+    }
+}
+
+static void read_tree_free(void) {
+    struct data *entry;
+    if (only_name == NULL)
+        return;
+    down_read(&tree_sem);
+    entry = rb_search(hetfs_tree, only_name);
+    up_read(&tree_sem);
+    down_write(&entry->read_sem);
+    empty_tree(entry->read_reqs);
+    up_write(&entry->read_sem);
+}
+
+static void write_tree_free(void) {
+    struct data *entry;
+    if (only_name == NULL)
+        return;
+    down_read(&tree_sem);
+    entry = rb_search(hetfs_tree, only_name);
+    up_read(&tree_sem);
+    down_write(&entry->write_sem);
+    empty_tree(entry->write_reqs);
+    up_write(&entry->write_sem);
+}
+
+static void both_tree_free(void) {
+    struct data *entry;
+    if (only_name == NULL)
+        return;
+    down_read(&tree_sem);
+    entry = rb_search(hetfs_tree, only_name);
+    up_read(&tree_sem);
+    down_write(&entry->read_sem);
+    empty_tree(entry->read_reqs);
+    up_write(&entry->read_sem);
+    down_write(&entry->write_sem);
+    empty_tree(entry->write_reqs);
+    up_write(&entry->write_sem);
+}
+
+static void all_read_tree_free(void) {
+    struct rb_node *node;
+    struct data *entry;
+    down_read(&tree_sem);
+    for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
+        entry = rb_entry(node, struct data, node);
+        down_write(&entry->read_sem);
+        empty_tree(entry->read_reqs);
+        up_write(&entry->read_sem);
+    }
+    up_read(&tree_sem);
+}
+
+static void all_write_tree_free(void) {
+    struct rb_node *node;
+    struct data *entry;
+    down_read(&tree_sem);
+    for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
+        entry = rb_entry(node, struct data, node);
+        down_write(&entry->write_sem);
+        empty_tree(entry->write_reqs);
+        up_write(&entry->write_sem);
+    }
+    up_read(&tree_sem);
+}
+
+static void all_list_free(void) {
+    struct rb_node *node;
+    struct data *entry;
+    down_read(&tree_sem);
+    for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
+        entry = rb_entry(node, struct data, node);
+        down_write(&entry->read_sem);
+        empty_tree(entry->read_reqs);
+        empty_tree(entry->mmap_reqs);
+        empty_tree(entry->rmap_reqs);
+        up_write(&entry->read_sem);
+        down_write(&entry->write_sem);
+        empty_tree(entry->write_reqs);
+        up_write(&entry->write_sem);
+    }
+    up_read(&tree_sem);
+}
+
+static void analyze_only(void) {
+    struct data *entry;
+    if (only_name == NULL)
+        return;
+    down_read(&tree_sem);
+    entry = rb_search(hetfs_tree, only_name);
+    up_read(&tree_sem);
+    if (entry != NULL)
+        analyze(entry);
 }
 
 struct zfs_syscalls available_syscalls[] = {
 	{ "print_nodes",	print_nodes	},
 	{ "print_all",		print_all	},
 	{ "analyze_tree",	analyze_tree	},
-	{ "print_medium",	print_medium	},
-	{ "stop_print_medium",		stop_print_medium	},
-	{ "print_list",	    print_list	},
-	{ "stop_print_list",		stop_print_list	},
 	{ "change_medium",	change_medium	},
 	{ "print_media",	print_media	},
 	{ "print_file",	    print_file	},
+	{ "read_tree_free",	    read_tree_free	},
+	{ "write_tree_free",	    write_tree_free	},
+	{ "both_tree_free",	    both_tree_free	},
+	{ "all_read_tree_free",	    all_read_tree_free	},
+	{ "all_write_tree_free",	    all_write_tree_free	},
+	{ "all_list_free",	    all_list_free	},
+	{ "analyze_only",	    analyze_only	},
+	{ "print_region",	    print_region	},
 };
 
 static void run_syscall(struct zfs_syscalls *syscall)
@@ -485,25 +535,24 @@ static ssize_t __zfs_syscall_write(struct file *file, const char __user *buffer,
 {
     int ret;
     unsigned long val;
-    procfs_buffer = kzalloc(strlen(buffer)+2, GFP_KERNEL);
+    char * bla;
+    memset(procfs_buffer, '\0', (PATH_MAX+NAME_MAX+40)*sizeof(char));
     procfs_buffer[strlen(buffer)+1] = ' ';
 
-    if ( copy_from_user(procfs_buffer, buffer, 2048) ) {
+    if (copy_from_user(procfs_buffer, buffer, strlen(buffer))) {
             return -EFAULT;
     }
 
-/*    ret = kstrtoul_from_user(buffer, count, 10, &val);
-    if (ret)
-        return ret;*/
-    number = strsep(&procfs_buffer, delimiters);
+    bla = strdup(procfs_buffer);
+    number = strsep(&bla, delimiters);
     ret = kstrtoul(number, 10, &val);
     if (ret)
         return ret;
-    only_name = strsep(&procfs_buffer, delimiters);
-    start = strsep(&procfs_buffer, delimiters);
-    end = strsep(&procfs_buffer, delimiters);
-    where = strsep(&procfs_buffer, delimiters);
-    strsep(&procfs_buffer, delimiters);
+    only_name = strsep(&bla, delimiters);
+    start = strsep(&bla, delimiters);
+    end = strsep(&bla, delimiters);
+    where = strsep(&bla, delimiters);
+    strsep(&bla, delimiters);
     ret = zfs_syscalls_run(val);
     if (ret)
         return ret;
@@ -533,16 +582,13 @@ static const struct file_operations zfs_syscalls_proc_fops = {
 
 static int __init zfs_syscalls_init(void)
 {
-    init_rwsem(&tree_sem);
 	proc_create("zfs_syscalls", 0, NULL, &zfs_syscalls_proc_fops);
 	pr_info("&zfs_syscalls_proc_fops successfully initialized\n");
-	return 0;
+    init_tree();
+    return 0;
 }
 
 void zfs_syscalls_initialize(void)
 {
     zfs_syscalls_init();
 }
-
-//__initcall(zfs_syscalls_init);
-//module_init(zfs_syscalls_init);
