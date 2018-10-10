@@ -717,25 +717,20 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             if (strstr(filename, "/log/") != NULL) {
                 zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_HDD, 0);
                 rot = -1;
-                up_write(&(InsNode->write_sem));
-                goto err;
             }
-            if (strstr(filename, ".sst") != NULL) {
+            else if (strstr(filename, "ycsb_cadmus") != NULL && strstr(filename, ".sst") != NULL) {
                 zfs_media_add_blkid(InsNode->list_write_rot, 0, 250, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
             }
-            if (strstr(filename, "openfoam_ssd") != NULL ||
-                    strstr(filename, "mysql_ssd/") != NULL ||
+            else if (strstr(filename, "mysql_ssd/") != NULL ||
                     strstr(filename, "ycsb_ssd/") != NULL ||
                     strstr(filename, "kvm_ssd/") != NULL) {
                 zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
             }
             else {
-                if (list_empty(InsNode->list_write_rot)) {
-                    zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_HDD,  0);
-                    rot = -1;
-                }
+                zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_HDD,  0);
+                rot = -1;
             }
         }
         up_write(&(InsNode->write_sem));
@@ -743,10 +738,9 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
             dn->cadmus->print = true;*/
 
     }
-
+err:
     DB_DNODE_EXIT((dmu_buf_impl_t *)sa_get_db(zp->z_sa_hdl));
 
-err:
 	wrote = zpl_write_common(filp->f_mapping->host, buf, len, ppos,
 	    UIO_USERSPACE, filp->f_flags, cr, print, rot);
 	crfree(cr);
