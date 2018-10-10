@@ -37,6 +37,7 @@
 #include <sys/hetfs.h>
 #include <sys/dnode.h>
 #include <sys/dbuf.h>
+#include <sys/zfs_syscalls.h>
 
 #include <linux/err.h>
 
@@ -45,6 +46,8 @@ EXPORT_SYMBOL(hetfs_tree);
 int only_one = 0;
 int bla = 0;
 char *only_name = NULL;
+unsigned long long int time_interval = 10 * 60 * 1000000000L;
+unsigned long long int previous_time = 0;
 static DEFINE_SEMAPHORE(tree_lock);
 
 void my_delete_list(struct list_head *dn, char **buf)
@@ -233,6 +236,12 @@ zpl_open(struct inode *ip, struct file *filp)
 	cred_t *cr = CRED();
 	int error;
 	fstrans_cookie_t cookie;
+    struct timespec arrival_time;
+
+    if (previous_time == 0) {
+        getnstimeofday(&arrival_time);
+        previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+    }
 
 	error = generic_file_open(ip, filp);
 	if (error)
@@ -481,6 +490,11 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     znode_t *zp = ITOZ(filp->f_mapping->host);
 
     getnstimeofday(&arrival_time);
+    if (arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec - previous_time >
+            time_interval) {
+        previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+        analyze_tree();
+    }
     rot = kzalloc(sizeof(int), GFP_KERNEL);
     *rot = -2;
 
@@ -688,6 +702,11 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     bool print = false;
 
     getnstimeofday(&arrival_time);
+    if (arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec - previous_time >
+            time_interval) {
+        previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+        analyze_tree();
+    }
 	crhold(cr);
 
     down(&tree_lock);
@@ -1016,6 +1035,11 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
     dnode_t *dn;
 
     getnstimeofday(&arrival_time);
+    if (arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec - previous_time >
+            time_interval) {
+        previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+        analyze_tree();
+    }
 
 	cookie = spl_fstrans_mark();
 	error = -zfs_map(ip, vma->vm_pgoff, (caddr_t *)vma->vm_start,
@@ -1087,6 +1111,11 @@ zpl_readpage(struct file *filp, struct page *pp)
     int stop = 0 ;
 
     getnstimeofday(&arrival_time);
+    if (arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec - previous_time >
+            time_interval) {
+        previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
+        analyze_tree();
+    }
 
 	ASSERT(PageLocked(pp));
 	ip = pp->mapping->host;
