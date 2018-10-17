@@ -24,6 +24,7 @@ extern struct rb_root *hetfs_tree;
 extern int media_tree;
 extern int only_one;
 extern char *only_name;
+extern unsigned long long int time_interval;
 char *number;
 char *start;
 char *end;
@@ -361,7 +362,7 @@ void analyze(struct data* InsNode)
     up_read(&InsNode->read_sem);
 }
 
-static void analyze_tree(void)
+void analyze_tree(void)
 {
     struct rb_node *node;
     struct data *entry;
@@ -480,6 +481,48 @@ static void analyze_only(void) {
         analyze(entry);
 }
 
+/*Change the interval of the automatic analysis*/
+static void interval_change(void) {
+    char *s = only_name;
+    char t = 'h';
+    unsigned long val = 0;
+    int ret;
+    /*1 minute in nanoseconds*/
+    unsigned long long int time = 6 * 1000000000L;
+
+    if (only_name == NULL)
+        return;
+    if(!isdigit(*s))
+    {
+          while(*s && !isdigit(*++s))
+                  ;
+    }
+    if(*s) {
+        t = *s;
+        *s = '\0';
+        ret = kstrtoul(s, 10, &val);
+        if (ret)
+            return;
+    }
+    else {
+        ret = kstrtoul(only_name, 10, &val);
+        if (ret)
+            return;
+    }
+    if (val != 0) {
+        switch(t) {
+            case 'm':
+            case 'M':
+                time_interval = val * time;
+                break;
+            case 'h':
+            case 'H':
+                time_interval = val * 60 * time;
+                break;
+        }
+    }
+}
+
 struct zfs_syscalls available_syscalls[] = {
 	{ "print_nodes",	print_nodes	},
 	{ "print_all",		print_all	},
@@ -495,6 +538,7 @@ struct zfs_syscalls available_syscalls[] = {
 	{ "all_list_free",	    all_list_free	},
 	{ "analyze_only",	    analyze_only	},
 	{ "print_region",	    print_region	},
+	{ "interval_change",	interval_change },
 };
 
 static void run_syscall(struct zfs_syscalls *syscall)
