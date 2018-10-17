@@ -48,6 +48,7 @@ int bla = 0;
 char *only_name = NULL;
 unsigned long long int time_interval = 10 * 60 * 1000000000L;
 unsigned long long int previous_time = 0;
+int proportion = 20;
 static DEFINE_SEMAPHORE(tree_lock);
 
 void my_delete_list(struct list_head *dn, char **buf)
