@@ -25,6 +25,7 @@ extern int media_tree;
 extern int only_one;
 extern char *only_name;
 extern unsigned long long int time_interval;
+extern int proportion;
 char *number;
 char *start;
 char *end;
@@ -465,22 +466,18 @@ void list_print(struct list_head *dn) {
     return new;
 }*/
 
-void analyze(struct data* InsNode)
+void analyze(struct data* InsNode, bool get_proportion)
 {
     struct rb_node *nh;
     struct analyze_request *posh;
-    int proportion, ret;
+    int ret;
     int max = -1;
     int min = 0;
     int part = 0;
-    if (start == NULL)
-        proportion = 20;
-    else {
+    if (get_proportion) {
         ret = kstrtoint(start, 10, &proportion);
-        if (ret) {
-            printk(KERN_EMERG "[ERROR]Change proportion\n");
+        if (ret)
             return;
-        }
     }
     down_read(&InsNode->read_sem);
     if (RB_EMPTY_ROOT(InsNode->read_reqs)) {
@@ -530,9 +527,12 @@ void analyze_tree(void)
     /*We actually write to nodes in the tree but no insert or delete*/
     for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
         entry = rb_entry(node, struct data, node);
-        analyze(entry);
         if (strstr(entry->file, "/log/") != NULL && strstr(entry->file, ".log") != NULL)
             continue;
+        analyze(entry, true);
+    }
+    up_read(&tree_sem);
+}
 
 void auto_analyze_tree(void)
 {
@@ -650,7 +650,7 @@ static void analyze_only(void) {
     entry = rb_search(hetfs_tree, only_name);
     up_read(&tree_sem);
     if (entry != NULL)
-        analyze(entry);
+        analyze(entry, true);
 }
 
 /*Change the interval of the automatic analysis*/
