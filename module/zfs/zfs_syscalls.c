@@ -488,19 +488,19 @@ static void interval_change(void) {
     unsigned long val = 0;
     int ret;
     /*1 minute in nanoseconds*/
-    unsigned long long int time = 6 * 1000000000L;
+    unsigned long long int time = 60 * 1000000000L;
 
     if (only_name == NULL)
         return;
-    if(!isdigit(*s))
+    if(isdigit(*s))
     {
-          while(*s && !isdigit(*++s))
-                  ;
+          while(*s && isdigit(*++s))
+                  printk(KERN_EMERG "[W]char %c\n", *s);
     }
     if(*s) {
         t = *s;
         *s = '\0';
-        ret = kstrtoul(s, 10, &val);
+        ret = kstrtoul(only_name, 10, &val);
         if (ret)
             return;
     }
