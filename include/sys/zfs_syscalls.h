@@ -7,5 +7,5 @@ struct zfs_syscalls {
     char *name;
     void (*test_fn)(void);
 };
-void analyze_tree(void);
+void auto_analyze_tree(void);
 #endif

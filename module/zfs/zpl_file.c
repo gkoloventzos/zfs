@@ -493,7 +493,7 @@ zpl_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
     if (arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec - previous_time >
             time_interval) {
         previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
-        analyze_tree();
+        auto_analyze_tree();
     }
     rot = kzalloc(sizeof(int), GFP_KERNEL);
     *rot = -2;
@@ -705,7 +705,7 @@ zpl_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos)
     if (arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec - previous_time >
             time_interval) {
         previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
-        analyze_tree();
+        auto_analyze_tree();
     }
 	crhold(cr);
 
@@ -1038,7 +1038,7 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
     if (arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec - previous_time >
             time_interval) {
         previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
-        analyze_tree();
+        auto_analyze_tree();
     }
 
 	cookie = spl_fstrans_mark();
@@ -1114,7 +1114,7 @@ zpl_readpage(struct file *filp, struct page *pp)
     if (arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec - previous_time >
             time_interval) {
         previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
-        analyze_tree();
+        auto_analyze_tree();
     }
 
 	ASSERT(PageLocked(pp));

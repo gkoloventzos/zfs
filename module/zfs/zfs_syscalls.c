@@ -531,6 +531,16 @@ void analyze_tree(void)
     for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
         entry = rb_entry(node, struct data, node);
         analyze(entry);
+
+void auto_analyze_tree(void)
+{
+    struct rb_node *node;
+    struct data *entry;
+    down_read(&tree_sem);
+    /*We actually write to nodes in the tree but no insert or delete*/
+    for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
+        entry = rb_entry(node, struct data, node);
+        analyze(entry, false);
     }
     up_read(&tree_sem);
 }
