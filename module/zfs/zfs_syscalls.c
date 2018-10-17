@@ -465,53 +465,6 @@ void list_print(struct list_head *dn) {
     return new;
 }*/
 
-/*void analyze(struct data* InsNode)
-{
-    struct list_head *pos, *n;
-    struct analyze_request *areq;
-    loff_t half;
-    int mid, all = 0;
-    half = InsNode->size >> 1;
-    if (!RB_EMPTY_ROOT(InsNode->read_reqs)) {
-        InsNode->read_reqs = zip_list(InsNode->read_reqs);
-        printk(KERN_EMERG "[HETFS]File %s\n", InsNode->file);
-        list_for_each_safe(pos, n, InsNode->read_reqs) {
-            areq = list_entry(pos, struct analyze_request, list);
-            part = areq->end_offset - areq->start_offset;
-            InsNode->read_all_file += areq->times;
-            if (part == InsNode->size) {
-                all += areq->times;
-            }
-            else if (part >= half) {
-                printk(KERN_EMERG "[HETFS] This part is a big read start %lld end %lld accessed %d times\n",
-                        areq->start_offset, areq->end_offset, areq->times);
-            }
-        }
-        mid = InsNode->read_all_file >> 1;
-        if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid))) {
-            printk(KERN_EMERG "[HETFS] It was read sequentially\n");
-        }
-    }
-    if (!RB_EMPTY_ROOT(InsNode->write_reqs)) {
-        InsNode->write_reqs = zip_list(InsNode->write_reqs);
-        all = 0;
-        list_for_each_safe(pos, n, InsNode->write_reqs) {
-            areq = list_entry(pos, struct analyze_request, list);
-            part = areq->end_offset - areq->start_offset;
-            InsNode->write_all_file += areq->times;
-            if (part == InsNode->size)
-                all++;
-            else if (part >= half) {
-                printk(KERN_EMERG "[HETFS] This part is a big write start %lld end %lld accessed %d times\n",
-                        areq->start_offset, areq->end_offset, areq->times);
-            }
-        }
-        mid = InsNode->write_all_file >> 1;
-        if (all > 0 && (((all & 1) && all > mid) || (!(all & 1) && all >= mid)))
-            printk(KERN_EMERG "[HETFS] It was write sequentially\n");
-    }
-}*/
-
 void analyze(struct data* InsNode)
 {
     struct rb_node *nh;
