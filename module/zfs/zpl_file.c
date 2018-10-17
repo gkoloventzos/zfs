@@ -642,8 +642,8 @@ zpl_rewrite(struct file *filp, struct inode *ip, loff_t start, loff_t end, size_
         if (reread > 0) {
             rewrite = re_write(filp, ip, buf, reread, &npos);
             if (reread != rewrite || npos >= end_bz) {
-                printk(KERN_EMERG "[ZPL_REWRITE] start_pos %lld npos %lld \
-                        reread %zd rewrite %zd end_bz %lld start %lld end %lld \
+                printk(KERN_EMERG "[ZPL_REWRITE] start_pos %lld npos %lld\
+                        reread %zd rewrite %zd end_bz %lld start %lld end %lld\
                         len %ld\n", start_pos, npos, reread, rewrite, end_bz, 
                         start, end, len);
                 break;
@@ -655,13 +655,13 @@ zpl_rewrite(struct file *filp, struct inode *ip, loff_t start, loff_t end, size_
             continue;
         }
         else if (reread < 0){
-            printk(KERN_EMERG "[ERROR]ZPL_REWRITE start_pos %lld npos %lld \
-                    reread %zd rewrite %zd end_bz %lld start %lld end %lld \
+            printk(KERN_EMERG "[ERROR]ZPL_REWRITE start_pos %lld npos %lld\
+                    reread %zd rewrite %zd end_bz %lld start %lld end %lld\
                     len %ld\n", start_pos, npos, reread, rewrite, end_bz, start\
                     , end, len);
             break;
         }
-        printk(KERN_EMERG "[ZPL_REWRITE2]start_pos %lld npos %lld reread %zd \
+        printk(KERN_EMERG "[ZPL_REWRITE2]start_pos %lld npos %lld reread %zd\
                 rewrite %zd end_bz %lld start %lld end %lld len %ld\n", 
                 start_pos, npos, reread, rewrite, end_bz, start, end, len);
         break;
