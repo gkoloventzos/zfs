@@ -27,9 +27,9 @@ extern char *only_name;
 extern unsigned long long int time_interval;
 extern int proportion;
 char *number;
-char *start;
-char *end;
-char *where;
+char *start = NULL;
+char *end = NULL;
+char *where = NULL;
 char procfs_buffer[PATH_MAX+NAME_MAX+40];
 const char delimiters[] = " \n";
 
@@ -607,10 +607,14 @@ static ssize_t __zfs_syscall_write(struct file *file, const char __user *buffer,
     if (ret)
         return ret;
     only_name = strsep(&bla, delimiters);
-    start = strsep(&bla, delimiters);
-    end = strsep(&bla, delimiters);
-    where = strsep(&bla, delimiters);
-    strsep(&bla, delimiters);
+    if (val == 2 || val == 3 || val == 12) {
+        start = strsep(&bla, delimiters);
+        if (val == 3) {
+            end = strsep(&bla, delimiters);
+            where = strsep(&bla, delimiters);
+            strsep(&bla, delimiters);
+        }
+    }
     ret = zfs_syscalls_run(val);
     if (ret)
         return ret;
