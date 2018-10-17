@@ -371,6 +371,8 @@ void analyze_tree(void)
     for (node = rb_first(hetfs_tree); node; node = rb_next(node)) {
         entry = rb_entry(node, struct data, node);
         analyze(entry);
+        if (strstr(entry->file, "/log/") != NULL && strstr(entry->file, ".log") != NULL)
+            continue;
 
 void auto_analyze_tree(void)
 {
