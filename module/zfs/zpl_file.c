@@ -628,6 +628,12 @@ zpl_rewrite(struct file *filp, struct inode *ip, loff_t start, loff_t end, size_
         printk(KERN_EMERG "[ERROR]zpl_rewrite - filp NULL\n");
         return 1;
     }
+    if (ip == NULL) {
+        printk(KERN_EMERG "[ERROR]zpl_rewrite - ip NULL\n");
+        return 1;
+    }
+    if (i_size_read(ip) <= 0)
+        return 0;
 
     buf = kzalloc(sizeof(char) * len, GFP_KERNEL);
     if (buf == NULL) {
