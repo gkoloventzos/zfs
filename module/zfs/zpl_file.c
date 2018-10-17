@@ -480,7 +480,7 @@ zpl_iter_read_common(struct kiocb *kiocb, const struct iovec *iovp,
     if (arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec - previous_time >
             time_interval) {
         previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
-        analyze_tree();
+        auto_analyze_tree();
     }
     crhold(cr);
 
@@ -694,9 +694,9 @@ zpl_iter_write_common(struct kiocb *kiocb, const struct iovec *iovp,
     if (arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec - previous_time >
             time_interval) {
         previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
-        analyze_tree();
+        auto_analyze_tree();
     }
-	crhold(cr);
+    crhold(cr);
 
     down(&tree_lock);
     if (hetfs_tree == NULL)
@@ -937,7 +937,7 @@ zpl_mmap(struct file *filp, struct vm_area_struct *vma)
     if (arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec - previous_time >
             time_interval) {
         previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
-        analyze_tree();
+        auto_analyze_tree();
     }
 
 	cookie = spl_fstrans_mark();
@@ -1013,7 +1013,7 @@ zpl_readpage(struct file *filp, struct page *pp)
     if (arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec - previous_time >
             time_interval) {
         previous_time = arrival_time.tv_sec*1000000000L + arrival_time.tv_nsec;
-        analyze_tree();
+        auto_analyze_tree();
     }
 
 	ASSERT(PageLocked(pp));
