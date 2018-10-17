@@ -505,7 +505,7 @@ void analyze(struct data* InsNode)
     part = max - min;
     part = (part * proportion) / 100;
     part = max - part;
-    printk(KERN_EMERG "[ANALYZE]max %d, min %d, part %d, proportion %d\n", max, min, part, proportion);
+    printk(KERN_EMERG "[ANALYZE]name %s max %d, min %d, part %d, proportion %d\n", InsNode->file, max, min, part, proportion);
     min = max = -1;
     list_for_each_entry_rb(posh, nh, InsNode->read_reqs) {
         if (posh->times >= part) {
@@ -691,6 +691,8 @@ static void interval_change(void) {
                 break;
         }
     }
+    else
+        printk(KERN_EMERG "[INTERVAL_CHANGE]time_interval %lld\n", time_interval);
 }
 
 struct zfs_syscalls available_syscalls[] = {
