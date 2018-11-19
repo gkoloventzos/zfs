@@ -729,17 +729,15 @@ zpl_iter_write_common(struct kiocb *kiocb, const struct iovec *iovp,
         InsNode = dn->cadmus;
         down_write(&(InsNode->write_sem));
         if (list_empty(InsNode->list_write_rot)) {
-            if (strstr(filename, "/log/") != NULL) {
+            if (strstr(filename, "log") != NULL) {
                 zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_HDD, 0);
                 rot = -1;
             }
-            else if (strstr(filename, "ycsb_cadmus") != NULL && strstr(filename, ".sst") != NULL) {
+            else if (strstr(filename, "ycsb_cadmus/") != NULL && strstr(filename, ".sst") != NULL) {
                 zfs_media_add_blkid(InsNode->list_write_rot, 0, 250, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
             }
-            else if (strstr(filename, "mysql_ssd/") != NULL ||
-                    strstr(filename, "ycsb_ssd/") != NULL ||
-                    strstr(filename, "kvm_ssd/") != NULL) {
+            else if (strstr(filename, "_ssd/") != NULL) {
                 zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
             }
