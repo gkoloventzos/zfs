@@ -183,6 +183,13 @@ void print_tree(int flag) {
             printk(KERN_EMERG "[HETFS] Error name NULL\n");
             continue;
         }
+//        if (entry->ip != NULL || atomic_read(&entry->ip->i_count) > 0)
+//            continue;
+        if (rb_first(entry->read_reqs) == NULL &&\
+            rb_first(entry->write_reqs) == NULL &&\
+            rb_first(entry->mmap_reqs) == NULL &&\
+            rb_first(entry->rmap_reqs) == NULL)
+            continue;
 
         printk(KERN_EMERG "[HETFS] file: %s size %llu blksz %u\n", entry->file, entry->size, entry->dn_datablksz);
         if (flag) {
