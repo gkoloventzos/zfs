@@ -561,7 +561,7 @@ vdev_submit_bio(struct bio *bio, int rw)
         zio = dr->dr_zio;
     }
 
-    if (blk_queue_nonrot(bdev_get_queue(bio->bi_bdev))) {
+    if (blk_queue_nonrot(bio->bi_disk->queue)) {
             if (zio != NULL )
                 zio->io_read_rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
     }
