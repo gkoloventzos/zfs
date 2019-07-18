@@ -729,21 +729,18 @@ zpl_iter_write_common(struct kiocb *kiocb, const struct iovec *iovp,
         InsNode = dn->cadmus;
         down_write(&(InsNode->write_sem));
         if (list_empty(InsNode->list_write_rot)) {
-            if (strstr(filename, "log") != NULL) {
-                zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_HDD, 0);
-                rot = -1;
-            }
-            else if (strstr(filename, "ycsb_cadmus/") != NULL && strstr(filename, ".sst") != NULL) {
-                zfs_media_add_blkid(InsNode->list_write_rot, 0, 250, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
+            if (strstr(filename, "_ssd/") != NULL) {
+                zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
             }
-            else if (strstr(filename, "_ssd/") != NULL) {
-                zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
+            else if (strstr(filename, "_cadmus/") != NULL && strstr(filename, ".sst") != NULL) {
+                zfs_media_add_blkid(InsNode->list_write_rot, 0, 251, METASLAB_ROTOR_VDEV_TYPE_SSD, 0);
+                zfs_media_add_blkid(InsNode->list_write_rot, 251, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_HDD, 0);
                 rot = METASLAB_ROTOR_VDEV_TYPE_SSD;
             }
             else {
                 zfs_media_add_blkid(InsNode->list_write_rot, 0, INT64_MAX, METASLAB_ROTOR_VDEV_TYPE_HDD,  0);
-                rot = -1;
+                rot = METASLAB_ROTOR_VDEV_TYPE_HDD;
             }
         }
         up_write(&(InsNode->write_sem));
